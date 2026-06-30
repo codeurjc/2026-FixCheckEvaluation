@@ -1,0 +1,7 @@
+.venv/
+.env
+notes/
+__pycache__/
+defects4j/
+results/
+workspace/

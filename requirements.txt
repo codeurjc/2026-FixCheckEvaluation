@@ -1,0 +1,13 @@
+docker
+anthropic
+openai
+langchain[openai]
+google-generativeai
+ollama
+pydantic
+jupyter
+pandas
+matplotlib
+seaborn
+github-copilot-sdk
+tenacity
