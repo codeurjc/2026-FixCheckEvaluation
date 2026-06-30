@@ -11,3 +11,5 @@ matplotlib
 seaborn
 github-copilot-sdk
 tenacity
+python-dotenv
+pytest
