@@ -7,7 +7,10 @@ Given a Defects4J project and bug id, this script:
   2. Checks out the buggy version of the project.
   3. Compiles it and runs the test suite to confirm the bug is present.
   4. Extracts bug metadata with ``defects4j info``.
-  5. Delegates fix generation and evaluation to ``FixGenerator``.
+  5. Locates and reads the buggy source file(s).
+  6. Delegates *fix generation* to ``FixGenerator`` (dataset/Docker-agnostic).
+  7. Applies the generated diff and re-runs the test suite to validate the fix.
+  8. Persists all artifacts under ``results/<project>/<bug_id>/``.
 
 The container is always stopped and removed at the end of the run.
 
@@ -16,17 +19,30 @@ Usage:
 """
 
 import argparse
+import json
 import os
+import re
 import shutil
 import sys
 
 import docker
 
 from docker_utils import exec_in_container
-from FixGenerator import FixGenerator, parse_failing_tests
+from FixGenerator import FixGenerator, normalize_diff
 
 DEFECTS4J_IMAGE = "defects4j:3.0.1"
 DEFAULT_MODEL = "ollama/gpt-oss:20b"
+
+DIFF_FILENAME = "_llm_fix.diff"  # temp diff written into the mounted workdir
+
+
+def parse_failing_tests(output: str) -> int:
+    """Parse the number of failing tests from ``defects4j test`` output.
+
+    Returns the count, or -1 if the expected line is not present.
+    """
+    match = re.search(r"Failing tests:\s*(\d+)", output)
+    return int(match.group(1)) if match else -1
 
 
 def start_container(client, mount_dir):
@@ -68,6 +84,99 @@ def run_step(container, command, workdir, description):
     return result
 
 
+# ----------------------------------------------------------------- sources
+
+def export_property(container, workdir, prop):
+    """Return the value of a Defects4J export property as a string.
+
+    ``defects4j export`` interleaves ant progress messages with the value on the
+    combined stream, so we write the value to a file with ``-o`` and read it back
+    from the shared volume to get a clean result.
+    """
+    out_file = os.path.join(workdir, f".export_{prop}")
+    result = exec_in_container(
+        container,
+        f"defects4j export -p {prop} -o {out_file} -w {workdir}",
+        workdir=None,
+    )
+    if not result.ok:
+        print(f"[experiment] WARNING: export of '{prop}' failed:\n{result.output}")
+        return ""
+    try:
+        with open(out_file, "r", encoding="utf-8", errors="replace") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return ""
+
+
+def locate_source_files(container, workdir):
+    """Map modified classes to their source file paths on the host.
+
+    Returns a list of (relative_path, absolute_path) tuples.
+    """
+    src_dir = export_property(container, workdir, "dir.src.classes")
+    modified = export_property(container, workdir, "classes.modified")
+    classes = [c.strip() for c in modified.splitlines() if c.strip()]
+
+    files = []
+    for fq_class in classes:
+        rel_path = os.path.join(src_dir, fq_class.replace(".", "/") + ".java")
+        abs_path = os.path.join(workdir, rel_path)
+        files.append((rel_path, abs_path))
+    return files
+
+
+def read_sources(files):
+    """Read source files, returning a list of (relative_path, content)."""
+    sources = []
+    for rel_path, abs_path in files:
+        try:
+            with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
+                sources.append((rel_path, f.read()))
+        except FileNotFoundError:
+            print(f"[experiment] WARNING: source file not found: {abs_path}")
+    return sources
+
+
+# ------------------------------------------------------------------- apply
+
+def apply_diff(container, workdir, diff_text):
+    """Write the diff into the mounted workdir and apply it with git.
+
+    Returns (applied: bool, apply_log: str).
+    """
+    diff_path = os.path.join(workdir, DIFF_FILENAME)
+    normalized = normalize_diff(diff_text)
+    with open(diff_path, "w", encoding="utf-8") as f:
+        f.write(normalized if normalized.endswith("\n") else normalized + "\n")
+
+    logs = []
+    # Try a sequence of increasingly lenient strategies. LLM-generated diffs
+    # often have slightly wrong hunk line counts or blank context lines, so
+    # we use --recount/--ignore-whitespace and finally fall back to `patch`,
+    # which tolerates fuzzy context.
+    commands = [
+        f"git -C {workdir} apply {diff_path}",
+        f"git -C {workdir} apply --recount --ignore-whitespace {diff_path}",
+        f"git -C {workdir} apply --recount --ignore-whitespace -p0 {diff_path}",
+        f"patch -d {workdir} -p1 --fuzz=3 -i {diff_path}",
+        f"patch -d {workdir} -p0 --fuzz=3 -i {diff_path}",
+    ]
+    for cmd in commands:
+        result = exec_in_container(container, cmd, workdir=None)
+        logs.append(f"$ {result.command}\n(exit {result.exit_code})\n{result.output}")
+        if result.ok:
+            return True, "\n\n".join(logs)
+    return False, "\n\n".join(logs)
+
+
+def write_text(results_dir, filename, content):
+    os.makedirs(results_dir, exist_ok=True)
+    path = os.path.join(results_dir, filename)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content or "")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate and evaluate an LLM bug fix on a Defects4J bug."
@@ -101,6 +210,9 @@ def main():
     workdir = os.path.join(mount_dir, f"{project}_{bug_id}")
     if os.path.exists(workdir):
         shutil.rmtree(workdir)
+
+    results_dir = os.path.join("results", project, bug_id)
+    os.makedirs(results_dir, exist_ok=True)
 
     client = docker.from_env()
     container = start_container(client, mount_dir)
@@ -145,20 +257,54 @@ def main():
             description="Extracting bug metadata (defects4j info)",
         )
 
-        # 5. Generate, apply and evaluate the fix.
-        generator = FixGenerator(
-            project=project,
-            bug_id=bug_id,
-            workdir=workdir,
-            container=container,
-            model=args.model,
-            temperature=args.temperature,
-        )
-        result = generator.run(
-            bug_info=info.output,
-            test_before_log=test_before.output,
-            failing_before=failing_before,
-        )
+        # 5. Locate and read the buggy sources (Defects4J-specific).
+        files = locate_source_files(container, workdir)
+        sources = read_sources(files)
+        if not sources:
+            print("[experiment] WARNING: no buggy source files could be read.")
+
+        # 6. Generate the fix (dataset/Docker-agnostic).
+        generator = FixGenerator(model=args.model, temperature=args.temperature)
+        gen = generator.generate(info.output, sources, results_dir=results_dir)
+
+        # 7. Apply the diff and validate by re-running the test suite.
+        applied, apply_log = apply_diff(container, workdir, gen["diff"])
+        print(f"[experiment] Diff applied: {applied}")
+
+        failing_after = -1
+        test_after_log = ""
+        if applied:
+            test_after = exec_in_container(
+                container, "defects4j test", workdir=workdir
+            )
+            test_after_log = test_after.output
+            failing_after = parse_failing_tests(test_after_log)
+            print(f"[experiment] Failing tests after fix: {failing_after}")
+
+        fixed = applied and failing_after == 0
+
+        # 8. Persist validation artifacts and the combined result.
+        write_text(results_dir, "apply.log", apply_log)
+        write_text(results_dir, "test_before.log", test_before.output)
+        write_text(results_dir, "test_after.log", test_after_log)
+
+        result = {
+            "project": project,
+            "bug_id": bug_id,
+            "model": gen["model"],
+            "temperature": gen["temperature"],
+            "timestamp": gen["timestamp"],
+            "elapsed_seconds": gen["elapsed_seconds"],
+            "applied": applied,
+            "fixed": fixed,
+            "failing_tests_before": failing_before,
+            "failing_tests_after": failing_after,
+            "modified_files": [rel for rel, _ in files],
+            "bug_metadata": info.output,
+            "usage_metadata": gen["usage_metadata"],
+            "raw_response": gen["raw_response"],
+        }
+        write_text(results_dir, "result.json", json.dumps(result, indent=2))
 
         print("\n[experiment] ===== Summary =====")
         print(f"[experiment] Applied: {result['applied']}  Fixed: {result['fixed']}")
