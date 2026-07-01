@@ -146,7 +146,6 @@ file path shown above (e.g. `{sources[0][0] if sources else 'path/To/File.java'}
         timestamp = datetime.now(timezone.utc).isoformat()
 
         prompt = self._build_prompt(bug_info, sources)
-        print(prompt)
         print(f"[fixgen] Querying LLM ({self.model}) for a fix ...")
         start = time.time()
         response = self.llm.invoke(prompt)
