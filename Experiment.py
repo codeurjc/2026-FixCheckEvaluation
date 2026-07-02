@@ -49,6 +49,42 @@ def parse_failing_tests(output: str) -> int:
     return int(match.group(1)) if match else -1
 
 
+def parse_failing_test_names(output: str) -> list:
+    """Parse the individual failing test names from ``defects4j test`` output.
+
+    ``defects4j test`` lists each failing test on its own ``  - <name>`` line,
+    where ``<name>`` is ``Class::method``. Returns them as a list.
+    """
+    return re.findall(r"^\s*-\s*(\S+)", output, re.MULTILINE)
+
+
+def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, applied):
+    """Decide whether a Defects4J bug is fixed by a candidate patch.
+
+    A bug is fixed when every trigger test passes again and the patch
+    introduces no new failures (no test that passed before now fails). Judging
+    against the trigger tests rather than a zero total is robust to
+    environment-flaky tests (e.g. ``SystemUtils``' user-home test under
+    ``HOME=/tmp``) that fail regardless of the patch.
+
+    Args:
+        trigger_tests: The bug's trigger tests (``Class::method`` strings).
+        failing_before_names: Tests failing before the patch.
+        failing_after_names: Tests failing after the patch.
+        applied: Whether the patch was applied at all.
+
+    Returns:
+        ``(triggers_fixed, new_failures, fixed)``.
+    """
+    trigger_set = set(trigger_tests)
+    before = set(failing_before_names)
+    after = set(failing_after_names)
+    triggers_fixed = applied and bool(trigger_set) and not (trigger_set & after)
+    new_failures = sorted(after - before)
+    fixed = triggers_fixed and not new_failures
+    return triggers_fixed, new_failures, fixed
+
+
 def start_container(client, mount_dir):
     """Start an ephemeral Defects4J container with the workdir mounted.
 
@@ -561,12 +597,11 @@ def main():
         if not sources:
             print("[experiment] WARNING: no buggy source files could be read.")
 
-        # 5b. Optionally locate the regression (trigger) test code and/or log.
-        trigger_tests = []
-        if args.include_test_code or args.include_test_log:
-            trigger_tests = get_trigger_tests(container, workdir)
-            if not trigger_tests:
-                print("[experiment] WARNING: no trigger tests found.")
+        # 5b. Fetch the trigger tests. Needed both for the optional prompt
+        #     context and — always — to judge whether the bug itself is fixed.
+        trigger_tests = get_trigger_tests(container, workdir)
+        if not trigger_tests:
+            print("[experiment] WARNING: no trigger tests found.")
 
         test_sources = None
         if args.include_test_code and trigger_tests:
@@ -594,15 +629,20 @@ def main():
 
         failing_after = -1
         test_after_log = ""
+        failing_after_names = []
         if applied:
             test_after = exec_in_container(
                 container, "defects4j test", workdir=workdir
             )
             test_after_log = test_after.output
             failing_after = parse_failing_tests(test_after_log)
+            failing_after_names = parse_failing_test_names(test_after_log)
             print(f"[experiment] Failing tests after fix: {failing_after}")
 
-        fixed = applied and failing_after == 0
+        failing_before_names = parse_failing_test_names(test_before.output)
+        triggers_fixed, new_failures, fixed = evaluate_fix(
+            trigger_tests, failing_before_names, failing_after_names, applied
+        )
 
         # 8. Persist validation artifacts and the combined result.
         write_text(results_dir, "apply.log", apply_log)
@@ -622,6 +662,9 @@ def main():
             "elapsed_seconds": gen["elapsed_seconds"],
             "applied": applied,
             "fixed": fixed,
+            "triggers_fixed": triggers_fixed,
+            "trigger_tests": trigger_tests,
+            "new_failures": new_failures,
             "failing_tests_before": failing_before,
             "failing_tests_after": failing_after,
             "modified_files": [rel for rel, _ in files],
@@ -637,8 +680,14 @@ def main():
         print("\n[experiment] ===== Summary =====")
         print(f"[experiment] Applied: {result['applied']}  Fixed: {result['fixed']}")
         print(
-            f"[experiment] Failing tests: {result['failing_tests_before']} -> "
-            f"{result['failing_tests_after']}"
+            f"[experiment] Trigger tests: "
+            f"{'all pass' if triggers_fixed else 'still failing'}"
+        )
+        if new_failures:
+            print(f"[experiment] Regressions introduced by the patch: {new_failures}")
+        print(
+            f"[experiment] Failing tests (whole suite): "
+            f"{result['failing_tests_before']} -> {result['failing_tests_after']}"
         )
         print(f"[experiment] Results stored under: results/{project}/{bug_id}/")
 

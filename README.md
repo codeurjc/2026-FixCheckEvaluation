@@ -5,8 +5,11 @@ LLM-based bug fix generation and evaluation on the
 
 Given a Defects4J bug, the experiment generates a candidate fix with a Large
 Language Model and evaluates it by running the project's test suite: the fix is
-considered **fixed** when the previously failing tests pass and the full suite
-passes.
+considered **fixed** when all of the bug's trigger tests pass again and the
+patch introduces no new failures (no test that passed before now fails). This
+trigger-based criterion — rather than requiring a zero total — is robust to
+environment-flaky tests (e.g. `SystemUtils`' user-home test under `HOME=/tmp`)
+that fail regardless of the patch.
 
 ## How it works
 
@@ -30,7 +33,8 @@ passes.
    - Delegates **fix generation** to `FixGenerator`, passing the bug metadata,
      source contents, and any of the optional context gathered above.
    - Applies the generated diff with `git apply` inside the container and
-     **validates** it by re-running `defects4j test`.
+     **validates** it by re-running `defects4j test`, then checking the bug's
+     trigger tests pass and no new failures were introduced.
    - Writes the validation artifacts (`apply.log`, `test_before.log`,
      `test_after.log`) and the combined `result.json`.
    - Always stops and removes the container at the end.
@@ -104,10 +108,11 @@ Artifacts are written to `results/<project>/<bug_id>/`:
 
 - `fix.diff` — the unified diff produced by the LLM.
 - `raw_response.txt` — the raw LLM response before diff extraction.
-- `result.json` — run summary: `applied`, `fixed`, failing-test counts before
-  and after, modified files, bug metadata, token usage, the raw LLM response,
-  and whether the regression test code/log/issue were included in the prompt
-  (`included_test_code`, `included_test_log`, `included_issue`).
+- `result.json` — run summary: `applied`, `fixed`, `triggers_fixed`, the bug's
+  `trigger_tests`, any `new_failures` the patch introduced, failing-test counts
+  before and after, modified files, bug metadata, token usage, the raw LLM
+  response, and whether the regression test code/log/issue were included in the
+  prompt (`included_test_code`, `included_test_log`, `included_issue`).
 - `test_before.log` / `test_after.log` — test suite output before and after the
   fix.
 - `apply.log` — output of the `git apply` attempts.
