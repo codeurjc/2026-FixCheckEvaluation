@@ -35,15 +35,37 @@ def extract_diff(response_text: str) -> str:
     return text
 
 
+# Matches a unified-diff hunk header, capturing the old/new start lines and any
+# trailing section heading (e.g. the enclosing function name git echoes). The
+# line counts are intentionally not captured: ``normalize_diff`` recomputes them.
+_HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$")
+
+_FILE_HEADER_PREFIXES = ("--- ", "+++ ", "diff ", "index ")
+
+
 def normalize_diff(diff_text: str) -> str:
     """Repair common malformations in LLM-generated unified diffs.
 
-    The most frequent problem is blank context lines emitted without their
-    leading space, which makes ``git apply``/``patch`` treat the hunk as ending
-    prematurely ("corrupt patch" / "unexpectedly ends in middle of line"). Inside
-    a hunk body, empty lines are rewritten as single-space context lines.
+    Three fixes are applied, all of which frequently break ``git apply``/
+    ``patch`` on otherwise-correct LLM output:
+
+    1. Blank context lines emitted without their leading space are rewritten as
+       single-space context lines (otherwise the hunk is treated as ending
+       prematurely: "corrupt patch" / "unexpectedly ends in middle of line").
+    2. A trailing marker or comment appended after the last hunk (e.g.
+       ``*** End of File ***``), despite explicit instructions not to, is
+       dropped: any in-hunk line that isn't a context (" "), removal ("-"),
+       addition ("+") or no-newline-marker ("\\") line ends the diff.
+    3. Each ``@@`` hunk header's line counts are recomputed from the actual
+       hunk body. Models routinely emit wrong counts, which makes the parser
+       mis-detect the hunk boundary and reject the whole patch as corrupt.
     """
-    lines = diff_text.split("\n")
+    cleaned = _strip_hunk_bodies(diff_text.split("\n"))
+    return "\n".join(_recount_hunk_headers(cleaned))
+
+
+def _strip_hunk_bodies(lines):
+    """Fix blank context lines and drop trailing non-diff garbage."""
     out = []
     in_hunk = False
     for line in lines:
@@ -52,16 +74,54 @@ def normalize_diff(diff_text: str) -> str:
             out.append(line)
             continue
         # A new file header ends the current hunk body.
-        if line.startswith(("--- ", "+++ ", "diff ", "index ")):
+        if line.startswith(_FILE_HEADER_PREFIXES):
             in_hunk = False
             out.append(line)
             continue
         if in_hunk and line == "":
             # Blank context line that lost its leading space.
             out.append(" ")
-        else:
+            continue
+        if in_hunk and line[:1] not in (" ", "+", "-", "\\"):
+            # Trailing garbage after the last hunk line; the diff is over.
+            break
+        out.append(line)
+    return out
+
+
+def _recount_hunk_headers(lines):
+    """Rewrite every ``@@`` header's line counts to match its body.
+
+    Headers without parseable start lines (e.g. a bare ``@@ @@``) are left
+    untouched, since their offsets can't be recovered here.
+    """
+    out = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        match = _HUNK_HEADER_RE.match(line)
+        if not match:
             out.append(line)
-    return "\n".join(out)
+            i += 1
+            continue
+
+        old_start, new_start, heading = match.groups()
+        body = []
+        j = i + 1
+        while j < n:
+            body_line = lines[j]
+            if body_line.startswith("@@") or body_line.startswith(_FILE_HEADER_PREFIXES):
+                break
+            body.append(body_line)
+            j += 1
+
+        old_count = sum(1 for b in body if b[:1] in (" ", "-"))
+        new_count = sum(1 for b in body if b[:1] in (" ", "+"))
+        out.append(f"@@ -{old_start},{old_count} +{new_start},{new_count} @@{heading}")
+        out.extend(body)
+        i = j
+    return out
 
 
 class FixGenerator:
@@ -88,12 +148,18 @@ class FixGenerator:
 
     # -------------------------------------------------------------- prompt
 
-    def _build_prompt(self, bug_info, sources):
+    def _build_prompt(self, bug_info, sources, test_sources=None, test_log=None, issue_text=None):
         """Build the fix-generation prompt.
 
         Args:
             bug_info: Free-form text describing the bug.
             sources: List of ``(relative_path, content)`` for the buggy file(s).
+            test_sources: Optional list of ``(relative_path, content)`` for the
+                regression (trigger) test file(s).
+            test_log: Optional free-form text with the regression test's
+                failure output.
+            issue_text: Optional free-form text with the original bug-tracker
+                issue report.
         """
         source_sections = []
         for rel_path, content in sources:
@@ -101,6 +167,23 @@ class FixGenerator:
                 f"--- FILE: {rel_path} ---\n{content}"
             )
         sources_block = "\n\n".join(source_sections)
+
+        optional_sections = ""
+        if test_sources:
+            test_source_sections = []
+            for rel_path, content in test_sources:
+                test_source_sections.append(
+                    f"--- FILE: {rel_path} ---\n{content}"
+                )
+            optional_sections += (
+                "\n[REGRESSION TEST SOURCE FILE(S)]\n"
+                + "\n\n".join(test_source_sections)
+                + "\n"
+            )
+        if test_log:
+            optional_sections += f"\n[REGRESSION TEST LOG]\n{test_log}\n"
+        if issue_text:
+            optional_sections += f"\n[ORIGINAL ISSUE REPORT]\n{issue_text}\n"
 
         return f"""[SYSTEM INSTRUCTION]
 You are an expert software engineer fixing a real bug. You will be given bug \
@@ -111,7 +194,7 @@ metadata and the buggy source file(s). Produce a correct, complete fix.
 
 [BUGGY SOURCE FILE(S)]
 {sources_block}
-
+{optional_sections}
 [TASK]
 Fix the bug so that the failing (triggering) tests pass while keeping all other \
 tests passing. Make all changes necessary to fix the bug correctly. Do not alter \
@@ -121,19 +204,45 @@ test files.
 Respond with ONLY a single Git-compatible unified diff describing the changes.
 - Use standard headers: `--- a/<path>` and `+++ b/<path>`, where <path> is the \
 file path shown above (e.g. `{sources[0][0] if sources else 'path/To/File.java'}`).
-- Include `@@ ... @@` hunk headers with correct line context.
+- Every hunk header MUST include all four line numbers, in the exact form \
+`@@ -<start_line>,<line_count> +<start_line>,<line_count> @@`. A bare `@@ @@` \
+with no numbers is INVALID and will be rejected.
+- The line counts in each hunk header MUST match the number of context/removed \
+lines (for the first count) and context/added lines (for the second count) that \
+actually follow it.
 - Do NOT wrap the diff in markdown code fences.
-- Do NOT include any explanation before or after the diff.
+- Do NOT include any explanation, commentary, or marker (e.g. "End of file", \
+"Done") before, between, or after the diff. The response must contain nothing \
+but the diff itself, and it must end immediately after the last hunk's last line.
+
+[EXAMPLE OF A CORRECTLY FORMATTED HUNK]
+--- a/path/To/File.java
++++ b/path/To/File.java
+@@ -10,7 +10,7 @@ class Example {{
+     unchanged line
+     unchanged line
+-    old line to remove
++    new line to add
++    another new line
+     unchanged line
+     unchanged line
 """
 
     # ----------------------------------------------------------------- run
 
-    def generate(self, bug_info, sources, results_dir=None):
+    def generate(self, bug_info, sources, test_sources=None, test_log=None,
+                 issue_text=None, results_dir=None):
         """Generate a fix from the bug description and buggy sources.
 
         Args:
             bug_info: Free-form text describing the bug.
             sources: List of ``(relative_path, content)`` for the buggy file(s).
+            test_sources: Optional list of ``(relative_path, content)`` for the
+                regression (trigger) test file(s).
+            test_log: Optional free-form text with the regression test's
+                failure output.
+            issue_text: Optional free-form text with the original bug-tracker
+                issue report.
             results_dir: Optional directory; when given, the generation artifacts
                 (``fix.diff`` and the raw response) are written there.
 
@@ -145,7 +254,8 @@ file path shown above (e.g. `{sources[0][0] if sources else 'path/To/File.java'}
         """
         timestamp = datetime.now(timezone.utc).isoformat()
 
-        prompt = self._build_prompt(bug_info, sources)
+        prompt = self._build_prompt(bug_info, sources, test_sources, test_log, issue_text)
+        print(f"[fixgen] Prompt:\n{prompt}")
         print(f"[fixgen] Querying LLM ({self.model}) for a fix ...")
         start = time.time()
         response = self.llm.invoke(prompt)

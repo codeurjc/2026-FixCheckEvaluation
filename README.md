@@ -20,16 +20,23 @@ passes.
    - Locates the buggy source file(s) via `defects4j export`
      (`classes.modified`, `dir.src.classes`) and reads them from the shared
      volume.
-   - Delegates **fix generation** to `FixGenerator`, passing the bug metadata and
-     source contents.
+   - Optionally (see *Usage* below) gathers three extra pieces of context: the
+     regression (trigger) test source (`defects4j export -p tests.trigger` +
+     `dir.src.tests`), that test's isolated failure log
+     (`defects4j test -t <test>`), and the original bug-tracker issue report
+     (fetched from the `Bug report url` in `defects4j info`, via the Jira or
+     GitHub REST API, or a generic HTML fetch for other trackers).
+   - Delegates **fix generation** to `FixGenerator`, passing the bug metadata,
+     source contents, and any of the optional context gathered above.
    - Applies the generated diff with `git apply` inside the container and
      **validates** it by re-running `defects4j test`.
    - Writes the validation artifacts (`apply.log`, `test_before.log`,
      `test_after.log`) and the combined `result.json`.
    - Always stops and removes the container at the end.
 2. **`FixGenerator.py`** is a dataset- and Docker-agnostic fix generator:
-   - Receives the bug description and the buggy source contents (it never touches
-     Docker or Defects4J itself).
+   - Receives the bug description, the buggy source contents, and optionally
+     the regression test source, its failure log, and the issue report (it
+     never touches Docker or Defects4J itself).
    - Builds a prompt and asks the LLM for a **unified diff**.
    - Returns the diff plus generation metadata, and writes the generation
      artifacts (`fix.diff`, `raw_response.txt`) under
@@ -80,6 +87,9 @@ Arguments:
 | `--workdir`     | Host directory for the checkout (mounted as a volume).   | required             |
 | `--model`       | LLM model identifier.                                    | `ollama/gpt-oss:20b` |
 | `--temperature` | LLM sampling temperature.                                | `0.0`                |
+| `--include-test-code` | Include the regression (trigger) test source file(s) in the prompt. | off |
+| `--include-test-log`  | Include the regression (trigger) test's isolated failure log in the prompt. | off |
+| `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
 
 ## Output
 
@@ -88,7 +98,13 @@ Artifacts are written to `results/<project>/<bug_id>/`:
 - `fix.diff` — the unified diff produced by the LLM.
 - `raw_response.txt` — the raw LLM response before diff extraction.
 - `result.json` — run summary: `applied`, `fixed`, failing-test counts before
-  and after, modified files, bug metadata, token usage and the raw LLM response.
+  and after, modified files, bug metadata, token usage, the raw LLM response,
+  and whether the regression test code/log/issue were included in the prompt
+  (`included_test_code`, `included_test_log`, `included_issue`).
 - `test_before.log` / `test_after.log` — test suite output before and after the
   fix.
 - `apply.log` — output of the `git apply` attempts.
+- `regression_test.log` — output of running the regression (trigger) test(s)
+  in isolation; only written when `--include-test-log` is set.
+- `issue.txt` — the fetched bug-tracker issue report; only written when
+  `--include-issue` is set.

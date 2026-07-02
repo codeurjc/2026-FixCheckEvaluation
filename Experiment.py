@@ -24,6 +24,10 @@ import os
 import re
 import shutil
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from html.parser import HTMLParser
 
 import docker
 
@@ -138,7 +142,174 @@ def read_sources(files):
     return sources
 
 
+# ------------------------------------------------------------ regression test
+
+def get_trigger_tests(container, workdir):
+    """Return the trigger (regression) tests for the checked-out bug.
+
+    Returns a list of ``"TestClass::testMethod"`` strings, as reported by
+    ``defects4j export -p tests.trigger``.
+    """
+    trigger = export_property(container, workdir, "tests.trigger")
+    return [t.strip() for t in trigger.splitlines() if t.strip()]
+
+
+def locate_test_files(container, workdir, test_classes):
+    """Map fully-qualified test class names to their source file paths.
+
+    Mirrors ``locate_source_files`` but for test sources: takes the classes
+    explicitly (already extracted from the trigger tests) instead of
+    ``classes.modified``, and reads the test source directory
+    (``dir.src.tests``) instead of ``dir.src.classes``.
+
+    Returns a list of (relative_path, absolute_path) tuples.
+    """
+    src_dir = export_property(container, workdir, "dir.src.tests")
+
+    files = []
+    for fq_class in test_classes:
+        rel_path = os.path.join(src_dir, fq_class.replace(".", "/") + ".java")
+        abs_path = os.path.join(workdir, rel_path)
+        files.append((rel_path, abs_path))
+    return files
+
+
+def run_trigger_tests(container, workdir, trigger_tests):
+    """Run each trigger test in isolation and return the combined log."""
+    logs = []
+    for trigger_test in trigger_tests:
+        cmd = f"defects4j test -t {trigger_test} -w {workdir}"
+        result = exec_in_container(container, cmd, workdir=None)
+        logs.append(f"$ {cmd}\n{result.output}")
+    return "\n\n".join(logs)
+
+
+# ------------------------------------------------------------------- issue
+
+def extract_bug_report_url(info_output):
+    """Extract the bug report URL from ``defects4j info -b`` output."""
+    match = re.search(r"Bug report url:\s*\n(\S+)", info_output)
+    return match.group(1) if match else ""
+
+
+class _HTMLTextExtractor(HTMLParser):
+    """Minimal HTML-to-text extractor for the generic issue-fetch fallback."""
+
+    def __init__(self):
+        super().__init__()
+        self._skip = False
+        self.chunks = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self._skip = True
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style"):
+            self._skip = False
+
+    def handle_data(self, data):
+        if not self._skip and data.strip():
+            self.chunks.append(data.strip())
+
+
+def _http_get_json(url):
+    request = urllib.request.Request(url, headers={"User-Agent": "FixCheckEvaluation"})
+    with urllib.request.urlopen(request, timeout=15) as resp:
+        return json.loads(resp.read().decode("utf-8", errors="replace"))
+
+
+def _fetch_jira_issue(url):
+    """Fetch title/description/comments for an Apache Jira issue URL."""
+    key = url.rstrip("/").split("/")[-1]
+    api_url = (
+        f"https://issues.apache.org/jira/rest/api/2/issue/{key}"
+        "?fields=summary,description,comment"
+    )
+    data = _http_get_json(api_url)
+    fields = data.get("fields", {})
+    parts = [
+        f"Summary: {fields.get('summary', '')}",
+        f"Description:\n{fields.get('description', '') or ''}",
+    ]
+    comments = (fields.get("comment") or {}).get("comments", [])
+    for comment in comments:
+        parts.append(f"Comment:\n{comment.get('body', '')}")
+    return "\n\n".join(parts)
+
+
+def _fetch_github_issue(url):
+    """Fetch title/body/comments for a GitHub issue URL."""
+    parsed = urllib.parse.urlparse(url)
+    segments = [s for s in parsed.path.split("/") if s]
+    owner, repo, _, number = segments[0], segments[1], segments[2], segments[3]
+
+    issue = _http_get_json(f"https://api.github.com/repos/{owner}/{repo}/issues/{number}")
+    parts = [
+        f"Title: {issue.get('title', '')}",
+        f"Body:\n{issue.get('body', '') or ''}",
+    ]
+    comments = _http_get_json(
+        f"https://api.github.com/repos/{owner}/{repo}/issues/{number}/comments"
+    )
+    for comment in comments:
+        parts.append(f"Comment:\n{comment.get('body', '')}")
+    return "\n\n".join(parts)
+
+
+def _fetch_generic_issue(url):
+    """Fetch and strip HTML tags from any other bug-tracker URL."""
+    request = urllib.request.Request(url, headers={"User-Agent": "FixCheckEvaluation"})
+    with urllib.request.urlopen(request, timeout=15) as resp:
+        html = resp.read().decode("utf-8", errors="replace")
+    parser = _HTMLTextExtractor()
+    parser.feed(html)
+    return "\n".join(parser.chunks)
+
+
+def fetch_issue_text(bug_report_url):
+    """Fetch the full issue text for a Defects4J bug report URL.
+
+    Dispatches to the Jira or GitHub REST API when the tracker is
+    recognized, otherwise falls back to a generic HTML-to-text fetch. Any
+    failure is logged as a warning and results in an empty string, so a
+    fetch problem never aborts the run.
+    """
+    host = urllib.parse.urlparse(bug_report_url).netloc
+    try:
+        if host == "issues.apache.org":
+            return _fetch_jira_issue(bug_report_url)
+        if host == "github.com":
+            return _fetch_github_issue(bug_report_url)
+        return _fetch_generic_issue(bug_report_url)
+    except Exception as exc:
+        print(f"[experiment] WARNING: failed to fetch issue from {bug_report_url}: {exc}")
+        return ""
+
+
 # ------------------------------------------------------------------- apply
+
+def reset_worktree(container, workdir):
+    """Restore the checkout to its pristine (buggy) state.
+
+    ``patch --fuzz`` is not atomic: it applies the hunks it can, leaves the
+    rest as ``.rej`` and modifies the target file in place. If a later apply
+    strategy then runs on top of that half-applied state, it works against a
+    corrupted tree (dangling braces, duplicated methods) and produces the kind
+    of failure we cannot diagnose. Restoring the git-tracked files to HEAD (the
+    buggy version) and removing ``patch``'s ``.orig``/``.rej`` backups before
+    each attempt keeps every strategy starting from the same clean state.
+
+    Untracked files (the written diff, the ``.export_*`` helpers) are left
+    alone, so this is safe to call between attempts.
+    """
+    exec_in_container(container, f"git -C {workdir} checkout -- .", workdir=None)
+    exec_in_container(
+        container,
+        rf"find {workdir} \( -name '*.orig' -o -name '*.rej' \) -delete",
+        workdir=None,
+    )
+
 
 def apply_diff(container, workdir, diff_text):
     """Write the diff into the mounted workdir and apply it with git.
@@ -163,10 +334,15 @@ def apply_diff(container, workdir, diff_text):
         f"patch -d {workdir} -p0 --fuzz=3 -i {diff_path}",
     ]
     for cmd in commands:
+        # Start every attempt from a pristine checkout so a partial patch left
+        # by a previous (non-atomic) strategy can't contaminate this one.
+        reset_worktree(container, workdir)
         result = exec_in_container(container, cmd, workdir=None)
         logs.append(f"$ {result.command}\n(exit {result.exit_code})\n{result.output}")
         if result.ok:
             return True, "\n\n".join(logs)
+    # All strategies failed; leave the tree clean rather than half-patched.
+    reset_worktree(container, workdir)
     return False, "\n\n".join(logs)
 
 
@@ -194,6 +370,18 @@ def main():
     parser.add_argument(
         "--temperature", type=float, default=0.0,
         help="LLM sampling temperature (default: 0.0).",
+    )
+    parser.add_argument(
+        "--include-test-code", action="store_true",
+        help="Include the regression (trigger) test source file(s) in the prompt.",
+    )
+    parser.add_argument(
+        "--include-test-log", action="store_true",
+        help="Include the regression (trigger) test's failure log in the prompt.",
+    )
+    parser.add_argument(
+        "--include-issue", action="store_true",
+        help="Include the original bug-tracker issue report in the prompt.",
     )
     args = parser.parse_args()
 
@@ -257,15 +445,42 @@ def main():
             description="Extracting bug metadata (defects4j info)",
         )
 
+        # 4b. Optionally fetch the original bug-tracker issue report.
+        issue_text = None
+        if args.include_issue:
+            bug_report_url = extract_bug_report_url(info.output)
+            issue_text = fetch_issue_text(bug_report_url) if bug_report_url else ""
+
         # 5. Locate and read the buggy sources (Defects4J-specific).
         files = locate_source_files(container, workdir)
         sources = read_sources(files)
         if not sources:
             print("[experiment] WARNING: no buggy source files could be read.")
 
+        # 5b. Optionally locate the regression (trigger) test code and/or log.
+        trigger_tests = []
+        if args.include_test_code or args.include_test_log:
+            trigger_tests = get_trigger_tests(container, workdir)
+            if not trigger_tests:
+                print("[experiment] WARNING: no trigger tests found.")
+
+        test_sources = None
+        if args.include_test_code and trigger_tests:
+            test_classes = sorted({t.split("::")[0] for t in trigger_tests})
+            test_files = locate_test_files(container, workdir, test_classes)
+            test_sources = read_sources(test_files)
+
+        test_log = None
+        if args.include_test_log and trigger_tests:
+            test_log = run_trigger_tests(container, workdir, trigger_tests)
+
         # 6. Generate the fix (dataset/Docker-agnostic).
         generator = FixGenerator(model=args.model, temperature=args.temperature)
-        gen = generator.generate(info.output, sources, results_dir=results_dir)
+        gen = generator.generate(
+            info.output, sources,
+            test_sources=test_sources, test_log=test_log, issue_text=issue_text,
+            results_dir=results_dir,
+        )
 
         # 7. Apply the diff and validate by re-running the test suite.
         applied, apply_log = apply_diff(container, workdir, gen["diff"])
@@ -287,6 +502,10 @@ def main():
         write_text(results_dir, "apply.log", apply_log)
         write_text(results_dir, "test_before.log", test_before.output)
         write_text(results_dir, "test_after.log", test_after_log)
+        if test_log is not None:
+            write_text(results_dir, "regression_test.log", test_log)
+        if issue_text is not None:
+            write_text(results_dir, "issue.txt", issue_text)
 
         result = {
             "project": project,
@@ -303,6 +522,9 @@ def main():
             "bug_metadata": info.output,
             "usage_metadata": gen["usage_metadata"],
             "raw_response": gen["raw_response"],
+            "included_test_code": test_sources is not None,
+            "included_test_log": test_log is not None,
+            "included_issue": issue_text is not None,
         }
         write_text(results_dir, "result.json", json.dumps(result, indent=2))
 

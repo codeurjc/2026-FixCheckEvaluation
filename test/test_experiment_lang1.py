@@ -1,7 +1,8 @@
 """
 Integration test: full Experiment pipeline for Defects4J Lang 1.
 
-GIVEN:  Defects4J Lang 1b (buggy), the project source files, and the LLM model
+GIVEN:  Defects4J Lang 1b (buggy), the project source files, the regression
+        test source/log, the linked issue report, and the LLM model
 WHEN:   FixGenerator generates a fix and it is applied with ``apply_diff``
 THEN:   The fixed project compiles and ``defects4j test`` reports 0 failing tests.
 
@@ -24,10 +25,15 @@ import pytest
 from Experiment import (
     DEFECTS4J_IMAGE,
     apply_diff,
+    extract_bug_report_url,
+    fetch_issue_text,
+    get_trigger_tests,
     locate_source_files,
+    locate_test_files,
     parse_failing_tests,
     read_sources,
     run_step,
+    run_trigger_tests,
     start_container,
 )
 from FixGenerator import FixGenerator
@@ -126,14 +132,31 @@ def pipeline_result(tmp_path_factory):
         )
         assert info.ok, f"info failed:\n{info.output}"
 
+        # 4b. Fetch the original bug-tracker issue report.
+        bug_report_url = extract_bug_report_url(info.output)
+        issue_text = fetch_issue_text(bug_report_url) if bug_report_url else ""
+        print(f"\n[test] Issue report ({bug_report_url}): {len(issue_text)} chars")
+
         # 5. Locate and read the buggy source files.
         files = locate_source_files(container, workdir)
         sources = read_sources(files)
         assert sources, "no buggy source files could be read"
 
+        # 5b. Locate the regression (trigger) test code and its failure log.
+        trigger_tests = get_trigger_tests(container, workdir)
+        assert trigger_tests, "no trigger tests found"
+        test_classes = sorted({t.split("::")[0] for t in trigger_tests})
+        test_files = locate_test_files(container, workdir, test_classes)
+        test_sources = read_sources(test_files)
+        assert test_sources, "no regression test source files could be read"
+        test_log = run_trigger_tests(container, workdir, trigger_tests)
+
         # 6. Generate fix via LLM.
         generator = FixGenerator(model=MODEL, temperature=0.0, max_tokens=-1)
-        gen = generator.generate(info.output, sources)
+        gen = generator.generate(
+            info.output, sources,
+            test_sources=test_sources, test_log=test_log, issue_text=issue_text,
+        )
 
         diff = gen["diff"]
         print("\n===== Generated fix (Lang 1) =====\n")
