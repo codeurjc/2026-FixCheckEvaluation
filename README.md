@@ -21,8 +21,9 @@ passes.
      (`classes.modified`, `dir.src.classes`) and reads them from the shared
      volume.
    - Optionally (see *Usage* below) gathers three extra pieces of context: the
-     regression (trigger) test source (`defects4j export -p tests.trigger` +
-     `dir.src.tests`), that test's isolated failure log
+     failing trigger test method(s) — located via `defects4j export -p
+     tests.trigger` + `dir.src.tests` and reduced to just the failing method(s)
+     rather than the whole test file — that test's isolated failure log
      (`defects4j test -t <test>`), and the original bug-tracker issue report
      (fetched from the `Bug report url` in `defects4j info`, via the Jira or
      GitHub REST API, or a generic HTML fetch for other trackers).
@@ -37,7 +38,13 @@ passes.
    - Receives the bug description, the buggy source contents, and optionally
      the regression test source, its failure log, and the issue report (it
      never touches Docker or Defects4J itself).
-   - Builds a prompt and asks the LLM for a **unified diff**.
+   - Asks the LLM for **SEARCH/REPLACE blocks** (an exact snippet of the
+     original code plus its replacement) rather than a raw diff. This avoids
+     the line-number and context hallucinations that make LLM-produced diffs
+     fail to apply.
+   - Anchors each block against the real source (whitespace-tolerant matching)
+     and builds the **unified diff itself** with `difflib`, so the resulting
+     diff always matches the file.
    - Returns the diff plus generation metadata, and writes the generation
      artifacts (`fix.diff`, `raw_response.txt`) under
      `results/<project>/<bug_id>/`.
@@ -87,7 +94,7 @@ Arguments:
 | `--workdir`     | Host directory for the checkout (mounted as a volume).   | required             |
 | `--model`       | LLM model identifier.                                    | `ollama/gpt-oss:20b` |
 | `--temperature` | LLM sampling temperature.                                | `0.0`                |
-| `--include-test-code` | Include the regression (trigger) test source file(s) in the prompt. | off |
+| `--include-test-code` | Include the failing trigger test method(s) in the prompt (extracted from the test file, not the whole file). | off |
 | `--include-test-log`  | Include the regression (trigger) test's isolated failure log in the prompt. | off |
 | `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
 

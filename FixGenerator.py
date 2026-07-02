@@ -11,6 +11,7 @@ buggy sources, applying the resulting diff and validating it. FixGenerator only:
      response) and returns the generation metadata.
 """
 
+import difflib
 import os
 import re
 import time
@@ -19,20 +20,131 @@ from datetime import datetime, timezone
 from llms import GoogleLLM, OpenAILLM, OpenRouterLLM, OllamaLLM, CopilotLLM, AnthropicLLM
 
 
-def extract_diff(response_text: str) -> str:
-    """Extract a unified diff from an LLM response.
+# --- SEARCH/REPLACE block handling -------------------------------------------
+#
+# Rather than ask the model for a unified diff directly — which forces it to
+# reproduce exact line numbers and context lines, something weaker models
+# routinely hallucinate — we ask for Aider-style SEARCH/REPLACE blocks and build
+# the diff ourselves with ``difflib`` against the real source. This removes every
+# context-anchoring failure mode: the model only has to name the code to change
+# and what to change it to; we do the anchoring against ground-truth text.
 
-    Strips surrounding markdown code fences (```diff ... ``` or ``` ... ```)
-    if the model added them despite instructions.
+_SEARCH_REPLACE_RE = re.compile(
+    r"<{5,9} *SEARCH[^\n]*\n(?P<search>.*?)\n?={5,9}[^\n]*\n(?P<replace>.*?)\n?>{5,9} *REPLACE",
+    re.DOTALL,
+)
+
+
+def parse_search_replace_blocks(response_text):
+    """Parse Aider-style SEARCH/REPLACE blocks from an LLM response.
+
+    Returns a list of ``(path, search, replace)`` tuples. ``path`` is taken from
+    the last non-empty, non-fence line preceding each block (empty if none).
     """
-    text = response_text.strip()
+    blocks = []
+    for match in _SEARCH_REPLACE_RE.finditer(response_text):
+        prefix_lines = response_text[: match.start()].split("\n")
+        path = ""
+        for line in reversed(prefix_lines):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("```"):
+                continue
+            # Tolerate a leading "File:" / "path:" label.
+            path = re.sub(r"^(?:file|path)\s*:\s*", "", stripped, flags=re.IGNORECASE)
+            path = path.strip().strip("`").strip()
+            break
+        blocks.append((path, match.group("search"), match.group("replace")))
+    return blocks
 
-    # Remove a leading ```/```diff fence and the trailing ``` fence if present.
-    fence = re.match(r"^```[a-zA-Z]*\n(.*)\n```$", text, flags=re.DOTALL)
-    if fence:
-        return fence.group(1).strip()
 
-    return text
+def _normalize_for_match(line):
+    """Collapse all whitespace so matching tolerates reformatting (e.g.
+    ``for (`` vs ``for(``, changed indentation)."""
+    return "".join(line.split())
+
+
+def _resolve_source_path(block_path, source_paths):
+    """Map a block's declared path to one of the real source paths."""
+    if block_path in source_paths:
+        return block_path
+    base = os.path.basename(block_path)
+    for rel in source_paths:
+        if block_path and (rel.endswith(block_path) or os.path.basename(rel) == base):
+            return rel
+    if len(source_paths) == 1:
+        return source_paths[0]
+    return None
+
+
+def _apply_block(content, search, replace):
+    """Replace the first whitespace-insensitive match of ``search`` in
+    ``content``. Returns ``(new_content, applied)``."""
+    file_lines = content.split("\n")
+    search_lines = search.split("\n")
+    replace_lines = replace.split("\n")
+    if not search or not search_lines:
+        return content, False
+
+    norm_file = [_normalize_for_match(l) for l in file_lines]
+    norm_search = [_normalize_for_match(l) for l in search_lines]
+    span = len(norm_search)
+    for i in range(len(file_lines) - span + 1):
+        if norm_file[i:i + span] == norm_search:
+            new_lines = file_lines[:i] + replace_lines + file_lines[i + span:]
+            return "\n".join(new_lines), True
+    return content, False
+
+
+def _unified_file_diff(rel_path, original, patched):
+    """Produce a git-appliable unified diff between two file contents."""
+    diff = difflib.unified_diff(
+        original.split("\n"),
+        patched.split("\n"),
+        fromfile=f"a/{rel_path}",
+        tofile=f"b/{rel_path}",
+        lineterm="",
+    )
+    return "\n".join(diff)
+
+
+def build_diff_from_blocks(sources, blocks):
+    """Apply SEARCH/REPLACE ``blocks`` to ``sources`` and return a unified diff.
+
+    Args:
+        sources: List of ``(relative_path, content)``.
+        blocks: List of ``(path, search, replace)`` from
+            :func:`parse_search_replace_blocks`.
+
+    Returns:
+        ``(diff_text, applied, failed)`` where ``diff_text`` is the combined
+        unified diff for every changed file, ``applied`` is the number of blocks
+        that matched, and ``failed`` is a list of ``(path, reason)`` for blocks
+        that could not be located.
+    """
+    originals = {rel: content for rel, content in sources}
+    working = dict(originals)
+    source_paths = list(originals)
+
+    applied = 0
+    failed = []
+    for block_path, search, replace in blocks:
+        rel = _resolve_source_path(block_path, source_paths)
+        if rel is None:
+            failed.append((block_path, "no matching source file"))
+            continue
+        new_content, ok = _apply_block(working[rel], search, replace)
+        if ok:
+            working[rel] = new_content
+            applied += 1
+        else:
+            failed.append((block_path or rel, "SEARCH text not found in source"))
+
+    diffs = [
+        _unified_file_diff(rel, originals[rel], working[rel])
+        for rel in source_paths
+        if working[rel] != originals[rel]
+    ]
+    return "\n".join(d for d in diffs if d), applied, failed
 
 
 # Matches a unified-diff hunk header, capturing the old/new start lines and any
@@ -185,6 +297,8 @@ class FixGenerator:
         if issue_text:
             optional_sections += f"\n[ORIGINAL ISSUE REPORT]\n{issue_text}\n"
 
+        first_path = sources[0][0] if sources else "path/To/File.java"
+
         return f"""[SYSTEM INSTRUCTION]
 You are an expert software engineer fixing a real bug. You will be given bug \
 metadata and the buggy source file(s). Produce a correct, complete fix.
@@ -201,31 +315,45 @@ tests passing. Make all changes necessary to fix the bug correctly. Do not alter
 test files.
 
 [OUTPUT FORMAT]
-Respond with ONLY a single Git-compatible unified diff describing the changes.
-- Use standard headers: `--- a/<path>` and `+++ b/<path>`, where <path> is the \
-file path shown above (e.g. `{sources[0][0] if sources else 'path/To/File.java'}`).
-- Every hunk header MUST include all four line numbers, in the exact form \
-`@@ -<start_line>,<line_count> +<start_line>,<line_count> @@`. A bare `@@ @@` \
-with no numbers is INVALID and will be rejected.
-- The line counts in each hunk header MUST match the number of context/removed \
-lines (for the first count) and context/added lines (for the second count) that \
-actually follow it.
-- Do NOT wrap the diff in markdown code fences.
-- Do NOT include any explanation, commentary, or marker (e.g. "End of file", \
-"Done") before, between, or after the diff. The response must contain nothing \
-but the diff itself, and it must end immediately after the last hunk's last line.
+Do NOT output a diff. Describe every change as one or more *SEARCH/REPLACE blocks*.
+For each change, write the path of the file to edit on its own line — exactly as \
+shown above (e.g. `{first_path}`) — followed immediately by a block in this shape:
 
-[EXAMPLE OF A CORRECTLY FORMATTED HUNK]
---- a/path/To/File.java
-+++ b/path/To/File.java
-@@ -10,7 +10,7 @@ class Example {{
-     unchanged line
-     unchanged line
--    old line to remove
-+    new line to add
-+    another new line
-     unchanged line
-     unchanged line
+<<<<<<< SEARCH
+(lines copied VERBATIM from the file shown above)
+=======
+(the replacement lines)
+>>>>>>> REPLACE
+
+Rules:
+- The SEARCH section MUST be an exact, contiguous copy of lines from the file \
+shown above: same characters, same indentation. Do NOT paraphrase, reformat, \
+renumber, add, or omit lines. If it is not a verbatim copy it cannot be located \
+and the change is rejected.
+- Include enough surrounding lines (aim for 3 or more) so the SEARCH section \
+matches exactly one place in the file.
+- Keep each block small and focused; use several blocks instead of one large one.
+- To insert code, copy an existing anchor into SEARCH and repeat it plus the new \
+lines in REPLACE.
+- Output ONLY file paths and SEARCH/REPLACE blocks — no diff, no line numbers, no \
+explanations, no markdown code fences.
+
+[EXAMPLE]
+{first_path}
+<<<<<<< SEARCH
+        if (hexDigits > 8) {{ // too many for an int
+            return createLong(str);
+        }}
+        return createInteger(str);
+=======
+        if (hexDigits > 8) {{ // too many for an int
+            return createLong(str);
+        }}
+        if (hexDigits == 8 && firstDigit >= '8') {{
+            return createLong(str);
+        }}
+        return createInteger(str);
+>>>>>>> REPLACE
 """
 
     # ----------------------------------------------------------------- run
@@ -248,20 +376,30 @@ but the diff itself, and it must end immediately after the last hunk's last line
 
         Returns:
             A dict with the generation metadata: ``model``, ``temperature``,
-            ``timestamp``, ``elapsed_seconds``, ``diff``, ``raw_response`` and
-            ``usage_metadata``. Validation (applying the diff, running tests) is
-            the caller's responsibility.
+            ``timestamp``, ``elapsed_seconds``, ``diff``, ``raw_response``,
+            ``usage_metadata`` and the SEARCH/REPLACE bookkeeping
+            (``blocks_parsed``, ``blocks_applied``, ``blocks_failed``).
+            Validation (applying the diff, running tests) is the caller's
+            responsibility.
         """
         timestamp = datetime.now(timezone.utc).isoformat()
 
         prompt = self._build_prompt(bug_info, sources, test_sources, test_log, issue_text)
-        print(f"[fixgen] Prompt:\n{prompt}")
         print(f"[fixgen] Querying LLM ({self.model}) for a fix ...")
         start = time.time()
         response = self.llm.invoke(prompt)
         elapsed = round(time.time() - start, 3)
 
-        diff_text = extract_diff(response.content)
+        # The model returns SEARCH/REPLACE blocks; we anchor them against the
+        # real source and build the unified diff ourselves with difflib.
+        blocks = parse_search_replace_blocks(response.content)
+        diff_text, applied, failed = build_diff_from_blocks(sources, blocks)
+        print(
+            f"[fixgen] SEARCH/REPLACE blocks: {len(blocks)} parsed, "
+            f"{applied} applied, {len(failed)} failed."
+        )
+        for path, reason in failed:
+            print(f"[fixgen]   WARNING: block for {path!r} skipped: {reason}")
 
         if results_dir is not None:
             self._write_text(results_dir, "fix.diff", diff_text)
@@ -275,6 +413,9 @@ but the diff itself, and it must end immediately after the last hunk's last line
             "diff": diff_text,
             "raw_response": response.content,
             "usage_metadata": getattr(response, "usage_metadata", None),
+            "blocks_parsed": len(blocks),
+            "blocks_applied": applied,
+            "blocks_failed": failed,
         }
 
     @staticmethod

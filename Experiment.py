@@ -184,6 +184,110 @@ def run_trigger_tests(container, workdir, trigger_tests):
     return "\n\n".join(logs)
 
 
+def _prev_nonblank(lines, idx):
+    """Return the closest non-blank line before ``idx`` (or None)."""
+    j = idx - 1
+    while j >= 0 and not lines[j].strip():
+        j -= 1
+    return lines[j] if j >= 0 else None
+
+
+def extract_java_method(content, method_name):
+    """Best-effort extraction of a single Java method from source text.
+
+    Returns the method text — including any immediately preceding annotations
+    (``@Test`` …) and Javadoc — or None if it can't be found. Uses brace
+    matching, so it can be fooled by braces inside string/char literals, but is
+    adequate for typical JUnit test methods.
+    """
+    lines = content.split("\n")
+    name_re = re.compile(rf"\b{re.escape(method_name)}\s*\(")
+    for idx, line in enumerate(lines):
+        if not name_re.search(line):
+            continue
+        if line.lstrip().startswith(("//", "*", "/*")):
+            continue
+        # Treat as a declaration only if it carries a modifier/return type, or
+        # the preceding non-blank line is an annotation (e.g. ``@Test``).
+        looks_decl = bool(re.search(r"\b(void|public|protected|private|static)\b", line))
+        prev = _prev_nonblank(lines, idx)
+        if not looks_decl and not (prev and prev.lstrip().startswith("@")):
+            continue
+
+        # Extend upward over annotation lines and an adjacent Javadoc block.
+        start = idx
+        j = idx - 1
+        while j >= 0 and lines[j].lstrip().startswith("@"):
+            start = j
+            j -= 1
+        if j >= 0 and lines[j].strip().endswith("*/"):
+            k = j
+            while k >= 0 and "/**" not in lines[k]:
+                k -= 1
+            if k >= 0:
+                start = k
+
+        # Find the method body by brace matching from the declaration onward.
+        depth = 0
+        started = False
+        for end in range(idx, len(lines)):
+            for ch in lines[end]:
+                if ch == "{":
+                    depth += 1
+                    started = True
+                elif ch == "}":
+                    depth -= 1
+            if started and depth == 0:
+                return "\n".join(lines[start:end + 1])
+        return None
+    return None
+
+
+def extract_trigger_test_code(trigger_tests, test_file_sources):
+    """Reduce full test files to only the failing trigger method(s).
+
+    Passing the whole test file tends to distract the model with unrelated
+    tests and helpers, so we keep only the methods named by the trigger tests.
+    Falls back to the full file (with a warning) when a method can't be
+    extracted, so the model is never left without any test context.
+
+    Args:
+        trigger_tests: List of ``"FQCN::method"`` strings.
+        test_file_sources: List of ``(relative_path, content)`` for the test
+            file(s), as read from disk.
+
+    Returns:
+        List of ``(relative_path, content)`` where content holds only the
+        failing method(s).
+    """
+    methods_by_class = {}
+    for trigger in trigger_tests:
+        cls, _, method = trigger.partition("::")
+        methods_by_class.setdefault(cls, []).append(method)
+
+    reduced = []
+    for rel_path, content in test_file_sources:
+        methods = next(
+            (m for cls, m in methods_by_class.items()
+             if rel_path.endswith(cls.replace(".", "/") + ".java")),
+            [],
+        )
+        snippets = []
+        for method in methods:
+            code = extract_java_method(content, method)
+            if code:
+                snippets.append(code)
+            else:
+                print(f"[experiment] WARNING: could not extract test method "
+                      f"'{method}' from {rel_path}; falling back to full file.")
+        if snippets and len(snippets) == len(methods):
+            header = f"// Failing test method(s) from {rel_path}\n"
+            reduced.append((rel_path, header + "\n\n".join(snippets)))
+        else:
+            reduced.append((rel_path, content))
+    return reduced
+
+
 # ------------------------------------------------------------------- issue
 
 def extract_bug_report_url(info_output):
@@ -468,7 +572,9 @@ def main():
         if args.include_test_code and trigger_tests:
             test_classes = sorted({t.split("::")[0] for t in trigger_tests})
             test_files = locate_test_files(container, workdir, test_classes)
-            test_sources = read_sources(test_files)
+            full_test_sources = read_sources(test_files)
+            # Pass only the failing trigger method(s), not the whole test file.
+            test_sources = extract_trigger_test_code(trigger_tests, full_test_sources)
 
         test_log = None
         if args.include_test_log and trigger_tests:
