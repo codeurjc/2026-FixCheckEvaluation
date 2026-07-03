@@ -10,7 +10,8 @@ Given a Defects4J project and bug id, this script:
   5. Locates and reads the buggy source file(s).
   6. Delegates *fix generation* to ``FixGenerator`` (dataset/Docker-agnostic).
   7. Applies the generated diff and re-runs the test suite to validate the fix.
-  8. Persists all artifacts under ``results/<project>/<bug_id>/``.
+  8. Persists all artifacts under ``results/<project>/<bug_id>/`` (or
+     ``results/<project>/<bug_id>/<iteration>/`` when ``--iteration`` is given).
 
 The container is always stopped and removed at the end of the run.
 
@@ -30,9 +31,14 @@ import urllib.request
 from html.parser import HTMLParser
 
 import docker
+from dotenv import load_dotenv
 
 from docker_utils import exec_in_container
 from FixGenerator import FixGenerator, normalize_diff
+
+# Load API keys / OLLAMA_BASE_URL from a project-root .env, if present.
+# override=False so an explicitly-set environment variable still wins.
+load_dotenv()
 
 DEFECTS4J_IMAGE = "defects4j:3.0.1"
 DEFAULT_MODEL = "ollama/gpt-oss:20b"
@@ -523,6 +529,12 @@ def main():
         "--include-issue", action="store_true",
         help="Include the original bug-tracker issue report in the prompt.",
     )
+    parser.add_argument(
+        "--iteration", default=None,
+        help="Iteration index; when set, artifacts go to "
+             "results/<project>/<bug>/<iteration>/ instead of results/<project>/<bug>/. "
+             "Used by run_iterations.py to keep repeated runs of the same bug apart.",
+    )
     args = parser.parse_args()
 
     project = args.project
@@ -540,6 +552,8 @@ def main():
         shutil.rmtree(workdir)
 
     results_dir = os.path.join("results", project, bug_id)
+    if args.iteration is not None:
+        results_dir = os.path.join(results_dir, str(args.iteration))
     os.makedirs(results_dir, exist_ok=True)
 
     client = docker.from_env()
@@ -689,7 +703,7 @@ def main():
             f"[experiment] Failing tests (whole suite): "
             f"{result['failing_tests_before']} -> {result['failing_tests_after']}"
         )
-        print(f"[experiment] Results stored under: results/{project}/{bug_id}/")
+        print(f"[experiment] Results stored under: {results_dir}/")
 
     finally:
         print("[experiment] Stopping and removing container ...")

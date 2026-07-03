@@ -101,10 +101,29 @@ Arguments:
 | `--include-test-code` | Include the failing trigger test method(s) in the prompt (extracted from the test file, not the whole file). | off |
 | `--include-test-log`  | Include the regression (trigger) test's isolated failure log in the prompt. | off |
 | `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
+| `--iteration`   | Iteration index; when set, artifacts go to `results/<project>/<bug_id>/<iteration>/` instead of `results/<project>/<bug_id>/`. Used by `run_iterations.py`. | none |
+
+### Repeating a run (non-determinism)
+
+LLM fix generation is non-deterministic — even at `temperature=0`, a large MoE
+model served locally can produce a different patch on each call — so a single
+run is not a reliable signal. `run_iterations.py` runs `Experiment.py` N times
+for one bug, wiping the checkout between runs to avoid contamination, storing
+each run under `results/<project>/<bug_id>/<iteration>/`, and aggregating the
+outcomes into `results/<project>/<bug_id>/summary.json`:
+
+```bash
+python run_iterations.py --project Lang --bug-id 1 --iterations 5
+```
+
+`run_iterations.py` mirrors `Experiment.py`'s fix-generation flags (`--model`,
+`--temperature`, `--include-test-code`, `--include-test-log`, `--include-issue`)
+and forwards them to every run, so they behave exactly as they do there.
 
 ## Output
 
-Artifacts are written to `results/<project>/<bug_id>/`:
+Artifacts are written to `results/<project>/<bug_id>/` (or
+`results/<project>/<bug_id>/<iteration>/` when `--iteration` is set):
 
 - `fix.diff` — the unified diff produced by the LLM.
 - `raw_response.txt` — the raw LLM response before diff extraction.
