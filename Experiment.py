@@ -367,11 +367,11 @@ def _http_get_json(url):
 
 
 def _fetch_jira_issue(url):
-    """Fetch title/description/comments for an Apache Jira issue URL."""
+    """Fetch title/description for an Apache Jira issue URL."""
     key = url.rstrip("/").split("/")[-1]
     api_url = (
         f"https://issues.apache.org/jira/rest/api/2/issue/{key}"
-        "?fields=summary,description,comment"
+        "?fields=summary,description"
     )
     data = _http_get_json(api_url)
     fields = data.get("fields", {})
@@ -379,9 +379,6 @@ def _fetch_jira_issue(url):
         f"Summary: {fields.get('summary', '')}",
         f"Description:\n{fields.get('description', '') or ''}",
     ]
-    comments = (fields.get("comment") or {}).get("comments", [])
-    for comment in comments:
-        parts.append(f"Comment:\n{comment.get('body', '')}")
     return "\n\n".join(parts)
 
 
