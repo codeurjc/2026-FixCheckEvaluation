@@ -19,7 +19,8 @@ that fail regardless of the patch.
      inside and outside the container).
    - Checks out the buggy version (`defects4j checkout -p <project> -v <id>b`).
    - Compiles it and runs the test suite to confirm the bug is present.
-   - Extracts bug metadata (`defects4j info`).
+   - Extracts bug metadata (`defects4j info`) — kept in `result.json` for
+     reference, no longer passed to the LLM.
    - Locates the buggy source file(s) via `defects4j export`
      (`classes.modified`, `dir.src.classes`) and reads them from the shared
      volume.
@@ -30,8 +31,8 @@ that fail regardless of the patch.
      (`defects4j test -t <test>`), and the original bug-tracker issue report
      (fetched from the `Bug report url` in `defects4j info`, via the Jira or
      GitHub REST API, or a generic HTML fetch for other trackers).
-   - Delegates **fix generation** to `FixGenerator`, passing the bug metadata,
-     source contents, and any of the optional context gathered above.
+   - Delegates **fix generation** to `FixGenerator`, passing the buggy source
+     contents and any of the optional context gathered above.
    - Applies the generated diff with `git apply` inside the container and
      **validates** it by re-running `defects4j test`, then checking the bug's
      trigger tests pass and no new failures were introduced.
@@ -39,9 +40,9 @@ that fail regardless of the patch.
      `test_after.log`) and the combined `result.json`.
    - Always stops and removes the container at the end.
 2. **`FixGenerator.py`** is a dataset- and Docker-agnostic fix generator:
-   - Receives the bug description, the buggy source contents, and optionally
-     the regression test source, its failure log, and the issue report (it
-     never touches Docker or Defects4J itself).
+   - Receives the buggy source contents, and optionally the regression test
+     source, its failure log, and the issue report (it never touches Docker or
+     Defects4J itself).
    - Asks the LLM for **SEARCH/REPLACE blocks** (an exact snippet of the
      original code plus its replacement) rather than a raw diff. This avoids
      the line-number and context hallucinations that make LLM-produced diffs

@@ -173,7 +173,7 @@ def lang1_pipeline(tmp_path_factory, request):
         for attempt in range(1, num_attempts + 1):
             generator = FixGenerator(model=MODEL, temperature=0.0)
             gen = generator.generate(
-                info.output, sources,
+                sources,
                 test_sources=test_sources, test_log=test_log, issue_text=issue_text,
                 results_dir=os.path.join(debug_root, f"attempt_{attempt}"),
             )

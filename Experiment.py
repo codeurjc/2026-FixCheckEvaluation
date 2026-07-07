@@ -6,7 +6,8 @@ Given a Defects4J project and bug id, this script:
      mounting the host working directory as a shared volume.
   2. Checks out the buggy version of the project.
   3. Compiles it and runs the test suite to confirm the bug is present.
-  4. Extracts bug metadata with ``defects4j info``.
+  4. Extracts bug metadata with ``defects4j info`` (recorded in
+     ``result.json``; no longer part of the prompt).
   5. Locates and reads the buggy source file(s).
   6. Delegates *fix generation* to ``FixGenerator`` (dataset/Docker-agnostic).
   7. Applies the generated diff and re-runs the test suite to validate the fix.
@@ -593,7 +594,8 @@ def main():
                 "the bug may not be reproduced as expected."
             )
 
-        # 4. Extract bug metadata.
+        # 4. Extract bug metadata (kept in result.json for reference; no longer
+        #    part of the prompt).
         info = run_step(
             container, f"defects4j info -p {project} -b {bug_id}", workdir=None,
             description="Extracting bug metadata (defects4j info)",
@@ -632,7 +634,7 @@ def main():
         # 6. Generate the fix (dataset/Docker-agnostic).
         generator = FixGenerator(model=args.model, temperature=args.temperature)
         gen = generator.generate(
-            info.output, sources,
+            sources,
             test_sources=test_sources, test_log=test_log, issue_text=issue_text,
             results_dir=results_dir,
         )

@@ -3,7 +3,7 @@ Integration test: generate a fix for Defects4J Lang 1 with ``FixGenerator``.
 
 This test performs the part of ``Experiment.py`` needed to feed ``FixGenerator``:
 it starts a ``defects4j`` container, checks out Lang 1b, exports the buggy source
-file(s) and the bug metadata, and hands them to ``FixGenerator.generate()``.
+file(s), and hands them to ``FixGenerator.generate()``.
 
 It deliberately stays within FixGenerator's responsibility: it only validates that
 the returned diff has the expected unified-diff format and prints it. It does NOT
@@ -80,7 +80,7 @@ pytestmark = [
 
 @pytest.fixture(scope="module")
 def lang1_inputs(tmp_path_factory):
-    """Check out Lang 1b and return the (bug_info, sources) for FixGenerator.
+    """Check out Lang 1b and return the buggy ``sources`` for FixGenerator.
 
     Mirrors the setup Experiment.py does before delegating to FixGenerator, then
     yields exactly the data FixGenerator needs. The container is always removed.
@@ -101,19 +101,11 @@ def lang1_inputs(tmp_path_factory):
         )
         assert checkout.ok, f"checkout failed:\n{checkout.output}"
 
-        info = run_step(
-            container,
-            f"defects4j info -p {PROJECT} -b {BUG_ID}",
-            workdir=None,
-            description="Extracting bug metadata (defects4j info)",
-        )
-        assert info.ok, f"info failed:\n{info.output}"
-
         files = locate_source_files(container, workdir)
         sources = read_sources(files)
         assert sources, "no buggy source files could be read"
 
-        yield info.output, sources
+        yield sources
     finally:
         container.stop()
         container.remove()
@@ -121,7 +113,7 @@ def lang1_inputs(tmp_path_factory):
 
 def test_fixgenerator_lang1_diff_format(lang1_inputs):
     """FixGenerator returns a well-formed unified diff for Lang 1."""
-    bug_info, sources = lang1_inputs
+    sources = lang1_inputs
 
     # Ensure OllamaLLM connects to the same host the skip check verified.
     os.environ["OLLAMA_BASE_URL"] = OLLAMA_HOST
@@ -129,7 +121,7 @@ def test_fixgenerator_lang1_diff_format(lang1_inputs):
     # budget before the diff is emitted, so let it generate until it stops
     # naturally (-1 = unlimited num_predict, bounded by the context window).
     generator = FixGenerator(model=MODEL, temperature=0.0, max_tokens=-1)
-    gen = generator.generate(bug_info, sources)
+    gen = generator.generate(sources)
 
     diff = gen["diff"]
     print("\n===== Generated fix (Lang 1) =====\n")

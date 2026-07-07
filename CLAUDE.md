@@ -43,7 +43,7 @@ The project has a deliberate two-layer separation:
 - Writes artifacts to `results/<project>/<bug_id>/`: `fix.diff`, `raw_response.txt`, `result.json`, `test_before.log`, `test_after.log`, `apply.log`.
 
 **`FixGenerator.py`** — dataset- and Docker-agnostic:
-- Receives only `bug_info` (text) and `sources` (list of `(rel_path, content)` tuples); it never touches Docker or Defects4J.
+- Receives only `sources` (list of `(rel_path, content)` tuples), plus optional test/issue context; it never touches Docker or Defects4J.
 - Builds the prompt, queries the LLM, extracts the unified diff from the response (stripping markdown fences if the model added them), and returns the diff plus generation metadata.
 - `normalize_diff()` repairs blank context lines that LLMs commonly emit without their leading space, which would otherwise break `git apply`.
 

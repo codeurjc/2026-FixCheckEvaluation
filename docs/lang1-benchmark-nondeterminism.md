@@ -67,6 +67,50 @@ missing the 16-digit special case). 10/10 manual success suggests the failure
 mode is uncommon but not impossible; a handful of consecutive automated
 failures was an unlucky streak, not a systemic issue.
 
+## Update 2026-07-07: the variance is per GPU-session, not per call
+
+New data point: `scripts/runIterations.sh` (5 iterations) was run on 2026-07-06
+(`results/Lang_6Jul/`) and again on 2026-07-07 (`results/Lang_7Jul/`), same
+model, same flags, same machine. Result: **5/5 fixed on the 6th, 0/5 fixed on
+the 7th.**
+
+This is a stronger signal than plain sampling noise — within each day's 5
+runs, the model's answer was essentially frozen:
+
+| | 6 Jul (`Lang_6Jul`) | 7 Jul (`Lang_7Jul`) |
+|---|---|---|
+| `input_tokens` (all 5 runs) | 14899 | 14899 (**same prompt**) |
+| `output_tokens` | 2145 (4/5), 1810 (1/5) | 1473 (**5/5 identical**) |
+| 16-hex-digit boundary check present in the fix (`grep` on `raw_response.txt`) | 5/5 present | 5/5 **absent** |
+
+So the prompt didn't change (`input_tokens` identical), but the model's
+behavior flipped consistently for an entire day's worth of runs. Checked the
+Ollama serving infrastructure (`ps aux`, `sacct -u maes`) and found:
+
+- `ollama serve` runs as a **Slurm job** on a shared, multi-tenant GPU cluster
+  (node `damo`, other users' jobs — `dslab`, `mgarcia` — run concurrently on
+  the same node).
+- Each day's session was a **different Slurm job** (`14892` on 07-06,
+  `14905` on 07-07), each requesting `gres/gpu:h100=1` — Slurm hands out
+  *any* free H100 on the node, not a pinned physical card across job
+  submissions. `nvidia-smi` at the time of the 07-07 run showed two other
+  H100s on the node already at 63-85 GB used by other jobs.
+
+GPU inference for a 116.8B-parameter MXFP4-quantized model is **not
+bit-reproducible across different physical GPUs or process restarts**, even
+at `temperature=0.0`: cuBLAS/attention kernel selection and floating-point
+reduction order depend on the specific device and its current memory/kernel
+cache state, and are not associative. For most prompts this is invisible, but
+this particular bug sits right on a knife's edge (whether the model adds one
+extra boundary-check `if`), so the low-level numerical noise between GPU
+sessions is enough to flip the outcome consistently for an entire session.
+
+**Practical implication:** "determinism" from `temperature=0.0` only holds
+*within* a single long-lived Ollama server/GPU session — restarting the
+Ollama Slurm job (which happens implicitly every time you start a fresh
+`ollama serve`) can shift the model's answer distribution for edge-case bugs
+like this one, independent of any code change in this repo.
+
 ## Mitigation applied
 
 `lang1_pipeline` (in `test/e2e/conftest.py`) now retries generation up to
@@ -91,8 +135,15 @@ sample as the verdict on model quality.
 - Re-diff a fresh manual `prompt.txt` against a fresh
   `results/_debug/lang1_pipeline/attempt_N/prompt.txt` first, to rule out a
   new config drift before assuming it's model variance again.
-- If prompts match and failures cluster (e.g. many in a row), consider adding
-  a fixed `seed` to `llms/ollama_llm.py`'s `options` for more reproducible
-  (though not guaranteed-deterministic) sampling.
+- If `input_tokens` matches across "before/after" but `output_tokens` /
+  the actual fix strategy is frozen-but-different per session, check
+  `sacct -u <user> --format=JobID,JobName,Start,End,State,NodeList` for the
+  Ollama Slurm job: a *new* job id spanning the change window means a fresh
+  GPU allocation, which is consistent with the infra-driven variance
+  documented above rather than a code regression.
+- If failures cluster within one GPU/server session (many in a row, same
+  session), consider adding a fixed `seed` to `llms/ollama_llm.py`'s
+  `options` for more reproducible (though not guaranteed-deterministic)
+  sampling.
 - Increasing `FIXGEN_BENCHMARK_ATTEMPTS` trades CI time for a lower chance of
   a flaky red benchmark on this specific bug.

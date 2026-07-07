@@ -217,12 +217,11 @@ def _fake_generator():
 def test_generate_writes_prompt_alongside_diff_and_response(tmp_path):
     generator = _fake_generator()
     gen = generator.generate(
-        "bug info", [("src/Foo.java", SOURCE)], results_dir=str(tmp_path)
+        [("src/Foo.java", SOURCE)], results_dir=str(tmp_path)
     )
 
     prompt_on_disk = (tmp_path / "prompt.txt").read_text()
     assert prompt_on_disk == gen["prompt"]
-    assert "bug info" in prompt_on_disk
     assert SOURCE in prompt_on_disk
     assert (tmp_path / "fix.diff").exists()
     assert (tmp_path / "raw_response.txt").exists()

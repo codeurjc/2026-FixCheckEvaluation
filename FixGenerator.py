@@ -260,11 +260,10 @@ class FixGenerator:
 
     # -------------------------------------------------------------- prompt
 
-    def _build_prompt(self, bug_info, sources, test_sources=None, test_log=None, issue_text=None):
+    def _build_prompt(self, sources, test_sources=None, test_log=None, issue_text=None):
         """Build the fix-generation prompt.
 
         Args:
-            bug_info: Free-form text describing the bug.
             sources: List of ``(relative_path, content)`` for the buggy file(s).
             test_sources: Optional list of ``(relative_path, content)`` for the
                 regression (trigger) test file(s).
@@ -300,11 +299,8 @@ class FixGenerator:
         first_path = sources[0][0] if sources else "path/To/File.java"
 
         return f"""[SYSTEM INSTRUCTION]
-You are an expert software engineer fixing a real bug. You will be given bug \
-metadata and the buggy source file(s). Produce a correct, complete fix.
-
-[BUG METADATA]
-{bug_info}
+You are an expert software engineer fixing a real bug. You will be given the \
+buggy source file(s). Produce a correct, complete fix.
 
 [BUGGY SOURCE FILE(S)]
 {sources_block}
@@ -358,12 +354,11 @@ explanations, no markdown code fences.
 
     # ----------------------------------------------------------------- run
 
-    def generate(self, bug_info, sources, test_sources=None, test_log=None,
+    def generate(self, sources, test_sources=None, test_log=None,
                  issue_text=None, results_dir=None):
-        """Generate a fix from the bug description and buggy sources.
+        """Generate a fix from the buggy sources.
 
         Args:
-            bug_info: Free-form text describing the bug.
             sources: List of ``(relative_path, content)`` for the buggy file(s).
             test_sources: Optional list of ``(relative_path, content)`` for the
                 regression (trigger) test file(s).
@@ -385,7 +380,7 @@ explanations, no markdown code fences.
         """
         timestamp = datetime.now(timezone.utc).isoformat()
 
-        prompt = self._build_prompt(bug_info, sources, test_sources, test_log, issue_text)
+        prompt = self._build_prompt(sources, test_sources, test_log, issue_text)
         print(f"[fixgen] Querying LLM ({self.model}) for a fix ...")
         start = time.time()
         response = self.llm.invoke(prompt)
