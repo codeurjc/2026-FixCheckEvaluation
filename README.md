@@ -50,7 +50,7 @@ that fail regardless of the patch.
      and builds the **unified diff itself** with `difflib`, so the resulting
      diff always matches the file.
    - Returns the diff plus generation metadata, and writes the generation
-     artifacts (`fix.diff`, `raw_response.txt`) under
+     artifacts (`prompt.txt`, `fix.diff`, `raw_response.txt`) under
      `results/<project>/<bug_id>/`.
 
 The LLM connectors live in `llms/` (Google, OpenAI, OpenRouter, Ollama,
@@ -125,6 +125,7 @@ and forwards them to every run, so they behave exactly as they do there.
 Artifacts are written to `results/<project>/<bug_id>/` (or
 `results/<project>/<bug_id>/<iteration>/` when `--iteration` is set):
 
+- `prompt.txt` — the exact prompt sent to the LLM.
 - `fix.diff` — the unified diff produced by the LLM.
 - `raw_response.txt` — the raw LLM response before diff extraction.
 - `result.json` — run summary: `applied`, `fixed`, `triggers_fixed`, the bug's

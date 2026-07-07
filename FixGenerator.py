@@ -372,13 +372,14 @@ explanations, no markdown code fences.
             issue_text: Optional free-form text with the original bug-tracker
                 issue report.
             results_dir: Optional directory; when given, the generation artifacts
-                (``fix.diff`` and the raw response) are written there.
+                (``prompt.txt``, ``fix.diff`` and the raw response) are written
+                there.
 
         Returns:
             A dict with the generation metadata: ``model``, ``temperature``,
-            ``timestamp``, ``elapsed_seconds``, ``diff``, ``raw_response``,
-            ``usage_metadata`` and the SEARCH/REPLACE bookkeeping
-            (``blocks_parsed``, ``blocks_applied``, ``blocks_failed``).
+            ``timestamp``, ``elapsed_seconds``, ``prompt``, ``diff``,
+            ``raw_response``, ``usage_metadata`` and the SEARCH/REPLACE
+            bookkeeping (``blocks_parsed``, ``blocks_applied``, ``blocks_failed``).
             Validation (applying the diff, running tests) is the caller's
             responsibility.
         """
@@ -402,6 +403,7 @@ explanations, no markdown code fences.
             print(f"[fixgen]   WARNING: block for {path!r} skipped: {reason}")
 
         if results_dir is not None:
+            self._write_text(results_dir, "prompt.txt", prompt)
             self._write_text(results_dir, "fix.diff", diff_text)
             self._write_text(results_dir, "raw_response.txt", response.content)
 
@@ -410,6 +412,7 @@ explanations, no markdown code fences.
             "temperature": self.temperature,
             "timestamp": timestamp,
             "elapsed_seconds": elapsed,
+            "prompt": prompt,
             "diff": diff_text,
             "raw_response": response.content,
             "usage_metadata": getattr(response, "usage_metadata", None),
