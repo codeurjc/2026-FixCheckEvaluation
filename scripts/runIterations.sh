@@ -1,4 +1,3 @@
-cd /home/maes/2026-FixCheckEvaluation
 PROJECT=Lang
 BUG_ID=1
 MODEL=ollama/gpt-oss:120b

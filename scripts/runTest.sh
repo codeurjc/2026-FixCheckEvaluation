@@ -1,0 +1,1 @@
+.venv/bin/python -m pytest $1 -v -s

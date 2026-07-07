@@ -8,6 +8,7 @@ Run with:
 """
 
 from FixGenerator import (
+    FixGenerator,
     build_diff_from_blocks,
     normalize_diff,
     parse_search_replace_blocks,
@@ -192,3 +193,36 @@ def test_normalize_fixes_blank_context_lines():
     # the hunk body is truly empty.
     assert " " in lines
     assert "" not in lines
+
+
+# --------------------------------------------------------- generate() writes
+
+class _FakeResponse:
+    def __init__(self, content):
+        self.content = content
+        self.usage_metadata = {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
+
+
+def _fake_generator():
+    generator = FixGenerator(model="ollama/gpt-oss:20b")
+    generator.llm = type(
+        "FakeLLM", (), {"invoke": staticmethod(lambda prompt: _FakeResponse(
+            "src/Foo.java\n<<<<<<< SEARCH\n        return a + b;\n=======\n"
+            "        return a - b;\n>>>>>>> REPLACE\n"
+        ))},
+    )()
+    return generator
+
+
+def test_generate_writes_prompt_alongside_diff_and_response(tmp_path):
+    generator = _fake_generator()
+    gen = generator.generate(
+        "bug info", [("src/Foo.java", SOURCE)], results_dir=str(tmp_path)
+    )
+
+    prompt_on_disk = (tmp_path / "prompt.txt").read_text()
+    assert prompt_on_disk == gen["prompt"]
+    assert "bug info" in prompt_on_disk
+    assert SOURCE in prompt_on_disk
+    assert (tmp_path / "fix.diff").exists()
+    assert (tmp_path / "raw_response.txt").exists()

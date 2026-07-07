@@ -30,6 +30,7 @@ from Experiment import (
     parse_failing_test_names,
     read_sources,
     run_step,
+    run_trigger_tests,
     start_container,
 )
 from FixGenerator import FixGenerator
@@ -62,13 +63,25 @@ def _model_available():
         return False
 
 
+NUM_BENCHMARK_ATTEMPTS = int(os.getenv("FIXGEN_BENCHMARK_ATTEMPTS", "3"))
+
+
 @pytest.fixture(scope="session")
-def lang1_pipeline(tmp_path_factory):
+def lang1_pipeline(tmp_path_factory, request):
     """Run the full Experiment pipeline for Lang 1b once and yield the outcome.
 
     Mirrors what Experiment.py does, including the trigger-based fix evaluation:
       checkout → compile (pre) → test (pre) → info → issue → sources →
-      trigger test code → generate fix → apply → compile (post) → test (post)
+      trigger test code → trigger test log → generate fix → apply →
+      compile (post) → test (post)
+
+    The LLM's fix attempt (step 6 onward) is non-deterministic even at
+    temperature 0.0 (observed: identical config, different generated patches
+    across runs). When ``--run-benchmark`` is passed, it is retried up to
+    ``FIXGEN_BENCHMARK_ATTEMPTS`` (default 3) times, and the run is considered
+    a success as soon as one attempt fixes the trigger tests — mirroring how
+    the pipeline would actually be used (retry until it works). Mechanics-only
+    runs (no ``--run-benchmark``) use a single attempt so they stay fast.
 
     Skips when the required infrastructure is missing. The container is always
     removed afterwards.
@@ -140,61 +153,83 @@ def lang1_pipeline(tmp_path_factory):
         )
         assert test_sources, "no regression test source files could be read"
 
-        # 6. Generate fix via LLM (failing trigger method + issue as context).
-        generator = FixGenerator(model=MODEL, temperature=0.0, max_tokens=-1)
-        gen = generator.generate(
-            info.output, sources,
-            test_sources=test_sources, issue_text=issue_text,
-        )
+        # 5c. Run the trigger tests in isolation to capture their failure log.
+        test_log = run_trigger_tests(container, workdir, trigger_tests)
 
-        diff = gen["diff"]
-        print("\n===== Generated fix (Lang 1) =====\n")
-        print(diff)
-        print("\n===== End of fix =====\n")
-
-        # 7. Apply the diff.
-        applied, apply_log = apply_diff(container, workdir, diff)
-        print(f"[test] Diff applied: {applied}")
-        if not applied:
-            print(f"[test] Apply log:\n{apply_log}")
-
-        # 8 & 9. Compile and test post-fix only if the diff was applied.
-        compiled = False
-        compile_after_output = ""
-        failing_after_names = []
-        if applied:
-            compile_after = run_step(
-                container, "defects4j compile", workdir,
-                description="Compiling fixed sources (post-fix)",
+        # 6-9. Generate a fix, apply it, and evaluate it. Retried (when running
+        # the benchmark) since a single generation is not representative of
+        # model quality given LLM output variance at fixed temperature.
+        num_attempts = NUM_BENCHMARK_ATTEMPTS if request.config.getoption("--run-benchmark") else 1
+        # Debug artifacts (prompt.txt, fix.diff, raw_response.txt) go here per
+        # attempt so the exact prompt can be diffed against a manual run's
+        # results/<project>/<bug>/<iteration>/ artifacts.
+        debug_root = os.path.join("results", "_debug", "lang1_pipeline")
+        os.makedirs(debug_root, exist_ok=True)
+        with open(os.path.join(debug_root, "issue.txt"), "w", encoding="utf-8") as f:
+            f.write(issue_text or "")
+        with open(os.path.join(debug_root, "regression_test.log"), "w", encoding="utf-8") as f:
+            f.write(test_log or "")
+        outcome = None
+        for attempt in range(1, num_attempts + 1):
+            generator = FixGenerator(model=MODEL, temperature=0.0)
+            gen = generator.generate(
+                info.output, sources,
+                test_sources=test_sources, test_log=test_log, issue_text=issue_text,
+                results_dir=os.path.join(debug_root, f"attempt_{attempt}"),
             )
-            compiled = compile_after.ok
-            compile_after_output = compile_after.output
 
-            if compiled:
-                test_after = run_step(
-                    container, "defects4j test", workdir,
-                    description="Running test suite (post-fix)",
+            diff = gen["diff"]
+            print(f"\n===== Generated fix (Lang 1) - attempt {attempt}/{num_attempts} =====\n")
+            print(diff)
+            print("\n===== End of fix =====\n")
+
+            applied, apply_log = apply_diff(container, workdir, diff)
+            print(f"[test] Diff applied: {applied}")
+            if not applied:
+                print(f"[test] Apply log:\n{apply_log}")
+
+            compiled = False
+            compile_after_output = ""
+            failing_after_names = []
+            if applied:
+                compile_after = run_step(
+                    container, "defects4j compile", workdir,
+                    description=f"Compiling fixed sources (post-fix, attempt {attempt})",
                 )
-                failing_after_names = parse_failing_test_names(test_after.output)
-                print(f"[test] Failing tests after fix: {failing_after_names}")
+                compiled = compile_after.ok
+                compile_after_output = compile_after.output
 
-        triggers_fixed, new_failures, fixed = evaluate_fix(
-            trigger_tests, failing_before_names, failing_after_names, applied
-        )
+                if compiled:
+                    test_after = run_step(
+                        container, "defects4j test", workdir,
+                        description=f"Running test suite (post-fix, attempt {attempt})",
+                    )
+                    failing_after_names = parse_failing_test_names(test_after.output)
+                    print(f"[test] Failing tests after fix: {failing_after_names}")
 
-        yield {
-            "trigger_tests": trigger_tests,
-            "failing_before_names": failing_before_names,
-            "failing_after_names": failing_after_names,
-            "diff": diff,
-            "applied": applied,
-            "apply_log": apply_log,
-            "compiled": compiled,
-            "compile_after_output": compile_after_output,
-            "triggers_fixed": triggers_fixed,
-            "new_failures": new_failures,
-            "fixed": fixed,
-        }
+            triggers_fixed, new_failures, fixed = evaluate_fix(
+                trigger_tests, failing_before_names, failing_after_names, applied
+            )
+
+            outcome = {
+                "trigger_tests": trigger_tests,
+                "failing_before_names": failing_before_names,
+                "failing_after_names": failing_after_names,
+                "diff": diff,
+                "applied": applied,
+                "apply_log": apply_log,
+                "compiled": compiled,
+                "compile_after_output": compile_after_output,
+                "triggers_fixed": triggers_fixed,
+                "new_failures": new_failures,
+                "fixed": fixed,
+                "attempt": attempt,
+                "num_attempts": num_attempts,
+            }
+            if triggers_fixed:
+                break
+
+        yield outcome
     finally:
         container.stop()
         container.remove()
