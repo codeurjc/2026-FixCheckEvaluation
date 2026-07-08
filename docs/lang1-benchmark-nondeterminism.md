@@ -111,19 +111,61 @@ Ollama Slurm job (which happens implicitly every time you start a fresh
 `ollama serve`) can shift the model's answer distribution for edge-case bugs
 like this one, independent of any code change in this repo.
 
+## Update 2026-07-07 (later): retries at temperature=0.0 don't help — they were a no-op
+
+The first "mitigation" below (retry up to `FIXGEN_BENCHMARK_ATTEMPTS` times)
+was added *before* the per-session-freezing behavior above was fully
+understood, and it kept `temperature=0.0` for every retry. That's a bug in the
+mitigation, not just an inefficiency: per the finding above, `temperature=0.0`
+output is frozen for the life of the Ollama server session, so N retries in
+the same session just repeat the *same* generation call N times and get the
+same answer N times. If that session happens to be a "bad" one (as in the
+`Lang_7Jul` 0/5 run), no amount of retrying within it will ever succeed.
+
+Confirmed empirically: `scripts/runIterations.sh` was run with
+`--temperature 0.2` (10 iterations, `results/Lang/1/`) during a session that
+had been giving 0/10 at `temperature=0.0`. Result: **3/10 fixed.**
+`output_tokens` differed on all 10 calls (unlike the frozen-per-session
+pattern at 0.0), confirming genuine per-call sampling had kicked in. Retrying
+only pays off once there's real per-call independence, which requires
+`temperature > 0`.
+
 ## Mitigation applied
 
-`lang1_pipeline` (in `test/e2e/conftest.py`) now retries generation up to
+`lang1_pipeline` (in `test/e2e/conftest.py`) retries generation up to
 `FIXGEN_BENCHMARK_ATTEMPTS` (env var, default `3`) times **only** when
-`--run-benchmark` is passed (mechanics-only runs still use a single attempt to
-stay fast), and considers the run a success as soon as one attempt fixes the
-trigger tests. This mirrors how the pipeline would actually be used in
-practice (retry until it works) rather than treating a single non-deterministic
+`--run-benchmark` is passed, at `FIXGEN_BENCHMARK_TEMPERATURE` (env var,
+default `0.2` — **not** `0.0`, precisely because `0.0` retries are frozen and
+would be pointless, see above). Mechanics-only runs (no `--run-benchmark`)
+still use a single attempt at `temperature=0.0`, since there's no retry to
+make independent and determinism is preferable for that check. The benchmark
+run is considered a success as soon as one attempt fixes the trigger tests —
+mirroring how the pipeline would actually be used in practice (sample a few
+times, take the first success) rather than treating one non-deterministic
 sample as the verdict on model quality.
+
+At an empirically observed ~30% per-attempt success rate (temperature 0.2),
+3 attempts give roughly a 1-(0.7)³ ≈ 66% chance of at least one success —
+better than a single frozen sample from an unlucky `temperature=0.0` session,
+but still not a sure thing. Raise `FIXGEN_BENCHMARK_ATTEMPTS` if the benchmark
+needs to be less flaky at the cost of more CI time (each attempt is a full
+compile+test cycle, not just a generation call).
 
 ## Artifacts for future reference
 
-- `results/Lang/1/prompt.txt` — a full manual-run prompt (58635 bytes).
+> **Note:** `results/` is gitignored and gets overwritten by every new manual
+> run. The specific 10/10 (`temperature=0.0`) and 3/10 (`temperature=0.2`)
+> `results/Lang/1/` snapshots referenced above no longer exist as such by the
+> time you read this — `results/Lang/1/` reflects whatever was run *last*.
+> The dated copies (`results/Lang_6Jul/`, `results/Lang_7Jul/`) are manual
+> snapshots the user copied aside and are more durable references, but even
+> those aren't safe from being cleaned up. Re-run the scripts below to
+> regenerate comparable data if needed.
+
+- `results/Lang/1/prompt.txt` — a full manual-run prompt (58635 bytes, from
+  the `temperature=0.0` baseline run — regenerate with
+  `scripts/runExperiment.sh` at `--temperature 0.0` if this file has since
+  been overwritten by a different run).
 - `results/_debug/lang1_pipeline/attempt_1/prompt.txt` — the equivalent
   automated-run prompt (58631 bytes), for diffing against future manual runs
   if this needs to be re-verified. (`results/` and `results/_debug/` are
@@ -141,9 +183,15 @@ sample as the verdict on model quality.
   Ollama Slurm job: a *new* job id spanning the change window means a fresh
   GPU allocation, which is consistent with the infra-driven variance
   documented above rather than a code regression.
-- If failures cluster within one GPU/server session (many in a row, same
-  session), consider adding a fixed `seed` to `llms/ollama_llm.py`'s
-  `options` for more reproducible (though not guaranteed-deterministic)
-  sampling.
-- Increasing `FIXGEN_BENCHMARK_ATTEMPTS` trades CI time for a lower chance of
-  a flaky red benchmark on this specific bug.
+- **Retries only help if `temperature > 0`.** If someone sets
+  `FIXGEN_BENCHMARK_TEMPERATURE` back to `0.0` "for determinism," the retry
+  loop silently becomes a no-op (see the update above) — it'll either always
+  pass or always fail depending on which GPU session it landed on, and extra
+  attempts won't change that.
+- Increasing `FIXGEN_BENCHMARK_ATTEMPTS` (at nonzero temperature) trades CI
+  time for a lower chance of a flaky red benchmark on this specific bug.
+- A fixed `seed` in `llms/ollama_llm.py`'s `options` was considered but not
+  added: at `temperature=0.0` decoding is already greedy (a seed wouldn't
+  change anything), and at `temperature>0` a seed only pins the RNG draw, not
+  the underlying cross-GPU floating-point non-associativity — it wouldn't
+  meaningfully change the picture above.
