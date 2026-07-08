@@ -218,12 +218,24 @@ def locate_test_files(container, workdir, test_classes):
 
 
 def run_trigger_tests(container, workdir, trigger_tests):
-    """Run each trigger test in isolation and return the combined log."""
+    """Run each trigger test in isolation and return the combined log.
+
+    Uses the ``failing_tests`` file that Defects4J writes to ``workdir``
+    rather than the ant console output, because the Formatter writes
+    exception types and full stack traces directly to that file — they never
+    appear on stdout.
+    """
     logs = []
     for trigger_test in trigger_tests:
         cmd = f"defects4j test -t {trigger_test} -w {workdir}"
-        result = exec_in_container(container, cmd, workdir=None)
-        logs.append(f"$ {cmd}\n{result.output}")
+        exec_in_container(container, cmd, workdir=None)
+        failing_tests_path = os.path.join(workdir, "failing_tests")
+        try:
+            with open(failing_tests_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+        except FileNotFoundError:
+            content = ""
+        logs.append(f"$ {cmd}\n{content}")
     return "\n\n".join(logs)
 
 

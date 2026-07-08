@@ -137,7 +137,9 @@ Artifacts are written to `results/<project>/<bug_id>/` (or
 - `test_before.log` / `test_after.log` — test suite output before and after the
   fix.
 - `apply.log` — output of the `git apply` attempts.
-- `regression_test.log` — output of running the regression (trigger) test(s)
-  in isolation; only written when `--include-test-log` is set.
+- `regression_test.log` — Defects4J's `failing_tests` file content from
+  running the regression (trigger) test(s) in isolation: one entry per
+  failing test with the exception type, message, and full stack trace. Only
+  written when `--include-test-log` is set.
 - `issue.txt` — the fetched bug-tracker issue report; only written when
   `--include-issue` is set.
