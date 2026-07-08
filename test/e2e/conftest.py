@@ -64,6 +64,13 @@ def _model_available():
 
 
 NUM_BENCHMARK_ATTEMPTS = int(os.getenv("FIXGEN_BENCHMARK_ATTEMPTS", "3"))
+# Retries are only meaningful with temperature > 0: at temperature=0.0 the
+# output is frozen for the lifetime of the Ollama server/GPU session (see
+# docs/lang1-benchmark-nondeterminism.md), so re-sampling the same prompt N
+# times at temperature=0.0 yields N identical (and, in an unlucky session, N
+# identically wrong) results. A small positive temperature makes each retry an
+# independent draw, so more attempts genuinely raise the odds of a fix.
+BENCHMARK_TEMPERATURE = float(os.getenv("FIXGEN_BENCHMARK_TEMPERATURE", "0.2"))
 
 
 @pytest.fixture(scope="session")
@@ -75,13 +82,18 @@ def lang1_pipeline(tmp_path_factory, request):
       trigger test code → trigger test log → generate fix → apply →
       compile (post) → test (post)
 
-    The LLM's fix attempt (step 6 onward) is non-deterministic even at
-    temperature 0.0 (observed: identical config, different generated patches
-    across runs). When ``--run-benchmark`` is passed, it is retried up to
-    ``FIXGEN_BENCHMARK_ATTEMPTS`` (default 3) times, and the run is considered
-    a success as soon as one attempt fixes the trigger tests — mirroring how
-    the pipeline would actually be used (retry until it works). Mechanics-only
-    runs (no ``--run-benchmark``) use a single attempt so they stay fast.
+    The LLM's fix attempt (step 6 onward) is non-deterministic across separate
+    Ollama server/GPU sessions even at temperature 0.0, but *frozen within* a
+    session (observed: identical prompt, identical output, every call, for
+    the life of one `ollama serve` process — see
+    docs/lang1-benchmark-nondeterminism.md). When ``--run-benchmark`` is
+    passed, generation is retried up to ``FIXGEN_BENCHMARK_ATTEMPTS`` (default
+    3) times at ``FIXGEN_BENCHMARK_TEMPERATURE`` (default 0.2) so each retry
+    is an actual independent sample instead of a no-op repeat of the same
+    (possibly wrong) answer; the run is considered a success as soon as one
+    attempt fixes the trigger tests. Mechanics-only runs (no
+    ``--run-benchmark``) use a single attempt at temperature 0.0 so they stay
+    fast and reproducible.
 
     Skips when the required infrastructure is missing. The container is always
     removed afterwards.
@@ -169,9 +181,13 @@ def lang1_pipeline(tmp_path_factory, request):
             f.write(issue_text or "")
         with open(os.path.join(debug_root, "regression_test.log"), "w", encoding="utf-8") as f:
             f.write(test_log or "")
+        # A single mechanics-only attempt stays at temperature 0.0 (deterministic
+        # within the session); benchmark retries use a small positive temperature
+        # so each attempt is an independent sample (see BENCHMARK_TEMPERATURE).
+        temperature = BENCHMARK_TEMPERATURE if num_attempts > 1 else 0.0
         outcome = None
         for attempt in range(1, num_attempts + 1):
-            generator = FixGenerator(model=MODEL, temperature=0.0)
+            generator = FixGenerator(model=MODEL, temperature=temperature)
             gen = generator.generate(
                 sources,
                 test_sources=test_sources, test_log=test_log, issue_text=issue_text,

@@ -1,0 +1,47 @@
+src/main/java/org/apache/commons/lang3/math/NumberUtils.java
+<<<<<<< SEARCH
+        if (pfxLen > 0) { // we have a hex number
+            final int hexDigits = str.length() - pfxLen;
+            if (hexDigits > 16) { // too many for Long
+                return createBigInteger(str);
+            }
+            if (hexDigits > 8) { // too many for an int
+                return createLong(str);
+            }
+            return createInteger(str);
+        }
+=======
+        if (pfxLen > 0) { // we have a hex number
+            // Determine the hex part after the prefix and ignore leading zeros
+            final String hexPart = str.substring(pfxLen);
+            int firstNonZeroIdx = 0;
+            while (firstNonZeroIdx < hexPart.length()
+                    && hexPart.charAt(firstNonZeroIdx) == '0') {
+                firstNonZeroIdx++;
+            }
+            final int effectiveDigits = hexPart.length() - firstNonZeroIdx;
+            // If all digits are zero, treat as integer zero
+            if (effectiveDigits == 0) {
+                return createInteger(str);
+            }
+            final char firstNonZeroChar = hexPart.charAt(firstNonZeroIdx);
+            final char firstNonZeroUpper = Character.toUpperCase(firstNonZeroChar);
+            if (effectiveDigits > 16) { // too many for a long
+                return createBigInteger(str);
+            }
+            if (effectiveDigits > 8) { // between 9 and 16 digits
+                // If exactly 16 digits and the most‑significant digit is >= 8,
+                // the value exceeds Long.MAX_VALUE and must be a BigInteger
+                if (effectiveDigits == 16 && firstNonZeroUpper >= '8') {
+                    return createBigInteger(str);
+                }
+                return createLong(str);
+            }
+            // effectiveDigits is 1..8
+            if (effectiveDigits == 8 && firstNonZeroUpper >= '8') {
+                // 8‑digit hex values with most‑significant digit >= 8 do not fit in a signed int
+                return createLong(str);
+            }
+            return createInteger(str);
+        }
+>>>>>>> REPLACE
