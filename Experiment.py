@@ -11,8 +11,10 @@ Given a Defects4J project and bug id, this script:
   5. Locates and reads the buggy source file(s).
   6. Delegates *fix generation* to ``FixGenerator`` (dataset/Docker-agnostic).
   7. Applies the generated diff and re-runs the test suite to validate the fix.
-  8. Persists all artifacts under ``results/<project>/<bug_id>/`` (or
-     ``results/<project>/<bug_id>/<iteration>/`` when ``--iteration`` is given).
+  8. Persists all artifacts under ``results/<model>/<project>/Bug_<bug_id>/``
+     (or ``results/<model>/<project>/Bug_<bug_id>/<iteration>/`` when
+     ``--iteration`` is given), where ``<model>`` is ``--model`` with any
+     ``<provider>/`` prefix stripped (see ``model_dir_name``).
 
 The container is always stopped and removed at the end of the run.
 
@@ -502,6 +504,16 @@ def apply_diff(container, workdir, diff_text):
     return False, "\n\n".join(logs)
 
 
+def model_dir_name(model):
+    """Strip the provider prefix (e.g. ``ollama/``) for use as a directory name.
+
+    Model identifiers are ``<provider>/<model>`` (see FixGenerator's provider
+    dispatch); results are grouped by the bare model name, so
+    ``ollama/qwen3.6:35b`` becomes ``qwen3.6:35b``.
+    """
+    return model.split("/", 1)[-1]
+
+
 def write_text(results_dir, filename, content):
     os.makedirs(results_dir, exist_ok=True)
     path = os.path.join(results_dir, filename)
@@ -542,7 +554,8 @@ def main():
     parser.add_argument(
         "--iteration", default=None,
         help="Iteration index; when set, artifacts go to "
-             "results/<project>/<bug>/<iteration>/ instead of results/<project>/<bug>/. "
+             "results/<model>/<project>/Bug_<bug>/<iteration>/ instead of "
+             "results/<model>/<project>/Bug_<bug>/. "
              "Used by run_iterations.py to keep repeated runs of the same bug apart.",
     )
     args = parser.parse_args()
@@ -561,7 +574,7 @@ def main():
     if os.path.exists(workdir):
         shutil.rmtree(workdir)
 
-    results_dir = os.path.join("results", project, bug_id)
+    results_dir = os.path.join("results", model_dir_name(args.model), project, f"Bug_{bug_id}")
     if args.iteration is not None:
         results_dir = os.path.join(results_dir, str(args.iteration))
     os.makedirs(results_dir, exist_ok=True)

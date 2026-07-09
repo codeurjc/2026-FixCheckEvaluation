@@ -9,11 +9,12 @@ the same bug may be fixed one run and missed the next.
 
 This script runs ``Experiment.py`` N times for one ``--project``/``--bug-id``
 and stores each run's artifacts under
-``results/<project>/<bug>/<iteration>/`` so the runs can be told apart. To keep
-runs from contaminating each other, the per-bug checkout inside ``--workdir`` is
-deleted before every run (and once at the end). Finally it aggregates each run's
-``result.json`` into a per-bug ``results/<project>/<bug>/summary.json`` and
-prints how many runs fixed the bug.
+``results/<model>/<project>/Bug_<bug>/<iteration>/`` so the runs can be told
+apart. To keep runs from contaminating each other, the per-bug checkout inside
+``--workdir`` is deleted before every run (and once at the end). Finally it
+aggregates each run's ``result.json`` into a per-bug
+``results/<model>/<project>/Bug_<bug>/summary.json`` and prints how many runs
+fixed the bug.
 
 It mirrors Experiment.py's fix-generation flags (``--model``, ``--temperature``,
 ``--include-test-code``, ``--include-test-log``, ``--include-issue``) and
@@ -33,6 +34,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXPERIMENT = os.path.join(HERE, "Experiment.py")
+
+sys.path.insert(0, HERE)
+from Experiment import DEFAULT_MODEL, model_dir_name  # noqa: E402
 
 
 def clean_checkout(workdir, project, bug_id):
@@ -83,9 +87,11 @@ def run_once(project, bug_id, workdir, iteration, forwarded):
     return subprocess.run(cmd).returncode
 
 
-def load_result(project, bug_id, iteration):
+def load_result(model_dir, project, bug_id, iteration):
     """Load an iteration's result.json, or None if it is missing/unreadable."""
-    path = os.path.join("results", project, str(bug_id), str(iteration), "result.json")
+    path = os.path.join(
+        "results", model_dir, project, f"Bug_{bug_id}", str(iteration), "result.json"
+    )
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
@@ -134,12 +140,19 @@ def main():
     args = parser.parse_args()
 
     project, bug_id = args.project, str(args.bug_id)
+    model_dir = model_dir_name(args.model if args.model is not None else DEFAULT_MODEL)
     forwarded = experiment_args(args)
     runs = []
     for i in range(1, args.iterations + 1):
         clean_checkout(args.workdir, project, bug_id)
         rc = run_once(project, bug_id, args.workdir, i, forwarded)
-        runs.append({"iteration": i, "exit_code": rc, "result": load_result(project, bug_id, i)})
+        runs.append(
+            {
+                "iteration": i,
+                "exit_code": rc,
+                "result": load_result(model_dir, project, bug_id, i),
+            }
+        )
     # Leave no stale checkout behind after the final run.
     clean_checkout(args.workdir, project, bug_id)
 
@@ -183,7 +196,7 @@ def main():
             for r in runs
         ],
     }
-    summary_dir = os.path.join("results", project, bug_id)
+    summary_dir = os.path.join("results", model_dir, project, f"Bug_{bug_id}")
     os.makedirs(summary_dir, exist_ok=True)
     summary_path = os.path.join(summary_dir, "summary.json")
     with open(summary_path, "w", encoding="utf-8") as f:

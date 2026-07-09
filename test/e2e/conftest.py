@@ -174,7 +174,7 @@ def lang1_pipeline(tmp_path_factory, request):
         num_attempts = NUM_BENCHMARK_ATTEMPTS if request.config.getoption("--run-benchmark") else 1
         # Debug artifacts (prompt.txt, fix.diff, raw_response.txt) go here per
         # attempt so the exact prompt can be diffed against a manual run's
-        # results/<project>/<bug>/<iteration>/ artifacts.
+        # results/<model>/<project>/Bug_<bug>/<iteration>/ artifacts.
         debug_root = os.path.join("results", "_debug", "lang1_pipeline")
         os.makedirs(debug_root, exist_ok=True)
         with open(os.path.join(debug_root, "issue.txt"), "w", encoding="utf-8") as f:
