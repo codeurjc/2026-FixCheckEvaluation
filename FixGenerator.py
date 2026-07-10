@@ -239,7 +239,7 @@ def _recount_hunk_headers(lines):
 class FixGenerator:
     """Generates an LLM fix (unified diff) from a bug description and sources."""
 
-    def __init__(self, model="ollama/gpt-oss:20b", temperature=0.0, max_tokens=8192):
+    def __init__(self, model="ollama/gpt-oss:20b", temperature=0.0, max_tokens=24576):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens

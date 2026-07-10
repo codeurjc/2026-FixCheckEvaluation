@@ -60,7 +60,7 @@ class OllamaLLM:
                         "keep_alive": -1,  # keep model in GPU memory indefinitely
                         "options": {
                             "temperature": self.temperature,
-                            "num_ctx": 32768,  # Max context window
+                            "num_ctx": 49152,  # Max context window (must fit prompt + max_tokens)
                             "num_predict": self.max_tokens  # -1 = unlimited, let model decide when to stop
                         }
                     }
