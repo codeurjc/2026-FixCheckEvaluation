@@ -109,14 +109,26 @@ Arguments:
 LLM fix generation is non-deterministic — even at `temperature=0`, a large MoE
 model served locally can produce a different patch on each call — so a single
 run is not a reliable signal. `run_iterations.py` runs `Experiment.py` N times
-for one bug, wiping the checkout between runs to avoid contamination, storing
-each run under `results/<model>/<project>/Bug_<bug_id>/<iteration>/`, and
-aggregating the outcomes into
-`results/<model>/<project>/Bug_<bug_id>/summary.json`:
+per bug, wiping the checkout between runs to avoid contamination, storing each
+run under `results/<model>/<project>/Bug_<bug_id>/<iteration>/`, and aggregating
+each bug's outcomes into `results/<model>/<project>/Bug_<bug_id>/summary.json`
+(plus a global summary printed at the end):
 
 ```bash
 python run_iterations.py --project Lang --bug-id 1 --iterations 5
 ```
+
+`--bug-id` accepts several ids and inclusive ranges, running `--iterations` runs
+for each bug — e.g. `--bug-id 1-5 8` covers bugs 1, 2, 3, 4, 5 and 8:
+
+```bash
+python run_iterations.py --project Lang --bug-id 1-5 8 --iterations 10
+```
+
+Iterations that are already done are **skipped**: if an iteration's
+`result.json` already exists it is reused (marked `skipped`) instead of
+re-running `Experiment.py`, so an interrupted run only recomputes the
+outstanding work when resubmitted.
 
 `run_iterations.py` mirrors `Experiment.py`'s fix-generation flags (`--model`,
 `--temperature`, `--include-test-code`, `--include-test-log`, `--include-issue`)
