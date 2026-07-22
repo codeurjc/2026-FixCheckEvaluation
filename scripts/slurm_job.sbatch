@@ -1,13 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=fixcheck-iterations
 #SBATCH --gpus=L40S:1
-#SBATCH --output=scripts/logs/slurm_%j.out
-#SBATCH --error=scripts/logs/slurm_%j.err
+#SBATCH --output=scripts/logs/%j/slurm.out
+#SBATCH --error=scripts/logs/%j/slurm.err
 
 # sbatch job: starts Ollama on the assigned GPU, runs
 # scripts/runIterations.sh and releases the GPU when done (or on failure).
-# Not meant to be submitted by hand: use scripts/runWithSlurm.sh instead,
-# which forwards PROJECT/BUG_ID/MODEL/ITERATIONS through here and can
+# Per-job logs go to scripts/logs/<job_id>/. SLURM does not create the parent
+# directory of --output/--error, so it must exist before the job starts; the
+# wrapper handles that (submit held -> mkdir -> release), which is one reason
+# this is not meant to be submitted by hand. Use scripts/runWithSlurm.sh
+# instead: it forwards PROJECT/BUG_ID/MODEL/ITERATIONS through here and can
 # override the --gpus directive above via its own --gpu flag.
 
 set -e
@@ -44,12 +47,17 @@ echo "FixCheckEvaluation - Job $SLURM_JOB_ID (node $SLURM_JOB_NODELIST)"
 echo "Project=$PROJECT BugId=$BUG_ID Model=$MODEL Iterations=$ITERATIONS"
 echo "========================================"
 
+# Per-job log directory (created by the wrapper before release; mkdir -p here
+# is idempotent and keeps the ollama log alongside slurm.out/err).
+LOG_DIR="$PROJECT_DIR/scripts/logs/$SLURM_JOB_ID"
+mkdir -p "$LOG_DIR"
+
 echo "[1/4] Cleaning up previous Ollama processes..."
 pkill -f "ollama serve" || true
 sleep 2
 
 echo "[2/4] Starting Ollama..."
-ollama serve > "$PROJECT_DIR/scripts/logs/ollama_${SLURM_JOB_ID}.log" 2>&1 &
+ollama serve > "$LOG_DIR/ollama.log" 2>&1 &
 OLLAMA_PID=$!
 echo "Ollama PID: $OLLAMA_PID"
 

@@ -84,10 +84,16 @@ exports again for `runIterations.sh` to pick up. For example:
 On submission it prints the job id and the relevant log paths:
 
 ```bash
-squeue -u $USER                          # check job status
-tail -f scripts/logs/slurm_<job_id>.out   # follow the output live
-scancel <job_id>                          # cancel the job and free the GPU
+squeue -u $USER                              # check job status
+tail -f scripts/logs/<job_id>/slurm.out       # follow the output live
+scancel <job_id>                             # cancel the job and free the GPU
 ```
 
-Logs (job stdout, stderr, and the `ollama serve` log) are written to
-`scripts/logs/`, which is created automatically if it doesn't exist.
+Each run's logs are grouped in a per-job directory
+`scripts/logs/<job_id>/`, containing `slurm.out` (job stdout), `slurm.err`
+(stderr) and `ollama.log` (the `ollama serve` log). Because SLURM opens its
+output files when the job starts but won't create their parent directory —
+and the job id is only known after submission — the wrapper submits the job
+held (`--hold`), creates `scripts/logs/<job_id>/`, and then releases it
+(`scontrol release`), so the directory always exists before the job writes to
+it.

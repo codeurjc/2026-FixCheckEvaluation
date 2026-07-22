@@ -33,23 +33,33 @@ done
 
 mkdir -p scripts/logs
 
-# --gpus on the sbatch command line overrides the #SBATCH --gpus directive
-# inside slurm_job.sbatch, which is why this is set here rather than there.
-JOB_ID=$(sbatch --parsable \
+# Per-job logs live in scripts/logs/<job_id>/. SLURM opens --output/--error
+# when the job starts but does NOT create their parent directory, and the job
+# id is only known after submission — so submit held, create the directory,
+# then release. --gpus/--output/--error on the command line override the
+# matching #SBATCH directives inside slurm_job.sbatch.
+JOB_ID=$(sbatch --parsable --hold \
     --gpus="$GPU" \
+    --output="scripts/logs/%j/slurm.out" \
+    --error="scripts/logs/%j/slurm.err" \
     --export=ALL,PROJECT="$PROJECT",BUG_ID="$BUG_ID",MODEL="$MODEL",ITERATIONS="$ITERATIONS" \
     scripts/slurm_job.sbatch)
 
+mkdir -p "scripts/logs/$JOB_ID"
+scontrol release "$JOB_ID"
+
+LOG_DIR="scripts/logs/$JOB_ID"
 echo "========================================"
 echo "Submitted job with sbatch: $JOB_ID"
 echo "Project=${PROJECT:-<default>} BugId=${BUG_ID:-<default>} Model=${MODEL:-<default>} Iterations=${ITERATIONS:-<default>} GPU=$GPU"
 echo "You can close the terminal, the job will keep running."
 echo "========================================"
-echo "Output:     scripts/logs/slurm_${JOB_ID}.out"
-echo "Errors:     scripts/logs/slurm_${JOB_ID}.err"
-echo "Ollama log: scripts/logs/ollama_${JOB_ID}.log"
+echo "Logs:       $LOG_DIR/"
+echo "  Output:     $LOG_DIR/slurm.out"
+echo "  Errors:     $LOG_DIR/slurm.err"
+echo "  Ollama log: $LOG_DIR/ollama.log"
 echo
 echo "Useful commands:"
-echo "  squeue -u \$USER                        # check job status"
-echo "  tail -f scripts/logs/slurm_${JOB_ID}.out # follow the output live"
-echo "  scancel $JOB_ID                          # cancel the job and free the GPU"
+echo "  squeue -u \$USER                    # check job status"
+echo "  tail -f $LOG_DIR/slurm.out # follow the output live"
+echo "  scancel $JOB_ID                      # cancel the job and free the GPU"
