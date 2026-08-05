@@ -11,6 +11,10 @@ Given a Defects4J project and bug id, this script:
   5. Locates and reads the buggy source file(s).
   6. Delegates *fix generation* to ``FixGenerator`` (dataset/Docker-agnostic).
   7. Applies the generated diff and re-runs the test suite to validate the fix.
+  7b. Optionally (``--fixcheck``), when the patch is plausible (applied and
+      every trigger test passing), runs FixCheck (vendored in ``fixcheck/``)
+      to flag likely-overfitting patches. Advisory only; never changes
+      ``fixed``.
   8. Persists all artifacts under ``results/<model>/<project>/Bug_<bug_id>/``
      (or ``results/<model>/<project>/Bug_<bug_id>/<iteration>/`` when
      ``--iteration`` is given), where ``<model>`` is ``--model`` with any
@@ -36,7 +40,18 @@ from html.parser import HTMLParser
 import docker
 from dotenv import load_dotenv
 
-from docker_utils import exec_in_container
+from docker_utils import exec_in_container, export_property, run_step
+from FixCheckWrapper import (
+    DEFAULT_FIXCHECK_ASSERTIONS,
+    DEFAULT_FIXCHECK_PREFIXES,
+    DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD,
+    FIXCHECK_ASSERTION_GENERATORS,
+    FIXCHECK_DIR,
+    FIXCHECK_JAR,
+    FixCheckWrapper,
+    group_triggers_by_class,
+    write_fixcheck_failure_logs,
+)
 from FixGenerator import FixGenerator, normalize_diff
 
 # Load API keys / OLLAMA_BASE_URL from a project-root .env, if present.
@@ -94,7 +109,7 @@ def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, appli
     return triggers_fixed, new_failures, fixed
 
 
-def start_container(client, mount_dir):
+def start_container(client, mount_dir, extra_mounts=None):
     """Start an ephemeral Defects4J container with the workdir mounted.
 
     The host directory is bound to the *same absolute path* inside the container
@@ -104,8 +119,19 @@ def start_container(client, mount_dir):
     The container runs as the host user (same uid:gid) so that files created on
     the shared volume are owned by the host user. This avoids Git's "dubious
     ownership" error and lets us read/write/clean the checkout from the host.
+
+    Args:
+        client: Docker SDK client.
+        mount_dir: Host directory bound read-write at the same absolute path.
+        extra_mounts: Optional dict of additional ``{host_path: {"bind": ...,
+            "mode": ...}}`` volume entries merged into the container's
+            ``volumes`` -- used to mount FIXCHECK_DIR read-only for
+            ``--fixcheck``.
     """
     print(f"[experiment] Starting container from {DEFECTS4J_IMAGE} ...")
+    volumes = {mount_dir: {"bind": mount_dir, "mode": "rw"}}
+    if extra_mounts:
+        volumes.update(extra_mounts)
     container = client.containers.run(
         DEFECTS4J_IMAGE,
         detach=True,
@@ -113,7 +139,7 @@ def start_container(client, mount_dir):
         user=f"{os.getuid()}:{os.getgid()}",
         # HOME must be writable by the host uid for `git config --global`.
         environment={"HOME": "/tmp"},
-        volumes={mount_dir: {"bind": mount_dir, "mode": "rw"}},
+        volumes=volumes,
     )
     print(f"[experiment] Container started: {container.short_id}")
 
@@ -124,39 +150,7 @@ def start_container(client, mount_dir):
     return container
 
 
-def run_step(container, command, workdir, description):
-    """Run a Defects4J command in the container and echo its result."""
-    print(f"[experiment] {description}")
-    result = exec_in_container(container, command, workdir=workdir)
-    status = "ok" if result.ok else f"FAILED (exit {result.exit_code})"
-    print(f"[experiment]   -> {status}")
-    return result
-
-
 # ----------------------------------------------------------------- sources
-
-def export_property(container, workdir, prop):
-    """Return the value of a Defects4J export property as a string.
-
-    ``defects4j export`` interleaves ant progress messages with the value on the
-    combined stream, so we write the value to a file with ``-o`` and read it back
-    from the shared volume to get a clean result.
-    """
-    out_file = os.path.join(workdir, f".export_{prop}")
-    result = exec_in_container(
-        container,
-        f"defects4j export -p {prop} -o {out_file} -w {workdir}",
-        workdir=None,
-    )
-    if not result.ok:
-        print(f"[experiment] WARNING: export of '{prop}' failed:\n{result.output}")
-        return ""
-    try:
-        with open(out_file, "r", encoding="utf-8", errors="replace") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return ""
-
 
 def locate_source_files(container, workdir):
     """Map modified classes to their source file paths on the host.
@@ -219,15 +213,22 @@ def locate_test_files(container, workdir, test_classes):
     return files
 
 
-def run_trigger_tests(container, workdir, trigger_tests):
-    """Run each trigger test in isolation and return the combined log.
+def run_trigger_tests_raw(container, workdir, trigger_tests):
+    """Run each trigger test in isolation and return its raw failure content.
 
     Uses the ``failing_tests`` file that Defects4J writes to ``workdir``
     rather than the ant console output, because the Formatter writes
     exception types and full stack traces directly to that file — they never
     appear on stdout.
+
+    Returns a dict mapping each ``"FQCN::method"`` trigger to ``(cmd,
+    content)``, where ``content`` is the raw file content with no header —
+    the shape FixCheck's ``test-failure-trace-log`` property needs (see
+    ``write_fixcheck_failure_logs``). ``run_trigger_tests`` rebuilds the
+    historical ``"$ cmd\\n<content>"`` log format on top of this for
+    ``--include-test-log``.
     """
-    logs = []
+    raw = {}
     for trigger_test in trigger_tests:
         cmd = f"defects4j test -t {trigger_test} -w {workdir}"
         exec_in_container(container, cmd, workdir=None)
@@ -237,7 +238,14 @@ def run_trigger_tests(container, workdir, trigger_tests):
                 content = f.read()
         except FileNotFoundError:
             content = ""
-        logs.append(f"$ {cmd}\n{content}")
+        raw[trigger_test] = (cmd, content)
+    return raw
+
+
+def run_trigger_tests(container, workdir, trigger_tests):
+    """Run each trigger test in isolation and return the combined log."""
+    raw = run_trigger_tests_raw(container, workdir, trigger_tests)
+    logs = [f"$ {cmd}\n{content}" for cmd, content in raw.values()]
     return "\n\n".join(logs)
 
 
@@ -343,6 +351,46 @@ def extract_trigger_test_code(trigger_tests, test_file_sources):
         else:
             reduced.append((rel_path, content))
     return reduced
+
+
+def extract_trigger_method_sources_by_class(trigger_tests, test_file_sources):
+    """Map each trigger class to the source of its trigger method(s).
+
+    Like :func:`extract_trigger_test_code`, but keyed by fully-qualified
+    class name instead of file path — what
+    :class:`FixCheckWrapper.FixCheckWrapper`'s per-class orchestration needs
+    to run ``select_fixcheck_inputs`` on.
+
+    Args:
+        trigger_tests: List of ``"FQCN::method"`` strings.
+        test_file_sources: List of ``(relative_path, content)`` for the test
+            file(s), as read from disk.
+
+    Returns:
+        Dict mapping each trigger FQCN to a ``{method: source}`` dict. A
+        method missing from the inner dict could not be located in the
+        class's own source file -- typically because it is *inherited* (Lang
+        10's ``FastDateFormat_ParserTest`` extends ``FastDateParserTest`` and
+        inherits ``testLANG_831``). FixCheck parses only the named class's
+        file, so it cannot analyze those either. Classes whose source file is
+        missing from ``test_file_sources`` are omitted entirely.
+    """
+    sources_by_class = {}
+    for cls, methods in group_triggers_by_class(trigger_tests).items():
+        content = next(
+            (c for rel, c in test_file_sources
+             if rel.endswith(cls.replace(".", "/") + ".java")),
+            None,
+        )
+        if content is None:
+            continue
+        found = {}
+        for method in methods:
+            code = extract_java_method(content, method)
+            if code:
+                found[method] = code
+        sources_by_class[cls] = found
+    return sources_by_class
 
 
 # ------------------------------------------------------------------- issue
@@ -552,6 +600,41 @@ def main():
         help="Include the original bug-tracker issue report in the prompt.",
     )
     parser.add_argument(
+        "--fixcheck", action="store_true",
+        help="After a plausible fix (applied and every trigger test passing), "
+             "run FixCheck (vendored in fixcheck/) to check for overfitting: "
+             "it mutates the trigger test's inputs, reruns the variations "
+             "against the patched program, and flags the patch as suspicious "
+             "when a variation fails the same way as the original bug. "
+             "Advisory only -- never changes 'fixed'. Requires the jar built "
+             "by scripts/buildFixcheck.sh.",
+    )
+    parser.add_argument(
+        "--fixcheck-prefixes", type=int, default=DEFAULT_FIXCHECK_PREFIXES,
+        help="Number of input variations ('prefixes') FixCheck generates per "
+             f"trigger method (default: {DEFAULT_FIXCHECK_PREFIXES}).",
+    )
+    parser.add_argument(
+        "--fixcheck-assertions", default=DEFAULT_FIXCHECK_ASSERTIONS,
+        choices=FIXCHECK_ASSERTION_GENERATORS,
+        help="FixCheck's assertion-generation strategy (default: "
+             f"{DEFAULT_FIXCHECK_ASSERTIONS!r}). The LLM-backed options "
+             "('codellama', 'llama3.1', 'gpt-3.5', 'replit-code-llm') are not "
+             "wired up for this project's container/network setup yet.",
+    )
+    parser.add_argument(
+        "--fixcheck-inputs-class", default=None,
+        help="Force FixCheck's inputs-class (e.g. 'int', 'java.lang.String') "
+             "instead of inferring it from the trigger test source.",
+    )
+    parser.add_argument(
+        "--fixcheck-similarity-threshold", type=float,
+        default=DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD,
+        help="Minimum failure-similarity score (0-1) a FixCheck failing "
+             "variation needs to mark the patch suspicious (default: "
+             f"{DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD}).",
+    )
+    parser.add_argument(
         "--iteration", default=None,
         help="Iteration index; when set, artifacts go to "
              "results/<model>/<project>/Bug_<bug>/<iteration>/ instead of "
@@ -579,8 +662,15 @@ def main():
         results_dir = os.path.join(results_dir, str(args.iteration))
     os.makedirs(results_dir, exist_ok=True)
 
+    if args.fixcheck and not os.path.isfile(FIXCHECK_JAR):
+        sys.exit(
+            "[experiment] --fixcheck requires the FixCheck jar, not found at "
+            f"{FIXCHECK_JAR}. Build it first with: bash scripts/buildFixcheck.sh"
+        )
+
     client = docker.from_env()
-    container = start_container(client, mount_dir)
+    extra_mounts = {FIXCHECK_DIR: {"bind": FIXCHECK_DIR, "mode": "ro"}} if args.fixcheck else None
+    container = start_container(client, mount_dir, extra_mounts=extra_mounts)
 
     try:
         # 1. Checkout the buggy version.
@@ -641,17 +731,38 @@ def main():
         if not trigger_tests:
             print("[experiment] WARNING: no trigger tests found.")
 
+        # 5c. Read the trigger test source(s): --include-test-code wants only
+        #     the failing method(s) per file; --fixcheck wants the same
+        #     content keyed by class instead (for select_fixcheck_inputs).
         test_sources = None
-        if args.include_test_code and trigger_tests:
+        trigger_method_sources = None
+        if trigger_tests and (args.include_test_code or args.fixcheck):
             test_classes = sorted({t.split("::")[0] for t in trigger_tests})
             test_files = locate_test_files(container, workdir, test_classes)
             full_test_sources = read_sources(test_files)
-            # Pass only the failing trigger method(s), not the whole test file.
-            test_sources = extract_trigger_test_code(trigger_tests, full_test_sources)
+            if args.include_test_code:
+                # Pass only the failing trigger method(s), not the whole file.
+                test_sources = extract_trigger_test_code(trigger_tests, full_test_sources)
+            if args.fixcheck:
+                trigger_method_sources = extract_trigger_method_sources_by_class(
+                    trigger_tests, full_test_sources
+                )
 
+        # 5d. Run each trigger test in isolation to capture its raw failure.
+        #     --include-test-log wants it for the prompt; --fixcheck needs the
+        #     *pre-fix* trace written to disk now, before fix generation --
+        #     by the time FixCheck runs, the patch is applied and Defects4J's
+        #     `failing_tests` file has been overwritten. Both flags share the
+        #     same isolated test runs so neither doubles the work.
         test_log = None
-        if args.include_test_log and trigger_tests:
-            test_log = run_trigger_tests(container, workdir, trigger_tests)
+        if trigger_tests and (args.include_test_log or args.fixcheck):
+            trigger_raw = run_trigger_tests_raw(container, workdir, trigger_tests)
+            if args.include_test_log:
+                test_log = "\n\n".join(
+                    f"$ {cmd}\n{content}" for cmd, content in trigger_raw.values()
+                )
+            if args.fixcheck:
+                write_fixcheck_failure_logs(workdir, trigger_tests, trigger_raw)
 
         # 6. Generate the fix (dataset/Docker-agnostic).
         generator = FixGenerator(model=args.model, temperature=args.temperature)
@@ -681,6 +792,36 @@ def main():
         triggers_fixed, new_failures, fixed = evaluate_fix(
             trigger_tests, failing_before_names, failing_after_names, applied
         )
+
+        # 7b. FixCheck overfitting check. Only worth running on a plausible
+        #     patch (applied and every trigger test passing) -- otherwise
+        #     there is nothing to validate. Advisory: never changes `fixed`.
+        fixcheck_result = None
+        if args.fixcheck and applied and triggers_fixed:
+            fixcheck = FixCheckWrapper(
+                num_prefixes=args.fixcheck_prefixes,
+                assertion_generator=args.fixcheck_assertions,
+                similarity_threshold=args.fixcheck_similarity_threshold,
+                inputs_class=args.fixcheck_inputs_class,
+            )
+            fixcheck_result = fixcheck.run(
+                container, workdir, trigger_tests, trigger_method_sources
+            )
+            for record in fixcheck_result["per_test_class"]:
+                run_dir = record.get("run_dir")
+                if not run_dir:
+                    continue
+                simple_name = record["test_class"].rsplit(".", 1)[-1]
+                dest = os.path.join(results_dir, "fixcheck", simple_name)
+                src_output = os.path.join(run_dir, "fixcheck-output")
+                if os.path.isdir(src_output):
+                    os.makedirs(dest, exist_ok=True)
+                    shutil.copytree(src_output, dest, dirs_exist_ok=True)
+                log_src = os.path.join(run_dir, "fixcheck.log")
+                if os.path.exists(log_src):
+                    os.makedirs(dest, exist_ok=True)
+                    shutil.copy(log_src, os.path.join(dest, "fixcheck.log"))
+        fixcheck_suspicious = bool(fixcheck_result and fixcheck_result.get("suspicious"))
 
         # 8. Persist validation artifacts and the combined result.
         write_text(results_dir, "apply.log", apply_log)
@@ -712,6 +853,8 @@ def main():
             "included_test_code": test_sources is not None,
             "included_test_log": test_log is not None,
             "included_issue": issue_text is not None,
+            "fixcheck": fixcheck_result,
+            "fixcheck_suspicious": fixcheck_suspicious,
         }
         write_text(results_dir, "result.json", json.dumps(result, indent=2))
 
@@ -727,6 +870,25 @@ def main():
             f"[experiment] Failing tests (whole suite): "
             f"{result['failing_tests_before']} -> {result['failing_tests_after']}"
         )
+        if fixcheck_result is None:
+            if args.fixcheck:
+                print("[experiment] FixCheck: not run (patch not plausible)")
+        elif not fixcheck_result.get("ok", True):
+            print(f"[experiment] FixCheck: not run cleanly ({fixcheck_result.get('error')})")
+        elif not fixcheck_result["analyzed_test_classes"]:
+            reasons = "; ".join(
+                r["error"] for r in fixcheck_result["per_test_class"] if r.get("error")
+            )
+            print(f"[experiment] FixCheck: no verdict -- nothing analyzed ({reasons})")
+        else:
+            verdict = "SUSPICIOUS" if fixcheck_result["suspicious"] else "supported"
+            print(
+                f"[experiment] FixCheck: {fixcheck_result['failing_prefixes']} "
+                f"variation(s) failing across "
+                f"{fixcheck_result['analyzed_test_classes']} test class(es), "
+                f"max similarity "
+                f"{fixcheck_result['max_failure_similarity']:.2f} -> {verdict}"
+            )
         print(f"[experiment] Results stored under: {results_dir}/")
 
     finally:

@@ -23,8 +23,9 @@ after each bug. Finally it aggregates each bug's runs into a per-bug
 total, how many runs fixed the bug.
 
 It mirrors Experiment.py's fix-generation flags (``--model``, ``--temperature``,
-``--include-test-code``, ``--include-test-log``, ``--include-issue``) and
-forwards them to every run, so they behave exactly as they do there:
+``--include-test-code``, ``--include-test-log``, ``--include-issue``, and the
+``--fixcheck``/``--fixcheck-*`` overfitting-check flags) and forwards them to
+every run, so they behave exactly as they do there:
 
     python run_iterations.py --project Lang --bug-id 1
     python run_iterations.py --project Lang --bug-id 1-5 8 --iterations 10 \
@@ -99,6 +100,16 @@ def experiment_args(args):
         forwarded.append("--include-test-log")
     if args.include_issue:
         forwarded.append("--include-issue")
+    if args.fixcheck:
+        forwarded.append("--fixcheck")
+    if args.fixcheck_prefixes is not None:
+        forwarded += ["--fixcheck-prefixes", str(args.fixcheck_prefixes)]
+    if args.fixcheck_assertions is not None:
+        forwarded += ["--fixcheck-assertions", args.fixcheck_assertions]
+    if args.fixcheck_inputs_class is not None:
+        forwarded += ["--fixcheck-inputs-class", args.fixcheck_inputs_class]
+    if args.fixcheck_similarity_threshold is not None:
+        forwarded += ["--fixcheck-similarity-threshold", str(args.fixcheck_similarity_threshold)]
     return forwarded
 
 
@@ -165,6 +176,7 @@ def process_bug(project, bug_id, model_dir, iterations, workdir, forwarded):
     fixed = sum(flag(r, "fixed") for r in runs)
     triggers = sum(flag(r, "triggers_fixed") for r in runs)
     applied = sum(flag(r, "applied") for r in runs)
+    fixcheck_suspicious = sum(flag(r, "fixcheck_suspicious") for r in runs)
     skipped = sum(r["skipped"] for r in runs)
 
     print(f"\n{'=' * 70}\n[run_iterations] Summary for {project} Bug_{bug_id}\n{'=' * 70}")
@@ -176,12 +188,14 @@ def process_bug(project, bug_id, model_dir, iterations, workdir, forwarded):
         else:
             print(
                 f"  iter {r['iteration']}: applied={res.get('applied')} "
-                f"triggers_fixed={res.get('triggers_fixed')} fixed={res.get('fixed')}{tag}"
+                f"triggers_fixed={res.get('triggers_fixed')} fixed={res.get('fixed')} "
+                f"fixcheck_suspicious={res.get('fixcheck_suspicious')}{tag}"
             )
-    print(f"\n  applied:        {applied}/{iterations}")
-    print(f"  triggers_fixed: {triggers}/{iterations}")
-    print(f"  fixed:          {fixed}/{iterations}")
-    print(f"  skipped:        {skipped}/{iterations}")
+    print(f"\n  applied:             {applied}/{iterations}")
+    print(f"  triggers_fixed:      {triggers}/{iterations}")
+    print(f"  fixed:               {fixed}/{iterations}")
+    print(f"  fixcheck_suspicious: {fixcheck_suspicious}/{iterations}")
+    print(f"  skipped:             {skipped}/{iterations}")
 
     summary = {
         "project": project,
@@ -190,6 +204,7 @@ def process_bug(project, bug_id, model_dir, iterations, workdir, forwarded):
         "applied": applied,
         "triggers_fixed": triggers,
         "fixed": fixed,
+        "fixcheck_suspicious": fixcheck_suspicious,
         "skipped": skipped,
         "runs": [
             {
@@ -199,6 +214,7 @@ def process_bug(project, bug_id, model_dir, iterations, workdir, forwarded):
                 "applied": (r["result"] or {}).get("applied"),
                 "triggers_fixed": (r["result"] or {}).get("triggers_fixed"),
                 "fixed": (r["result"] or {}).get("fixed"),
+                "fixcheck_suspicious": (r["result"] or {}).get("fixcheck_suspicious"),
             }
             for r in runs
         ],
@@ -254,6 +270,27 @@ def main():
         "--include-issue", action="store_true",
         help="Include the original bug-tracker issue report in the prompt.",
     )
+    parser.add_argument(
+        "--fixcheck", action="store_true",
+        help="Run FixCheck on plausible patches (forwarded to Experiment.py).",
+    )
+    parser.add_argument(
+        "--fixcheck-prefixes", type=int, default=None,
+        help="FixCheck number-of-prefixes (default: Experiment.py's default).",
+    )
+    parser.add_argument(
+        "--fixcheck-assertions", default=None,
+        help="FixCheck assertion-generator option (default: Experiment.py's default).",
+    )
+    parser.add_argument(
+        "--fixcheck-inputs-class", default=None,
+        help="Force FixCheck's inputs-class (default: Experiment.py's heuristic).",
+    )
+    parser.add_argument(
+        "--fixcheck-similarity-threshold", type=float, default=None,
+        help="FixCheck suspicious-verdict similarity threshold "
+             "(default: Experiment.py's default).",
+    )
     args = parser.parse_args()
 
     project = args.project
@@ -274,6 +311,7 @@ def main():
             f"  Bug_{s['bug_id']}: fixed={s['fixed']}/{s['iterations']} "
             f"triggers_fixed={s['triggers_fixed']}/{s['iterations']} "
             f"applied={s['applied']}/{s['iterations']} "
+            f"fixcheck_suspicious={s['fixcheck_suspicious']}/{s['iterations']} "
             f"skipped={s['skipped']}/{s['iterations']}"
         )
     total = args.iterations * len(bug_ids)
@@ -281,6 +319,7 @@ def main():
         f"\n  TOTAL: fixed={sum(s['fixed'] for s in summaries)}/{total} "
         f"triggers_fixed={sum(s['triggers_fixed'] for s in summaries)}/{total} "
         f"applied={sum(s['applied'] for s in summaries)}/{total} "
+        f"fixcheck_suspicious={sum(s['fixcheck_suspicious'] for s in summaries)}/{total} "
         f"skipped={sum(s['skipped'] for s in summaries)}/{total}"
     )
 

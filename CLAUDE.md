@@ -15,6 +15,9 @@ python -m venv .venv && source .venv/bin/activate && pip install -r requirements
 # Build the Defects4J Docker image (only if not already available)
 docker build -t defects4j:3.0.1 ./defects4j
 
+# Build the FixCheck jar (only needed for --fixcheck; requires Docker + network)
+bash scripts/buildFixcheck.sh
+
 # Run a full experiment
 python Experiment.py --project Lang --bug-id 1 --workdir ./workspace
 
@@ -34,12 +37,13 @@ Tests live in two folders: `test/unit/` (pure, always run) and `test/e2e/`
 
 ## Architecture
 
-The project has a deliberate two-layer separation:
+The project has a deliberate layer separation:
 
 **`Experiment.py`** — owns everything Defects4J- and Docker-specific:
 - Starts an ephemeral container from `defects4j:3.0.1`, mounting the host workdir at the same absolute path inside the container (so paths are valid on both sides).
 - Runs the full pipeline: checkout → compile (pre-fix) → test (pre-fix) → info → locate sources → generate fix → apply diff → compile (post-fix) → test (post-fix).
 - Applies the diff with a sequence of increasingly lenient strategies (`git apply`, `git apply --recount`, `patch --fuzz`) to tolerate LLM-generated diff imperfections.
+- Optionally (`--fixcheck`), on a plausible patch (applied and every trigger test passing), delegates to `FixCheckWrapper` for the overfitting check and copies its per-class `fixcheck-output/`/`fixcheck.log` into `results_dir/fixcheck/<simple_name>/`. Advisory only — never affects `fixed`. Requires the jar from `bash scripts/buildFixcheck.sh`.
 - Writes artifacts to `results/<project>/<bug_id>/`: `fix.diff`, `raw_response.txt`, `result.json`, `test_before.log`, `test_after.log`, `apply.log`.
 
 **`FixGenerator.py`** — dataset- and Docker-agnostic:
@@ -47,7 +51,12 @@ The project has a deliberate two-layer separation:
 - Builds the prompt, queries the LLM, extracts the unified diff from the response (stripping markdown fences if the model added them), and returns the diff plus generation metadata.
 - `normalize_diff()` repairs blank context lines that LLMs commonly emit without their leading space, which would otherwise break `git apply`.
 
-**`docker_utils.py`** — thin wrapper around the Docker SDK: `exec_in_container()` returns an `ExecResult(command, exit_code, output)` dataclass. Everything above uses this instead of the SDK directly.
+**`FixCheckWrapper.py`** — runs the vendored `fixcheck/` jar as an overfitting check, kept apart from `Experiment.py` so it can be built and tested independently:
+- The `FixCheckWrapper` class takes its configuration (`num_prefixes`, `assertion_generator`, `similarity_threshold`, `inputs_class`) directly through `__init__` rather than an argparse `Namespace`, and its `run(container, workdir, trigger_tests, trigger_method_sources)` mutates the trigger test's inputs, reruns the variations against the patched program, and flags the patch suspicious when a failing variation closely matches the original failure.
+- Still needs a running Defects4J container and shared-volume `workdir` (compiling, exporting classpaths and invoking the jar all happen inside it), but has no dependency on `Experiment.py` or the LLM fix-generation pipeline.
+- Also owns the FixCheck-specific pure helpers: the `inputs-class` heuristic (`select_fixcheck_inputs`, mirroring FixCheck's own assertion-exclusion logic), the `.properties` renderer, and the `report.csv`/`scores-failing-tests.csv` parsers.
+
+**`docker_utils.py`** — thin wrapper around the Docker SDK, used by everything above instead of the SDK directly: `exec_in_container()` returns an `ExecResult(command, exit_code, output)` dataclass; `run_step()` and `export_property()` are small Defects4J-command conveniences built on it.
 
 **`llms/`** — one class per provider (`OllamaLLM`, `AnthropicLLM`, `OpenAILLM`, `OpenRouterLLM`, `GoogleLLM`, `CopilotLLM`). Each implements `is_supported(model_name) -> bool` and `initialize(model, temperature, max_tokens) -> wrapper`. `FixGenerator` iterates the provider list and picks the first match.
 
@@ -91,12 +100,14 @@ Do not update README.md for internal refactors that leave the observable behavio
 
 - `test_fixgenerator_units.py` — `FixGenerator`'s SEARCH/REPLACE parsing, `build_diff_from_blocks` (whitespace-tolerant matching, path resolution, unlocatable-block reporting) and `normalize_diff`.
 - `test_experiment_units.py` — `Experiment`'s trigger-based fix criterion (`evaluate_fix`), the failing-test parser, and the Java trigger-method extraction (`extract_java_method` / `extract_trigger_test_code`).
+- `test_fixcheck_units.py` — the FixCheck integration's pure helpers: `group_triggers_by_class`, the `select_fixcheck_inputs` inputs-class heuristic, `build_fixcheck_properties`, and the `report.csv`/`scores-failing-tests.csv` parsers.
 
 **`test/e2e/`** — integration tests, skipped automatically when the Docker daemon, the `defects4j:3.0.1` image, or the target Ollama model is unavailable.
 
 - `test_fixgenerator_lang1.py` — validates only that `FixGenerator` returns a well-formed unified diff (format check, no patch application).
 - `test_experiment_lang1.py` — deterministic pipeline mechanics: trigger tests failing pre-fix → diff applies → project compiles → no new failures.
 - `test_benchmark_lang1.py` — the model-quality gate (the LLM's fix makes the trigger tests pass). Marked `benchmark`; runs only with `--run-benchmark` since it depends on the (non-deterministic) model output.
+- `test_fixcheck_devfix.py` — runs FixCheck against a bug's actual *developer* fix (`<id>b` diffed against the `<id>f` checkout, not an LLM guess) and asserts it is not flagged suspicious, plus that FixCheck really compiled and ran prefixes so the verdict isn't vacuous. Uses **Lang 12**: most Defects4J bugs are not usable FixCheck subjects (Lang 1's trigger test is all assertions, Lang 10's is inherited), and Lang 12 also exercises dropping an unmutable trigger method from `test-methods`. Skipped unless the FixCheck jar is built (`bash scripts/buildFixcheck.sh`), independently of the Docker/Ollama skip checks above.
 - `conftest.py` — the session-scoped `lang1_pipeline` fixture shared by the two above, so the container pipeline runs once.
 
 The model used by the integration tests defaults to `ollama/gpt-oss:120b` and can be overridden with `FIXGEN_TEST_MODEL`. The `--run-benchmark` flag and `benchmark` marker are registered in the root `conftest.py`.

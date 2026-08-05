@@ -3,6 +3,20 @@
 Helper scripts for running experiments and tests. All of them are meant to
 be run from the repository root.
 
+## buildFixcheck.sh
+
+One-time setup for `--fixcheck` (see the root `README.md`'s *Requirements*
+section): builds `fixcheck/build/libs/fixcheck-all-1.0.0.jar` from the
+vendored `fixcheck/` sources inside a throwaway `defects4j:3.0.1` container,
+then smoke-tests the jar under that image's Java 11. Needs Docker and network
+access (the Gradle wrapper downloads Gradle 8.0.2 on first use).
+
+```bash
+bash scripts/buildFixcheck.sh
+```
+
+Re-run it whenever `fixcheck/` changes; the jar isn't rebuilt automatically.
+
 ## runExperiment.sh
 
 Runs a single execution of `Experiment.py` for one Defects4J bug. Assumes an

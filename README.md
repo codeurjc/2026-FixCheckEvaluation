@@ -36,6 +36,18 @@ that fail regardless of the patch.
    - Applies the generated diff with `git apply` inside the container and
      **validates** it by re-running `defects4j test`, then checking the bug's
      trigger tests pass and no new failures were introduced.
+   - Optionally (`--fixcheck`), once the patch is *plausible* (applied and
+     every trigger test passing), runs
+     [FixCheck](https://github.com/facumolina/fixcheck) (vendored in
+     `fixcheck/`) as an overfitting check: it mutates the trigger test's
+     inputs, reruns the generated variations against the **patched** program
+     — reusing the original test's assertions by default
+     (`previous-assertion`) — and measures how similar each failing
+     variation's failure trace is to the original bug's. A failing variation
+     with high similarity is evidence the patch didn't really fix the
+     underlying defect rather than just satisfying the trigger test. This is
+     purely advisory: it never changes `fixed`, only adds a `fixcheck` block
+     and a `fixcheck_suspicious` flag to `result.json`.
    - Writes the validation artifacts (`apply.log`, `test_before.log`,
      `test_after.log`) and the combined `result.json`.
    - Always stops and removes the container at the end.
@@ -63,6 +75,7 @@ connectors.
 - Docker, with the `defects4j:3.0.1` image available locally.
   Build it from the bundled context if needed:
   ```bash
+  git clone git@github.com:rjust/defects4j.git
   docker build -t defects4j:3.0.1 ./defects4j
   ```
 - Python virtual environment with the dependencies installed:
@@ -83,6 +96,13 @@ connectors.
     `ANTHROPIC_API_KEY`.
   - **OpenAI** — `--model gpt-4o`, `OPENAI_API_KEY`.
   - **OpenRouter** (default fallback) — any other model id, `OPENROUTER_API_KEY`.
+- (Optional, for `--fixcheck`) The FixCheck jar, built once from the vendored
+  `fixcheck/` sources:
+  ```bash
+  bash scripts/buildFixcheck.sh
+  ```
+  Needs Docker and network access (the Gradle wrapper downloads Gradle on
+  first use).
 
 ## Usage
 
@@ -102,7 +122,49 @@ Arguments:
 | `--include-test-code` | Include the failing trigger test method(s) in the prompt (extracted from the test file, not the whole file). | off |
 | `--include-test-log`  | Include the regression (trigger) test's isolated failure log in the prompt. | off |
 | `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
+| `--fixcheck` | Run FixCheck on plausible patches (applied and every trigger test passing) as an overfitting check. Requires the jar from `bash scripts/buildFixcheck.sh`. | off |
+| `--fixcheck-prefixes` | Number of input variations ("prefixes") FixCheck generates per trigger method. | `25` |
+| `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `replit-code-llm`, `gpt-3.5`, `codellama`, `llama3.1`. The LLM-backed options aren't wired up for this project's container/network setup yet. | `previous-assertion` |
+| `--fixcheck-inputs-class` | Force FixCheck's `inputs-class` (e.g. `int`, `java.lang.String`) instead of inferring it from the trigger test source. Also the way to run FixCheck on a trigger test the heuristic considers unmutable (see *Not every bug is a FixCheck subject* below). | heuristic |
+| `--fixcheck-similarity-threshold` | Minimum failure-similarity score (0-1) a FixCheck failing variation needs to mark the patch suspicious. | `0.8` |
 | `--iteration`   | Iteration index; when set, artifacts go to `results/<model>/<project>/Bug_<bug_id>/<iteration>/` instead of `results/<model>/<project>/Bug_<bug_id>/`. Used by `run_iterations.py`. | none |
+
+### Not every bug is a FixCheck subject
+
+FixCheck generates each test variation by replacing **one literal of
+`inputs-class`** in the bug-revealing test, and it only draws that literal
+from a statement that is *not* an assertion (see `isAssertion` in
+`fixcheck/src/main/java/org/imdea/fixcheck/transform/input/InputTransformer.java`).
+Many Defects4J trigger tests are nothing but `assertEquals(...)` lines — Lang
+1's `TestLang747` is one — and for those **no `inputs-class` works at all**:
+upstream FixCheck dies with `IllegalArgumentException: No locals of type <T>`
+and writes no report.
+
+`Experiment.py` detects this up front (`select_fixcheck_inputs` returns no
+usable type when the trigger methods have no mutable literal) and skips that
+test class with an explanatory message instead of spending minutes on a run
+that cannot produce anything. The `fixcheck` block still records the skip, and
+`analyzed_test_classes` reports how many trigger classes actually yielded a
+report — a `suspicious: false` verdict is only meaningful when that count is
+above zero. Pass `--fixcheck-inputs-class` to force a run anyway.
+
+Three related upstream behaviors are worth knowing about when picking subjects:
+
+- **Inherited trigger methods are invisible to FixCheck.** It parses only the
+  named test class's own source file, so a trigger like Lang 10's
+  `FastDateFormat_ParserTest::testLANG_831` — inherited from
+  `FastDateParserTest` — yields no prefixes. Those classes are skipped too.
+- **One unmutable method used to sink the whole class.** FixCheck generates
+  variations for every method in `test-methods` and lets
+  `IllegalArgumentException` escape `main`, so a single method without a
+  literal of `inputs-class` aborts the run before any report is written.
+  `Experiment.py` therefore passes only the methods it can actually mutate.
+- **A prefix that fails to compile aborts the run.** `PrefixRunner` records a
+  `null` execution result and `FixCheck.generateSimilarPrefixes` dereferences
+  it, so the process dies with a `NullPointerException` and writes no report
+  at all — the `non_compiling` count in `report.csv` is unreachable in
+  practice. This is an upstream bug; the integration treats it as one more
+  advisory failure.
 
 ### Repeating a run (non-determinism)
 
@@ -131,8 +193,11 @@ re-running `Experiment.py`, so an interrupted run only recomputes the
 outstanding work when resubmitted.
 
 `run_iterations.py` mirrors `Experiment.py`'s fix-generation flags (`--model`,
-`--temperature`, `--include-test-code`, `--include-test-log`, `--include-issue`)
-and forwards them to every run, so they behave exactly as they do there.
+`--temperature`, `--include-test-code`, `--include-test-log`, `--include-issue`,
+and the `--fixcheck`/`--fixcheck-*` flags) and forwards them to every run, so
+they behave exactly as they do there. Its per-bug and global summaries, and
+`summary.json`, also report a `fixcheck_suspicious` count alongside
+`applied`/`triggers_fixed`/`fixed`.
 
 ## Output
 
@@ -147,8 +212,10 @@ set), where `<model>` is `--model` with any `<provider>/` prefix stripped
 - `result.json` — run summary: `applied`, `fixed`, `triggers_fixed`, the bug's
   `trigger_tests`, any `new_failures` the patch introduced, failing-test counts
   before and after, modified files, bug metadata, token usage, the raw LLM
-  response, and whether the regression test code/log/issue were included in the
-  prompt (`included_test_code`, `included_test_log`, `included_issue`).
+  response, whether the regression test code/log/issue were included in the
+  prompt (`included_test_code`, `included_test_log`, `included_issue`), and
+  the FixCheck overfitting check's result (`fixcheck`, `fixcheck_suspicious`
+  — see below).
 - `test_before.log` / `test_after.log` — test suite output before and after the
   fix.
 - `apply.log` — output of the `git apply` attempts.
@@ -158,3 +225,19 @@ set), where `<model>` is `--model` with any `<provider>/` prefix stripped
   written when `--include-test-log` is set.
 - `issue.txt` — the fetched bug-tracker issue report; only written when
   `--include-issue` is set.
+- `fixcheck/<test-class>/` — only written when `--fixcheck` ran on a plausible
+  patch (one subdirectory per trigger test class): `report.csv` and
+  `scores-failing-tests.csv` (FixCheck's own output; see
+  `fixcheck/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java` and
+  `PrefixWriter.java` for their exact format), the generated `passing-tests/`,
+  `failing-tests/` and `non-compiling-tests/` prefix sources, and
+  `fixcheck.log` (FixCheck's console output). `result.json`'s `fixcheck` block
+  mirrors the same data in
+  structured form: per-class parsed reports/scores, `analyzed_test_classes`,
+  `failing_prefixes`, `max_failure_similarity`, and the `suspicious` verdict
+  (a failing variation scored at or above `--fixcheck-similarity-threshold`).
+  `fixcheck_suspicious` is the top-level convenience boolean mirroring that
+  verdict; both are `null`/`false` when `--fixcheck` wasn't set or the patch
+  wasn't plausible enough to run it on. Check `analyzed_test_classes` before
+  reading a `false` verdict as evidence of correctness — see *Not every bug
+  is a FixCheck subject* above.
