@@ -33,6 +33,25 @@ if [ ! -d "$FIXCHECK_DIR" ]; then
   git clone git@github.com:facumolina/fixcheck.git "$FIXCHECK_DIR"
 fi
 
+# Apply the local fixes for the two upstream defects that gut the verdict
+# (assertion stripping under previous-assertion, and the Java 9+ stack-trace
+# normalization; see docs/fixcheck-verdict-limitations.md). The clone is
+# gitignored, so the patches live in scripts/fixcheck-patches/ and are
+# re-applied here after every fresh clone. Idempotent: a patch that already
+# reverse-applies is skipped.
+for patch in "$REPO_ROOT"/scripts/fixcheck-patches/*.patch; do
+  name="$(basename "$patch")"
+  if git -C "$FIXCHECK_DIR" apply --reverse --check "$patch" >/dev/null 2>&1; then
+    echo "Patch already applied: $name"
+  elif git -C "$FIXCHECK_DIR" apply --check "$patch" >/dev/null 2>&1; then
+    echo "Applying patch: $name"
+    git -C "$FIXCHECK_DIR" apply "$patch"
+  else
+    echo "ERROR: $name neither applies nor reverse-applies in $FIXCHECK_DIR" >&2
+    exit 1
+  fi
+done
+
 # --network=host: the build downloads Gradle 8.0.2 and the Maven dependencies,
 # and Docker's default bridge DNS does not resolve on every host (the
 # defects4j image ships a nameserver that may not be reachable). Sharing the

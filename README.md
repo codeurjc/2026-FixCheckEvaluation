@@ -49,8 +49,10 @@ that fail regardless of the patch.
      changes `fixed`, only adds a `fixcheck` block and a `fixcheck_suspicious`
      flag to `result.json`. Before reporting those verdicts as results, read
      [docs/fixcheck-verdict-limitations.md](docs/fixcheck-verdict-limitations.md):
-     two measured upstream defects make a negative verdict much weaker than it
-     looks.
+     it documents two upstream defects that gutted the check — both now fixed
+     by the patches in `scripts/fixcheck-patches/`, applied automatically by
+     `scripts/buildFixcheck.sh` — and the limitations that still remain
+     (role-blind literal mutation, non-reproducible runs).
    - Writes the validation artifacts (`apply.log`, `test_before.log`,
      `test_after.log`) and the combined `result.json`.
    - Always stops and removes the container at the end.
@@ -105,7 +107,9 @@ connectors.
   bash scripts/buildFixcheck.sh
   ```
   Needs Docker and network access (the Gradle wrapper downloads Gradle on
-  first use).
+  first use). The script clones `fixcheck/` if missing and applies the local
+  fixes from `scripts/fixcheck-patches/` before building (see
+  [docs/fixcheck-verdict-limitations.md](docs/fixcheck-verdict-limitations.md)).
 
 ## Usage
 
@@ -127,7 +131,7 @@ Arguments:
 | `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
 | `--fixcheck` | Run FixCheck on plausible patches (applied and every trigger test passing) as an overfitting check. Requires the jar from `bash scripts/buildFixcheck.sh`. | off |
 | `--fixcheck-prefixes` | Number of input variations ("prefixes") FixCheck generates per trigger method. | `25` |
-| `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `codellama`, `llama3.1`, `gpt-3.5`, `replit-code-llm`. Only the Ollama-backed ones (`codellama`, `llama3.1`) actually produce a meaningful assertion ([why](docs/fixcheck-verdict-limitations.md)), and they need a local daemon — see *Ollama-backed assertion generators* below. `gpt-3.5` and `replit-code-llm` aren't wired up for this project's container/network setup yet. | `previous-assertion` |
+| `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `codellama`, `llama3.1`, `gpt-3.5`, `replit-code-llm`. `previous-assertion` keeps the trigger test's own assertions in every variation (restored by the patches in `scripts/fixcheck-patches/` — [background](docs/fixcheck-verdict-limitations.md)); `assert-true` only appends a vacuous `assertTrue(true)`. The Ollama-backed ones (`codellama`, `llama3.1`) generate new assertions with an LLM and need a local daemon — see *Ollama-backed assertion generators* below. `gpt-3.5` and `replit-code-llm` aren't wired up for this project's container/network setup yet. | `previous-assertion` |
 | `--fixcheck-inputs-class` | Force FixCheck's `inputs-class` (e.g. `int`, `java.lang.String`) instead of inferring it from the trigger test source. Also the way to run FixCheck on a trigger test the heuristic considers unmutable (see *Not every bug is a FixCheck subject* below). | heuristic |
 | `--fixcheck-similarity-threshold` | Minimum failure-similarity score (0-1) a FixCheck failing variation needs to mark the patch suspicious. | `0.8` |
 | `--iteration`   | Iteration index; when set, artifacts go to `results/<model>/<project>/Bug_<bug_id>/<iteration>/` instead of `results/<model>/<project>/Bug_<bug_id>/`. Used by `run_iterations.py`. | none |

@@ -1,0 +1,1025 @@
+srun: unrecognized option '--jpb-name=fixcheck-experiment'
+Try "srun --help" for more information
+srun: error: ioctl(TIOCGWINSZ): Inappropriate ioctl for device
+srun: error: Not using a pseudo-terminal, disregarding --pty option
+time=2026-08-10T13:18:46.936+02:00 level=INFO source=routes.go:1933 msg="server config" env="map[CUDA_VISIBLE_DEVICES:1 GGML_VK_VISIBLE_DEVICES: GPU_DEVICE_ORDINAL:1 HIP_VISIBLE_DEVICES: HSA_OVERRIDE_GFX_VERSION: HTTPS_PROXY: HTTP_PROXY: LLAMA_ARG_FIT: LLAMA_ARG_FIT_TARGET: NO_PROXY: OLLAMA_CONTEXT_LENGTH:0 OLLAMA_DEBUG:INFO OLLAMA_DEBUG_LOG_REQUESTS:false OLLAMA_EDITOR: OLLAMA_FLASH_ATTENTION:false OLLAMA_GO_TEMPLATE:true OLLAMA_GPU_OVERHEAD:0 OLLAMA_HOST:http://localhost:1995 OLLAMA_IGPU_ENABLE: OLLAMA_KEEP_ALIVE:5m0s OLLAMA_KV_CACHE_TYPE: OLLAMA_LLM_LIBRARY: OLLAMA_LOAD_TIMEOUT:5m0s OLLAMA_MAX_LOADED_MODELS:0 OLLAMA_MAX_QUEUE:512 OLLAMA_MAX_TRANSFER_STREAMS:4 OLLAMA_MODELS:/home/maes/.ollama/models OLLAMA_NOHISTORY:false OLLAMA_NOPRUNE:false OLLAMA_NO_CLOUD:false OLLAMA_NUM_PARALLEL:1 OLLAMA_ORIGINS:[http://localhost https://localhost http://localhost:* https://localhost:* http://127.0.0.1 https://127.0.0.1 http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0 https://0.0.0.0 http://0.0.0.0:* https://0.0.0.0:* app://* file://* tauri://* vscode-webview://* vscode-file://*] OLLAMA_REMOTES:[ollama.com] OLLAMA_SCHED_SPREAD:false OLLAMA_VULKAN:true ROCR_VISIBLE_DEVICES:1 http_proxy: https_proxy: no_proxy:]"
+time=2026-08-10T13:18:46.936+02:00 level=INFO source=routes.go:1935 msg="Ollama cloud disabled: false"
+time=2026-08-10T13:18:46.941+02:00 level=INFO source=images.go:886 msg="total blobs: 74"
+time=2026-08-10T13:18:46.945+02:00 level=INFO source=images.go:893 msg="total unused blobs removed: 0"
+time=2026-08-10T13:18:46.946+02:00 level=INFO source=routes.go:1990 msg="Listening on 127.0.0.1:1995 (version 0.32.7)"
+time=2026-08-10T13:18:46.947+02:00 level=INFO source=runner.go:60 msg="discovering available GPUs..."
+time=2026-08-10T13:18:46.947+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" CUDA_VISIBLE_DEVICES=1
+time=2026-08-10T13:18:46.947+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" ROCR_VISIBLE_DEVICES=1
+time=2026-08-10T13:18:46.947+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" GPU_DEVICE_ORDINAL=1
+time=2026-08-10T13:18:46.947+02:00 level=WARN source=runner.go:726 msg="if GPUs are not correctly discovered, unset and try again"
+time=2026-08-10T13:18:46.964+02:00 level=INFO source=model_list_cache.go:112 msg="model list cache hydration complete" models=21 failures=0 elapsed=18.104575ms
+time=2026-08-10T13:18:47.079+02:00 level=INFO source=model_recommendations.go:177 msg="model recommendations cache sleep scheduled" wait=4h2m26.806043208s consecutive_failures=0
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=1 filter_id=1 library=Vulkan compute=0.0 name=Vulkan1 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:04:00.0 type=discrete total="93.6 GiB" available="93.1 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=7 filter_id=7 library=Vulkan compute=0.0 name=Vulkan7 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:c3:00.0 type=discrete total="93.6 GiB" available="93.1 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=2 filter_id=2 library=Vulkan compute=0.0 name=Vulkan2 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:43:00.0 type=discrete total="45.0 GiB" available="44.4 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=1 library=CUDA compute=8.9 name=CUDA0 description="NVIDIA L40S" libdirs=ollama,cuda_v13 driver=13.0 pci_id=0000:44:00.0 type=discrete total="44.4 GiB" available="44.0 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=6 filter_id=6 library=Vulkan compute=0.0 name=Vulkan6 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:84:00.0 type=discrete total="45.0 GiB" available="40.6 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=5 filter_id=5 library=Vulkan compute=0.0 name=Vulkan5 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:83:00.0 type=discrete total="45.0 GiB" available="39.0 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=4 filter_id=4 library=Vulkan compute=0.0 name=Vulkan4 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:45:00.0 type=discrete total="45.0 GiB" available="37.6 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=8 filter_id=8 library=Vulkan compute=0.0 name=Vulkan8 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:c4:00.0 type=discrete total="93.6 GiB" available="30.5 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=0 library=Vulkan compute=0.0 name=Vulkan0 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:03:00.0 type=discrete total="93.6 GiB" available="30.5 GiB"
+time=2026-08-10T13:19:00.021+02:00 level=INFO source=routes.go:2040 msg="vram-based default context" total_vram="598.7 GiB" default_num_ctx=262144
+[GIN] 2026/08/10 - 13:19:00 |[97;42m 200 [0m|      63.181µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:19:00 |[97;42m 200 [0m|     104.111µs |       127.0.0.1 |[97;44m GET     [0m "/api/ps"
+[GIN] 2026/08/10 - 13:19:34 |[97;42m 200 [0m|       41.21µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:19:35 |[97;42m 200 [0m|  316.778138ms |       127.0.0.1 |[97;46m POST    [0m "/api/show"
+[GIN] 2026/08/10 - 13:19:35 |[97;42m 200 [0m|    7.884057ms |       127.0.0.1 |[97;46m POST    [0m "/api/show"
+time=2026-08-10T13:19:38.789+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T13:19:38.789+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T13:19:38.789+02:00 level=WARN source=runner.go:364 msg="unable to refresh free memory, using old values"
+time=2026-08-10T13:19:38.797+02:00 level=WARN source=llama_server.go:130 msg="llama-server discovery: timed out waiting for server startup" error="context deadline exceeded" libDirs="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" lines_captured=0
+time=2026-08-10T13:19:38.940+02:00 level=INFO source=sched.go:1013 msg="selecting single GPU for llama-server model" main_gpu=0 id=1 filter_id=1 library=Vulkan name=Vulkan1 description="NVIDIA H100 NVL" integrated=false predicted="67.2 GiB" available="93.1 GiB"
+time=2026-08-10T13:19:38.941+02:00 level=INFO source=sched.go:1132 msg="selecting GPU backend for llama-server model" library=Vulkan gpu_count=1 available_gpu_count=9
+time=2026-08-10T13:19:38.941+02:00 level=INFO source=server.go:109 msg="using llama-server for model" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a
+time=2026-08-10T13:19:38.941+02:00 level=WARN source=server.go:114 msg="requested context size too large for model" num_ctx=262144 n_ctx_train=131072
+time=2026-08-10T13:19:38.941+02:00 level=INFO source=llama_server.go:431 msg="starting llama-server" cmd="/home/maes/.local/lib/ollama/llama-server --model /home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a --port 32871 --host 127.0.0.1 --no-webui --offline -c 131072 -np 1 --log-verbosity 4 --no-log-prefix --no-log-timestamps --no-jinja --chat-template chatml --flash-attn auto -b 1024 -ub 1024 --split-mode none --main-gpu 0 --context-shift --keep 4"
+time=2026-08-10T13:19:38.942+02:00 level=INFO source=sched.go:613 msg="system memory" total="1511.4 GiB" free="1303.6 GiB" free_swap="7.0 GiB"
+time=2026-08-10T13:19:38.942+02:00 level=INFO source=sched.go:620 msg="gpu memory" id=1 library=Vulkan available="92.6 GiB" free="93.1 GiB" minimum="457.0 MiB" overhead="0 B"
+time=2026-08-10T13:19:38.942+02:00 level=INFO source=llama_server.go:1046 msg="loading model via llama-server" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a
+time=2026-08-10T13:19:38.942+02:00 level=INFO source=llama_server.go:1293 msg="waiting for llama-server to start responding"
+time=2026-08-10T13:19:38.942+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+cmn  common_param: common_params_print_info: build 1 (96278e39f) with GNU 13.3.1 for Linux x86_64
+cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
+cmn  common_param: device_info:
+cmn  common_param:   - CPU     : AMD EPYC 9654 96-Core Processor (1547657 MiB, 1547657 MiB free)
+cmn  common_param:   - Vulkan0 : NVIDIA H100 NVL (95830 MiB, 95319 MiB free)
+cmn  common_param: system_info: n_threads = 192 (n_threads_batch = 192) / 384 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+srv          init: using 383 threads for HTTP server
+srv          init: The UI is disabled
+srv          init: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
+srv  llama_server: -----------------
+srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+srv  llama_server: this can be a security risk (cross-origin attacks)
+srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+srv  llama_server: -----------------
+srv         start: binding port with default address family
+srv    load_model: loading model '/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a'
+srv    load_model: local path '/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a'
+cmn  common_init_: fitting params to device memory ...
+cmn  common_init_: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+common_params_fit_impl: getting device memory data for initial parameters:
+time=2026-08-10T13:19:39.696+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+handle_gptoss: detected Ollama-format gpt-oss GGUF; applying compatibility fixes
+common_memory_breakdown_print: | memory breakdown [MiB] | total    free     self   model   context   compute    unaccounted |
+common_memory_breakdown_print: |   - Vulkan0 (H100 NVL) | 95830 = 95289 + (66308 = 61223 +    4653 +     432) +      -65768 |
+common_memory_breakdown_print: |   - Host               |                   1385 =  1104 +       0 +     281                |
+common_params_fit_impl: projected to use 66308 MiB of device memory vs. 95289 MiB of free device memory
+common_params_fit_impl: will leave 28980 >= 1024 MiB of free device memory, no changes needed
+common_fit_params: successfully fit params to free device memory
+common_fit_params: fitting params to free memory took 0.74 seconds
+handle_gptoss: detected Ollama-format gpt-oss GGUF; applying compatibility fixes
+llama_model_loader: loaded meta data with 48 key-value pairs and 687 tensors from /home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a (version GGUF V3 (latest))
+llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+llama_model_loader: - kv   0:                          general.file_type u32              = 4
+llama_model_loader: - kv   1:               general.quantization_version u32              = 2
+llama_model_loader: - kv   2:                gptoss.attention.head_count u32              = 64
+llama_model_loader: - kv   3:             gptoss.attention.head_count_kv u32              = 8
+llama_model_loader: - kv   4:                gptoss.attention.key_length u32              = 64
+llama_model_loader: - kv   5:    gptoss.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv   6:            gptoss.attention.sliding_window u32              = 128
+llama_model_loader: - kv   7:              gptoss.attention.value_length u32              = 64
+llama_model_loader: - kv   8:                         gptoss.block_count u32              = 36
+llama_model_loader: - kv   9:                      gptoss.context_length u32              = 131072
+llama_model_loader: - kv  10:                    gptoss.embedding_length u32              = 2880
+llama_model_loader: - kv  11:                        gptoss.expert_count u32              = 128
+llama_model_loader: - kv  12:                   gptoss.expert_used_count u32              = 4
+llama_model_loader: - kv  13:                 gptoss.feed_forward_length u32              = 2880
+llama_model_loader: - kv  14:                      gptoss.rope.freq_base f32              = 150000.000000
+llama_model_loader: - kv  15:                 gptoss.rope.scaling.factor f32              = 32.000000
+llama_model_loader: - kv  16: gptoss.rope.scaling.original_context_length u32              = 4096
+llama_model_loader: - kv  17:               tokenizer.ggml.add_bos_token bool             = false
+llama_model_loader: - kv  18:               tokenizer.ggml.add_eos_token bool             = false
+llama_model_loader: - kv  19:           tokenizer.ggml.add_padding_token bool             = false
+llama_model_loader: - kv  20:                tokenizer.ggml.bos_token_id u32              = 199998
+llama_model_loader: - kv  21:                tokenizer.ggml.eos_token_id u32              = 199999
+llama_model_loader: - kv  22:               tokenizer.ggml.eos_token_ids arr[i32,3]       = [199999, 200002, 200012]
+llama_model_loader: - kv  23:                      tokenizer.ggml.merges arr[str,446189]  = ["Ġ Ġ", "Ġ ĠĠĠ", "ĠĠ ĠĠ", "...
+llama_model_loader: - kv  24:                       tokenizer.ggml.model str              = gpt2
+llama_model_loader: - kv  25:            tokenizer.ggml.padding_token_id u32              = 199999
+llama_model_loader: - kv  26:                      tokenizer.ggml.scores arr[f32,201088]  = [0.000000, 1.000000, 2.000000, 3.0000...
+llama_model_loader: - kv  27:                  tokenizer.ggml.token_type arr[i32,201088]  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+llama_model_loader: - kv  28:                      tokenizer.ggml.tokens arr[str,201088]  = ["!", "\"", "#", "$", "%", "&", "'", ...
+llama_model_loader: - kv  29:                       general.architecture str              = gpt-oss
+llama_model_loader: - kv  30:               gpt-oss.attention.head_count u32              = 64
+llama_model_loader: - kv  31:            gpt-oss.attention.head_count_kv u32              = 8
+llama_model_loader: - kv  32:               gpt-oss.attention.key_length u32              = 64
+llama_model_loader: - kv  33:   gpt-oss.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv  34:           gpt-oss.attention.sliding_window u32              = 128
+llama_model_loader: - kv  35:             gpt-oss.attention.value_length u32              = 64
+llama_model_loader: - kv  36:                        gpt-oss.block_count u32              = 36
+llama_model_loader: - kv  37:                     gpt-oss.context_length u32              = 131072
+llama_model_loader: - kv  38:                   gpt-oss.embedding_length u32              = 2880
+llama_model_loader: - kv  39:                       gpt-oss.expert_count u32              = 128
+llama_model_loader: - kv  40:                  gpt-oss.expert_used_count u32              = 4
+llama_model_loader: - kv  41:                gpt-oss.feed_forward_length u32              = 2880
+llama_model_loader: - kv  42:                     gpt-oss.rope.freq_base f32              = 150000.000000
+llama_model_loader: - kv  43:                gpt-oss.rope.scaling.factor f32              = 32.000000
+llama_model_loader: - kv  44: gpt-oss.rope.scaling.original_context_length u32              = 4096
+llama_model_loader: - kv  45:         gpt-oss.expert_feed_forward_length u32              = 2880
+llama_model_loader: - kv  46:                  gpt-oss.rope.scaling.type str              = yarn
+llama_model_loader: - kv  47:                         tokenizer.ggml.pre str              = gpt-4o
+llama_model_loader: - type  f32:  433 tensors
+llama_model_loader: - type bf16:  146 tensors
+llama_model_loader: - type mxfp4:  108 tensors
+print_info: file format = GGUF V3 (latest)
+print_info: file type   = unknown, may not work
+print_info: file size   = 60.87 GiB (4.48 BPW) 
+llama_prepare_model_devices: using device Vulkan0 (NVIDIA H100 NVL) (0000:04:00.0) - 95297 MiB free
+load: 0 unused tokens
+load: setting token '<|message|>' (200008) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|start|>' (200006) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|constrain|>' (200003) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|channel|>' (200005) attribute to USER_DEFINED (16), old attributes: 8
+load: printing all EOG tokens:
+load:   - 199999 ('<|endoftext|>')
+load:   - 200002 ('<|return|>')
+load:   - 200007 ('<|end|>')
+load:   - 200012 ('<|call|>')
+load: special_eog_ids contains both '<|return|>' and '<|call|>', or '<|calls|>' and '<|flush|>' tokens, removing '<|end|>' token from EOG list
+load: special tokens cache size = 1090
+load: token to piece cache size = 1.3413 MB
+print_info: arch                  = gpt-oss
+print_info: vocab_only            = 0
+print_info: no_alloc              = 0
+print_info: n_ctx_train           = 131072
+print_info: n_embd_inp            = 2880
+print_info: n_embd                = 2880
+print_info: n_embd_out            = 2880
+print_info: n_layer               = 36
+print_info: n_layer_all           = 36
+print_info: n_head                = 64
+print_info: n_head_kv             = 8
+print_info: n_rot                 = 64
+print_info: n_swa                 = 128
+print_info: is_swa_any            = 1
+print_info: n_embd_head_k         = 64
+print_info: n_embd_head_v         = 64
+print_info: n_gqa                 = 8
+print_info: n_embd_k_gqa          = 512
+print_info: n_embd_v_gqa          = 512
+print_info: f_norm_eps            = 0.0e+00
+print_info: f_norm_rms_eps        = 1.0e-05
+print_info: f_clamp_kqv           = 0.0e+00
+print_info: f_max_alibi_bias      = 0.0e+00
+print_info: f_logit_scale         = 0.0e+00
+print_info: f_attn_scale          = 0.0e+00
+print_info: f_attn_value_scale    = 0.0000
+print_info: n_ff                  = 2880
+print_info: n_expert              = 128
+print_info: n_expert_used         = 4
+print_info: n_expert_groups       = 0
+print_info: n_group_used          = 0
+print_info: causal attn           = 1
+print_info: pooling type          = -1
+print_info: rope type             = 2
+print_info: rope scaling          = yarn
+print_info: freq_base_train       = 150000.0
+print_info: freq_scale_train      = 0.03125
+print_info: freq_base_swa         = 150000.0
+print_info: freq_scale_swa        = 0.03125
+print_info: n_embd_head_k_swa     = 64
+print_info: n_embd_head_v_swa     = 64
+print_info: n_rot_swa             = 64
+print_info: n_ctx_orig_yarn       = 4096
+print_info: rope_yarn_log_mul     = 0.0000
+print_info: rope_finetuned        = unknown
+print_info: model type            = 120B
+print_info: model params          = 116.83 B
+print_info: general.name          = n/a
+print_info: n_ff_exp              = 2880
+print_info: vocab type            = BPE
+print_info: n_vocab               = 201088
+print_info: n_merges              = 446189
+print_info: BOS token             = 199998 '<|startoftext|>'
+print_info: EOS token             = 199999 '<|endoftext|>'
+print_info: EOT token             = 199999 '<|endoftext|>'
+print_info: PAD token             = 199999 '<|endoftext|>'
+print_info: LF token              = 198 'Ċ'
+print_info: EOG token             = 199999 '<|endoftext|>'
+print_info: EOG token             = 200002 '<|return|>'
+print_info: EOG token             = 200012 '<|call|>'
+print_info: max token length      = 256
+load_tensors: loading model tensors, this can take a while... (load_mode = mmap)
+load_tensors: offloading output layer to GPU
+load_tensors: offloading 35 repeating layers to GPU
+load_tensors: offloaded 37/37 layers to GPU
+load_tensors:   CPU_Mapped model buffer size =  1104.61 MiB
+load_tensors:      Vulkan0 model buffer size = 61223.72 MiB
+time=2026-08-10T13:20:16.098+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+time=2026-08-10T13:20:17.765+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+cmn  common_init_: added <|endoftext|> logit bias = -inf
+cmn  common_init_: added <|return|> logit bias = -inf
+cmn  common_init_: added <|call|> logit bias = -inf
+llama_context: constructing llama_context
+llama_context: n_seq_max     = 1
+llama_context: n_ctx         = 131072
+llama_context: n_ctx_seq     = 131072
+llama_context: n_batch       = 1024
+llama_context: n_ubatch      = 1024
+llama_context: causal_attn   = 1
+llama_context: flash_attn    = auto
+llama_context: kv_unified    = false
+llama_context: freq_base     = 150000.0
+llama_context: freq_scale    = 0.03125
+llama_context: n_rs_seq      = 0
+llama_context: n_outputs_max = 1
+llama_context: Vulkan_Host  output buffer size =     0.77 MiB
+llama_kv_cache_iswa: creating non-SWA KV cache, size = 131072 cells
+llama_kv_cache:    Vulkan0 KV buffer size =  4608.00 MiB
+llama_kv_cache: size = 4608.00 MiB (131072 cells,  18 layers,  1/1 seqs), K (f16): 2304.00 MiB, V (f16): 2304.00 MiB
+llama_kv_cache: attn_rot_k = 0, n_embd_head_k_all = 64
+llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 64
+llama_kv_cache_iswa: creating     SWA KV cache, size = 1280 cells
+llama_kv_cache:    Vulkan0 KV buffer size =    45.00 MiB
+llama_kv_cache: size =   45.00 MiB (  1280 cells,  18 layers,  1/1 seqs), K (f16):   22.50 MiB, V (f16):   22.50 MiB
+llama_kv_cache: attn_rot_k = 0, n_embd_head_k_all = 64
+llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 64
+sched_reserve: reserving ...
+resolve_fused_ops: Flash Attention enabled
+resolve_fused_ops: resolving fused Gated Delta Net support:
+resolve_fused_ops: fused Gated Delta Net (autoregressive) enabled
+resolve_fused_ops: fused Gated Delta Net (chunked) enabled
+resolve_fused_ops: resolving fused Lightning Indexer support:
+resolve_fused_ops: Lightning Indexer enabled
+resolve_fused_ops: resolving fused DeepSeek V4 HC support:
+resolve_fused_ops: fused DeepSeek V4 HC pre enabled
+resolve_fused_ops: fused DeepSeek V4 HC comb enabled
+resolve_fused_ops: fused DeepSeek V4 HC post enabled
+sched_reserve:    Vulkan0 compute buffer size =   432.04 MiB
+sched_reserve: Vulkan_Host compute buffer size =   281.04 MiB
+sched_reserve: graph nodes  = 2021
+sched_reserve: graph splits = 2
+sched_reserve: reserve took 81.36 ms, sched copies = 1
+cmn  common_init_: KV cache shifting is not supported for this context, disabling KV cache shifting
+cmn  common_init_: warming up the model with an empty run - please wait ... (--no-warmup to disable)
+srv    load_model: initializing, n_slots = 1, n_ctx_slot = 131072, kv_unified = 'false'
+spec common_specu: no implementations specified for speculative decoding
+slot   load_model: id  0 | task -1 | new slot, n_ctx = 131072
+srv    load_model: prompt cache is enabled, size limit: 8192 MiB
+srv    load_model: use `--cache-ram 0` to disable the prompt cache
+srv    load_model: for more info see https://github.com/ggml-org/llama.cpp/pull/16391
+srv    load_model: context checkpoints enabled, max = 32, min spacing = 8192
+srv          init: idle slots will be saved to prompt cache upon starting a new task
+srv          init: init: chat template, example_format: '<|im_start|>system
+You are a helpful assistant<|im_end|>
+<|im_start|>user
+Hello<|im_end|>
+<|im_start|>assistant
+Hi there<|im_end|>
+<|im_start|>user
+How are you?<|im_end|>
+<|im_start|>assistant
+'
+srv          init: init: chat template, thinking = 0
+srv  llama_server: model loaded
+srv  llama_server: listening on http://127.0.0.1:32871
+srv  update_slots: all slots are idle
+time=2026-08-10T13:20:21.032+02:00 level=INFO source=llama_server.go:1360 msg="llama-server started in 42.09 seconds"
+time=2026-08-10T13:20:21.149+02:00 level=INFO source=images.go:373 msg="template selection" model=registry.ollama.ai/library/gpt-oss:120b selected=harmony renderer="" parser="" go_template="[completion tools thinking]" chat_template=null harmony="[completion tools thinking]" renderer_parser=null
+time=2026-08-10T13:20:21.149+02:00 level=INFO source=sched.go:728 msg="loaded runners" count=1
+time=2026-08-10T13:20:21.149+02:00 level=INFO source=llama_server.go:1293 msg="waiting for llama-server to start responding"
+time=2026-08-10T13:20:21.150+02:00 level=INFO source=llama_server.go:1360 msg="llama-server started in 42.21 seconds"
+[GIN] 2026/08/10 - 13:20:21 |[97;42m 200 [0m| 45.920385205s |       127.0.0.1 |[97;46m POST    [0m "/api/generate"
+[GIN] 2026/08/10 - 13:21:20 |[97;42m 200 [0m|       22.01µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:21:20 |[97;42m 200 [0m|       55.79µs |       127.0.0.1 |[97;44m GET     [0m "/api/ps"
+[GIN] 2026/08/10 - 13:21:37 |[97;42m 200 [0m|        41.1µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:21:37 |[97;42m 200 [0m|       120.3µs |       127.0.0.1 |[97;44m GET     [0m "/api/ps"
+time=2026-08-10T13:25:24.152+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T13:25:24.153+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T13:25:24.153+02:00 level=WARN source=runner.go:364 msg="unable to refresh free memory, using old values"
+time=2026-08-10T13:25:24.158+02:00 level=WARN source=llama_server.go:130 msg="llama-server discovery: timed out waiting for server startup" error="context deadline exceeded" libDirs="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" lines_captured=0
+time=2026-08-10T13:25:27.404+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/cuda_v13]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T13:25:27.404+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/cuda_v13]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T13:25:27.404+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T13:25:27.404+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T13:25:27.405+02:00 level=WARN source=runner.go:364 msg="unable to refresh free memory, using old values"
+time=2026-08-10T13:25:29.154+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/cuda_v13]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T13:25:29.154+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/cuda_v13]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T13:25:29.154+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T13:25:29.154+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T13:25:29.154+02:00 level=WARN source=runner.go:364 msg="unable to refresh free memory, using old values"
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd-damo: error: *** STEP 15460.0 ON damo CANCELLED AT 2026-08-10T13:26:10 ***
+srun: error: ioctl(TIOCGWINSZ): Inappropriate ioctl for device
+srun: error: Not using a pseudo-terminal, disregarding --pty option
+time=2026-08-10T13:26:38.580+02:00 level=INFO source=routes.go:1933 msg="server config" env="map[CUDA_VISIBLE_DEVICES:1 GGML_VK_VISIBLE_DEVICES: GPU_DEVICE_ORDINAL:1 HIP_VISIBLE_DEVICES: HSA_OVERRIDE_GFX_VERSION: HTTPS_PROXY: HTTP_PROXY: LLAMA_ARG_FIT: LLAMA_ARG_FIT_TARGET: NO_PROXY: OLLAMA_CONTEXT_LENGTH:0 OLLAMA_DEBUG:INFO OLLAMA_DEBUG_LOG_REQUESTS:false OLLAMA_EDITOR: OLLAMA_FLASH_ATTENTION:false OLLAMA_GO_TEMPLATE:true OLLAMA_GPU_OVERHEAD:0 OLLAMA_HOST:http://localhost:1995 OLLAMA_IGPU_ENABLE: OLLAMA_KEEP_ALIVE:5m0s OLLAMA_KV_CACHE_TYPE: OLLAMA_LLM_LIBRARY: OLLAMA_LOAD_TIMEOUT:5m0s OLLAMA_MAX_LOADED_MODELS:0 OLLAMA_MAX_QUEUE:512 OLLAMA_MAX_TRANSFER_STREAMS:4 OLLAMA_MODELS:/home/maes/.ollama/models OLLAMA_NOHISTORY:false OLLAMA_NOPRUNE:false OLLAMA_NO_CLOUD:false OLLAMA_NUM_PARALLEL:1 OLLAMA_ORIGINS:[http://localhost https://localhost http://localhost:* https://localhost:* http://127.0.0.1 https://127.0.0.1 http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0 https://0.0.0.0 http://0.0.0.0:* https://0.0.0.0:* app://* file://* tauri://* vscode-webview://* vscode-file://*] OLLAMA_REMOTES:[ollama.com] OLLAMA_SCHED_SPREAD:false OLLAMA_VULKAN:true ROCR_VISIBLE_DEVICES:1 http_proxy: https_proxy: no_proxy:]"
+time=2026-08-10T13:26:38.580+02:00 level=INFO source=routes.go:1935 msg="Ollama cloud disabled: false"
+time=2026-08-10T13:26:38.588+02:00 level=INFO source=images.go:886 msg="total blobs: 74"
+time=2026-08-10T13:26:38.590+02:00 level=INFO source=images.go:893 msg="total unused blobs removed: 0"
+time=2026-08-10T13:26:38.592+02:00 level=INFO source=routes.go:1990 msg="Listening on 127.0.0.1:1995 (version 0.32.7)"
+time=2026-08-10T13:26:38.592+02:00 level=INFO source=runner.go:60 msg="discovering available GPUs..."
+time=2026-08-10T13:26:38.592+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" CUDA_VISIBLE_DEVICES=1
+time=2026-08-10T13:26:38.592+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" ROCR_VISIBLE_DEVICES=1
+time=2026-08-10T13:26:38.592+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" GPU_DEVICE_ORDINAL=1
+time=2026-08-10T13:26:38.592+02:00 level=WARN source=runner.go:726 msg="if GPUs are not correctly discovered, unset and try again"
+time=2026-08-10T13:26:38.601+02:00 level=INFO source=model_list_cache.go:112 msg="model list cache hydration complete" models=21 failures=0 elapsed=8.827307ms
+time=2026-08-10T13:26:38.774+02:00 level=INFO source=model_recommendations.go:177 msg="model recommendations cache sleep scheduled" wait=4h41m36.827452369s consecutive_failures=0
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=1 filter_id=1 library=Vulkan compute=0.0 name=Vulkan1 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:04:00.0 type=discrete total="93.6 GiB" available="93.1 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=7 filter_id=7 library=Vulkan compute=0.0 name=Vulkan7 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:c3:00.0 type=discrete total="93.6 GiB" available="93.1 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=2 filter_id=2 library=Vulkan compute=0.0 name=Vulkan2 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:43:00.0 type=discrete total="45.0 GiB" available="44.4 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=1 library=CUDA compute=8.9 name=CUDA0 description="NVIDIA L40S" libdirs=ollama,cuda_v13 driver=13.0 pci_id=0000:44:00.0 type=discrete total="44.4 GiB" available="44.0 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=4 filter_id=4 library=Vulkan compute=0.0 name=Vulkan4 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:45:00.0 type=discrete total="45.0 GiB" available="37.6 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=5 filter_id=5 library=Vulkan compute=0.0 name=Vulkan5 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:83:00.0 type=discrete total="45.0 GiB" available="37.1 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=6 filter_id=6 library=Vulkan compute=0.0 name=Vulkan6 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:84:00.0 type=discrete total="45.0 GiB" available="36.7 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=8 filter_id=8 library=Vulkan compute=0.0 name=Vulkan8 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:c4:00.0 type=discrete total="93.6 GiB" available="30.5 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=0 library=Vulkan compute=0.0 name=Vulkan0 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:03:00.0 type=discrete total="93.6 GiB" available="30.5 GiB"
+time=2026-08-10T13:26:50.897+02:00 level=INFO source=routes.go:2040 msg="vram-based default context" total_vram="598.7 GiB" default_num_ctx=262144
+time=2026-08-10T13:26:54.525+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T13:26:54.525+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T13:26:54.525+02:00 level=WARN source=runner.go:364 msg="unable to refresh free memory, using old values"
+time=2026-08-10T13:26:54.533+02:00 level=WARN source=llama_server.go:130 msg="llama-server discovery: timed out waiting for server startup" error="context deadline exceeded" libDirs="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" lines_captured=0
+time=2026-08-10T13:26:54.678+02:00 level=INFO source=sched.go:1013 msg="selecting single GPU for llama-server model" main_gpu=0 id=1 filter_id=1 library=Vulkan name=Vulkan1 description="NVIDIA H100 NVL" integrated=false predicted="67.2 GiB" available="93.1 GiB"
+time=2026-08-10T13:26:54.678+02:00 level=INFO source=sched.go:1132 msg="selecting GPU backend for llama-server model" library=Vulkan gpu_count=1 available_gpu_count=9
+time=2026-08-10T13:26:54.678+02:00 level=INFO source=server.go:109 msg="using llama-server for model" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a
+time=2026-08-10T13:26:54.678+02:00 level=WARN source=server.go:114 msg="requested context size too large for model" num_ctx=262144 n_ctx_train=131072
+time=2026-08-10T13:26:54.679+02:00 level=INFO source=llama_server.go:431 msg="starting llama-server" cmd="/home/maes/.local/lib/ollama/llama-server --model /home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a --port 37047 --host 127.0.0.1 --no-webui --offline -c 131072 -np 1 --log-verbosity 4 --no-log-prefix --no-log-timestamps --no-jinja --chat-template chatml --flash-attn auto -b 1024 -ub 1024 --split-mode none --main-gpu 0 --context-shift --keep 4"
+time=2026-08-10T13:26:54.680+02:00 level=INFO source=sched.go:613 msg="system memory" total="1511.4 GiB" free="1303.2 GiB" free_swap="7.0 GiB"
+time=2026-08-10T13:26:54.680+02:00 level=INFO source=sched.go:620 msg="gpu memory" id=1 library=Vulkan available="92.6 GiB" free="93.1 GiB" minimum="457.0 MiB" overhead="0 B"
+time=2026-08-10T13:26:54.680+02:00 level=INFO source=llama_server.go:1046 msg="loading model via llama-server" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a
+time=2026-08-10T13:26:54.680+02:00 level=INFO source=llama_server.go:1293 msg="waiting for llama-server to start responding"
+time=2026-08-10T13:26:54.680+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+cmn  common_param: common_params_print_info: build 1 (96278e39f) with GNU 13.3.1 for Linux x86_64
+cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
+cmn  common_param: device_info:
+cmn  common_param:   - CPU     : AMD EPYC 9654 96-Core Processor (1547657 MiB, 1547657 MiB free)
+cmn  common_param:   - Vulkan0 : NVIDIA H100 NVL (95830 MiB, 95319 MiB free)
+cmn  common_param: system_info: n_threads = 192 (n_threads_batch = 192) / 384 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+srv          init: using 383 threads for HTTP server
+srv          init: The UI is disabled
+srv          init: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
+srv  llama_server: -----------------
+srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+srv  llama_server: this can be a security risk (cross-origin attacks)
+srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+srv  llama_server: -----------------
+srv         start: binding port with default address family
+srv    load_model: loading model '/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a'
+srv    load_model: local path '/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a'
+cmn  common_init_: fitting params to device memory ...
+cmn  common_init_: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+common_params_fit_impl: getting device memory data for initial parameters:
+handle_gptoss: detected Ollama-format gpt-oss GGUF; applying compatibility fixes
+time=2026-08-10T13:26:55.434+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+common_memory_breakdown_print: | memory breakdown [MiB] | total    free     self   model   context   compute    unaccounted |
+common_memory_breakdown_print: |   - Vulkan0 (H100 NVL) | 95830 = 95289 + (66308 = 61223 +    4653 +     432) +      -65768 |
+common_memory_breakdown_print: |   - Host               |                   1385 =  1104 +       0 +     281                |
+common_params_fit_impl: projected to use 66308 MiB of device memory vs. 95289 MiB of free device memory
+common_params_fit_impl: will leave 28980 >= 1024 MiB of free device memory, no changes needed
+common_fit_params: successfully fit params to free device memory
+common_fit_params: fitting params to free memory took 0.74 seconds
+handle_gptoss: detected Ollama-format gpt-oss GGUF; applying compatibility fixes
+llama_model_loader: loaded meta data with 48 key-value pairs and 687 tensors from /home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a (version GGUF V3 (latest))
+llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+llama_model_loader: - kv   0:                          general.file_type u32              = 4
+llama_model_loader: - kv   1:               general.quantization_version u32              = 2
+llama_model_loader: - kv   2:                gptoss.attention.head_count u32              = 64
+llama_model_loader: - kv   3:             gptoss.attention.head_count_kv u32              = 8
+llama_model_loader: - kv   4:                gptoss.attention.key_length u32              = 64
+llama_model_loader: - kv   5:    gptoss.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv   6:            gptoss.attention.sliding_window u32              = 128
+llama_model_loader: - kv   7:              gptoss.attention.value_length u32              = 64
+llama_model_loader: - kv   8:                         gptoss.block_count u32              = 36
+llama_model_loader: - kv   9:                      gptoss.context_length u32              = 131072
+llama_model_loader: - kv  10:                    gptoss.embedding_length u32              = 2880
+llama_model_loader: - kv  11:                        gptoss.expert_count u32              = 128
+llama_model_loader: - kv  12:                   gptoss.expert_used_count u32              = 4
+llama_model_loader: - kv  13:                 gptoss.feed_forward_length u32              = 2880
+llama_model_loader: - kv  14:                      gptoss.rope.freq_base f32              = 150000.000000
+llama_model_loader: - kv  15:                 gptoss.rope.scaling.factor f32              = 32.000000
+llama_model_loader: - kv  16: gptoss.rope.scaling.original_context_length u32              = 4096
+llama_model_loader: - kv  17:               tokenizer.ggml.add_bos_token bool             = false
+llama_model_loader: - kv  18:               tokenizer.ggml.add_eos_token bool             = false
+llama_model_loader: - kv  19:           tokenizer.ggml.add_padding_token bool             = false
+llama_model_loader: - kv  20:                tokenizer.ggml.bos_token_id u32              = 199998
+llama_model_loader: - kv  21:                tokenizer.ggml.eos_token_id u32              = 199999
+llama_model_loader: - kv  22:               tokenizer.ggml.eos_token_ids arr[i32,3]       = [199999, 200002, 200012]
+llama_model_loader: - kv  23:                      tokenizer.ggml.merges arr[str,446189]  = ["Ġ Ġ", "Ġ ĠĠĠ", "ĠĠ ĠĠ", "...
+llama_model_loader: - kv  24:                       tokenizer.ggml.model str              = gpt2
+llama_model_loader: - kv  25:            tokenizer.ggml.padding_token_id u32              = 199999
+llama_model_loader: - kv  26:                      tokenizer.ggml.scores arr[f32,201088]  = [0.000000, 1.000000, 2.000000, 3.0000...
+llama_model_loader: - kv  27:                  tokenizer.ggml.token_type arr[i32,201088]  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+llama_model_loader: - kv  28:                      tokenizer.ggml.tokens arr[str,201088]  = ["!", "\"", "#", "$", "%", "&", "'", ...
+llama_model_loader: - kv  29:                       general.architecture str              = gpt-oss
+llama_model_loader: - kv  30:               gpt-oss.attention.head_count u32              = 64
+llama_model_loader: - kv  31:            gpt-oss.attention.head_count_kv u32              = 8
+llama_model_loader: - kv  32:               gpt-oss.attention.key_length u32              = 64
+llama_model_loader: - kv  33:   gpt-oss.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv  34:           gpt-oss.attention.sliding_window u32              = 128
+llama_model_loader: - kv  35:             gpt-oss.attention.value_length u32              = 64
+llama_model_loader: - kv  36:                        gpt-oss.block_count u32              = 36
+llama_model_loader: - kv  37:                     gpt-oss.context_length u32              = 131072
+llama_model_loader: - kv  38:                   gpt-oss.embedding_length u32              = 2880
+llama_model_loader: - kv  39:                       gpt-oss.expert_count u32              = 128
+llama_model_loader: - kv  40:                  gpt-oss.expert_used_count u32              = 4
+llama_model_loader: - kv  41:                gpt-oss.feed_forward_length u32              = 2880
+llama_model_loader: - kv  42:                     gpt-oss.rope.freq_base f32              = 150000.000000
+llama_model_loader: - kv  43:                gpt-oss.rope.scaling.factor f32              = 32.000000
+llama_model_loader: - kv  44: gpt-oss.rope.scaling.original_context_length u32              = 4096
+llama_model_loader: - kv  45:         gpt-oss.expert_feed_forward_length u32              = 2880
+llama_model_loader: - kv  46:                  gpt-oss.rope.scaling.type str              = yarn
+llama_model_loader: - kv  47:                         tokenizer.ggml.pre str              = gpt-4o
+llama_model_loader: - type  f32:  433 tensors
+llama_model_loader: - type bf16:  146 tensors
+llama_model_loader: - type mxfp4:  108 tensors
+print_info: file format = GGUF V3 (latest)
+print_info: file type   = unknown, may not work
+print_info: file size   = 60.87 GiB (4.48 BPW) 
+llama_prepare_model_devices: using device Vulkan0 (NVIDIA H100 NVL) (0000:04:00.0) - 95297 MiB free
+load: 0 unused tokens
+load: setting token '<|message|>' (200008) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|start|>' (200006) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|constrain|>' (200003) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|channel|>' (200005) attribute to USER_DEFINED (16), old attributes: 8
+load: printing all EOG tokens:
+load:   - 199999 ('<|endoftext|>')
+load:   - 200002 ('<|return|>')
+load:   - 200007 ('<|end|>')
+load:   - 200012 ('<|call|>')
+load: special_eog_ids contains both '<|return|>' and '<|call|>', or '<|calls|>' and '<|flush|>' tokens, removing '<|end|>' token from EOG list
+load: special tokens cache size = 1090
+load: token to piece cache size = 1.3413 MB
+print_info: arch                  = gpt-oss
+print_info: vocab_only            = 0
+print_info: no_alloc              = 0
+print_info: n_ctx_train           = 131072
+print_info: n_embd_inp            = 2880
+print_info: n_embd                = 2880
+print_info: n_embd_out            = 2880
+print_info: n_layer               = 36
+print_info: n_layer_all           = 36
+print_info: n_head                = 64
+print_info: n_head_kv             = 8
+print_info: n_rot                 = 64
+print_info: n_swa                 = 128
+print_info: is_swa_any            = 1
+print_info: n_embd_head_k         = 64
+print_info: n_embd_head_v         = 64
+print_info: n_gqa                 = 8
+print_info: n_embd_k_gqa          = 512
+print_info: n_embd_v_gqa          = 512
+print_info: f_norm_eps            = 0.0e+00
+print_info: f_norm_rms_eps        = 1.0e-05
+print_info: f_clamp_kqv           = 0.0e+00
+print_info: f_max_alibi_bias      = 0.0e+00
+print_info: f_logit_scale         = 0.0e+00
+print_info: f_attn_scale          = 0.0e+00
+print_info: f_attn_value_scale    = 0.0000
+print_info: n_ff                  = 2880
+print_info: n_expert              = 128
+print_info: n_expert_used         = 4
+print_info: n_expert_groups       = 0
+print_info: n_group_used          = 0
+print_info: causal attn           = 1
+print_info: pooling type          = -1
+print_info: rope type             = 2
+print_info: rope scaling          = yarn
+print_info: freq_base_train       = 150000.0
+print_info: freq_scale_train      = 0.03125
+print_info: freq_base_swa         = 150000.0
+print_info: freq_scale_swa        = 0.03125
+print_info: n_embd_head_k_swa     = 64
+print_info: n_embd_head_v_swa     = 64
+print_info: n_rot_swa             = 64
+print_info: n_ctx_orig_yarn       = 4096
+print_info: rope_yarn_log_mul     = 0.0000
+print_info: rope_finetuned        = unknown
+print_info: model type            = 120B
+print_info: model params          = 116.83 B
+print_info: general.name          = n/a
+print_info: n_ff_exp              = 2880
+print_info: vocab type            = BPE
+print_info: n_vocab               = 201088
+print_info: n_merges              = 446189
+print_info: BOS token             = 199998 '<|startoftext|>'
+print_info: EOS token             = 199999 '<|endoftext|>'
+print_info: EOT token             = 199999 '<|endoftext|>'
+print_info: PAD token             = 199999 '<|endoftext|>'
+print_info: LF token              = 198 'Ċ'
+print_info: EOG token             = 199999 '<|endoftext|>'
+print_info: EOG token             = 200002 '<|return|>'
+print_info: EOG token             = 200012 '<|call|>'
+print_info: max token length      = 256
+load_tensors: loading model tensors, this can take a while... (load_mode = mmap)
+time=2026-08-10T13:26:56.640+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+[GIN] 2026/08/10 - 13:26:59 |[97;42m 200 [0m|      79.221µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:26:59 |[97;42m 200 [0m|      82.051µs |       127.0.0.1 |[97;44m GET     [0m "/api/ps"
+[GIN] 2026/08/10 - 13:27:00 |[97;42m 200 [0m|      40.731µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:27:00 |[97;42m 200 [0m|      20.771µs |       127.0.0.1 |[97;44m GET     [0m "/api/ps"
+time=2026-08-10T13:27:01.406+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+load_tensors: offloading output layer to GPU
+load_tensors: offloading 35 repeating layers to GPU
+load_tensors: offloaded 37/37 layers to GPU
+load_tensors:   CPU_Mapped model buffer size =  1104.61 MiB
+load_tensors:      Vulkan0 model buffer size = 61223.72 MiB
+time=2026-08-10T13:27:11.469+02:00 level=WARN source=llama_server.go:1299 msg="client connection closed before llama-server finished loading, aborting load"
+time=2026-08-10T13:27:11.469+02:00 level=INFO source=sched.go:641 msg="Load failed" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a error="timed out waiting for llama-server to start: context canceled"
+[GIN] 2026/08/10 - 13:27:16 |[90;43m 499 [0m| 25.130014557s |       127.0.0.1 |[97;46m POST    [0m "/api/generate"
+[GIN] 2026/08/10 - 13:27:21 |[97;42m 200 [0m|       42.62µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:27:29 |[97;42m 200 [0m|       37.32µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+time=2026-08-10T13:27:57.499+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T13:27:57.499+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T13:27:57.499+02:00 level=WARN source=runner.go:364 msg="unable to refresh free memory, using old values"
+time=2026-08-10T13:27:57.507+02:00 level=WARN source=llama_server.go:130 msg="llama-server discovery: timed out waiting for server startup" error="context deadline exceeded" libDirs="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" lines_captured=0
+time=2026-08-10T13:27:57.655+02:00 level=INFO source=sched.go:1013 msg="selecting single GPU for llama-server model" main_gpu=0 id=1 filter_id=1 library=Vulkan name=Vulkan1 description="NVIDIA H100 NVL" integrated=false predicted="67.2 GiB" available="93.1 GiB"
+time=2026-08-10T13:27:57.655+02:00 level=INFO source=sched.go:1132 msg="selecting GPU backend for llama-server model" library=Vulkan gpu_count=1 available_gpu_count=9
+time=2026-08-10T13:27:57.655+02:00 level=INFO source=server.go:109 msg="using llama-server for model" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a
+time=2026-08-10T13:27:57.655+02:00 level=WARN source=server.go:114 msg="requested context size too large for model" num_ctx=262144 n_ctx_train=131072
+time=2026-08-10T13:27:57.655+02:00 level=INFO source=llama_server.go:431 msg="starting llama-server" cmd="/home/maes/.local/lib/ollama/llama-server --model /home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a --port 46367 --host 127.0.0.1 --no-webui --offline -c 131072 -np 1 --log-verbosity 4 --no-log-prefix --no-log-timestamps --no-jinja --chat-template chatml --flash-attn auto -b 1024 -ub 1024 --split-mode none --main-gpu 0 --context-shift --keep 4"
+time=2026-08-10T13:27:57.656+02:00 level=INFO source=sched.go:613 msg="system memory" total="1511.4 GiB" free="1295.5 GiB" free_swap="7.0 GiB"
+time=2026-08-10T13:27:57.656+02:00 level=INFO source=sched.go:620 msg="gpu memory" id=1 library=Vulkan available="92.6 GiB" free="93.1 GiB" minimum="457.0 MiB" overhead="0 B"
+time=2026-08-10T13:27:57.656+02:00 level=INFO source=llama_server.go:1046 msg="loading model via llama-server" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a
+time=2026-08-10T13:27:57.656+02:00 level=INFO source=llama_server.go:1293 msg="waiting for llama-server to start responding"
+time=2026-08-10T13:27:57.657+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+cmn  common_param: common_params_print_info: build 1 (96278e39f) with GNU 13.3.1 for Linux x86_64
+cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
+cmn  common_param: device_info:
+cmn  common_param:   - CPU     : AMD EPYC 9654 96-Core Processor (1547657 MiB, 1547657 MiB free)
+cmn  common_param:   - Vulkan0 : NVIDIA H100 NVL (95830 MiB, 95319 MiB free)
+cmn  common_param: system_info: n_threads = 192 (n_threads_batch = 192) / 384 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+srv          init: using 383 threads for HTTP server
+srv          init: The UI is disabled
+srv          init: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
+srv  llama_server: -----------------
+srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+srv  llama_server: this can be a security risk (cross-origin attacks)
+srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+srv  llama_server: -----------------
+srv         start: binding port with default address family
+srv    load_model: loading model '/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a'
+srv    load_model: local path '/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a'
+cmn  common_init_: fitting params to device memory ...
+cmn  common_init_: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+common_params_fit_impl: getting device memory data for initial parameters:
+handle_gptoss: detected Ollama-format gpt-oss GGUF; applying compatibility fixes
+time=2026-08-10T13:27:58.410+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+common_memory_breakdown_print: | memory breakdown [MiB] | total    free     self   model   context   compute    unaccounted |
+common_memory_breakdown_print: |   - Vulkan0 (H100 NVL) | 95830 = 95289 + (66308 = 61223 +    4653 +     432) +      -65768 |
+common_memory_breakdown_print: |   - Host               |                   1385 =  1104 +       0 +     281                |
+common_params_fit_impl: projected to use 66308 MiB of device memory vs. 95289 MiB of free device memory
+common_params_fit_impl: will leave 28980 >= 1024 MiB of free device memory, no changes needed
+common_fit_params: successfully fit params to free device memory
+common_fit_params: fitting params to free memory took 0.72 seconds
+handle_gptoss: detected Ollama-format gpt-oss GGUF; applying compatibility fixes
+llama_model_loader: loaded meta data with 48 key-value pairs and 687 tensors from /home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a (version GGUF V3 (latest))
+llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+llama_model_loader: - kv   0:                          general.file_type u32              = 4
+llama_model_loader: - kv   1:               general.quantization_version u32              = 2
+llama_model_loader: - kv   2:                gptoss.attention.head_count u32              = 64
+llama_model_loader: - kv   3:             gptoss.attention.head_count_kv u32              = 8
+llama_model_loader: - kv   4:                gptoss.attention.key_length u32              = 64
+llama_model_loader: - kv   5:    gptoss.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv   6:            gptoss.attention.sliding_window u32              = 128
+llama_model_loader: - kv   7:              gptoss.attention.value_length u32              = 64
+llama_model_loader: - kv   8:                         gptoss.block_count u32              = 36
+llama_model_loader: - kv   9:                      gptoss.context_length u32              = 131072
+llama_model_loader: - kv  10:                    gptoss.embedding_length u32              = 2880
+llama_model_loader: - kv  11:                        gptoss.expert_count u32              = 128
+llama_model_loader: - kv  12:                   gptoss.expert_used_count u32              = 4
+llama_model_loader: - kv  13:                 gptoss.feed_forward_length u32              = 2880
+llama_model_loader: - kv  14:                      gptoss.rope.freq_base f32              = 150000.000000
+llama_model_loader: - kv  15:                 gptoss.rope.scaling.factor f32              = 32.000000
+llama_model_loader: - kv  16: gptoss.rope.scaling.original_context_length u32              = 4096
+llama_model_loader: - kv  17:               tokenizer.ggml.add_bos_token bool             = false
+llama_model_loader: - kv  18:               tokenizer.ggml.add_eos_token bool             = false
+llama_model_loader: - kv  19:           tokenizer.ggml.add_padding_token bool             = false
+llama_model_loader: - kv  20:                tokenizer.ggml.bos_token_id u32              = 199998
+llama_model_loader: - kv  21:                tokenizer.ggml.eos_token_id u32              = 199999
+llama_model_loader: - kv  22:               tokenizer.ggml.eos_token_ids arr[i32,3]       = [199999, 200002, 200012]
+llama_model_loader: - kv  23:                      tokenizer.ggml.merges arr[str,446189]  = ["Ġ Ġ", "Ġ ĠĠĠ", "ĠĠ ĠĠ", "...
+llama_model_loader: - kv  24:                       tokenizer.ggml.model str              = gpt2
+llama_model_loader: - kv  25:            tokenizer.ggml.padding_token_id u32              = 199999
+llama_model_loader: - kv  26:                      tokenizer.ggml.scores arr[f32,201088]  = [0.000000, 1.000000, 2.000000, 3.0000...
+llama_model_loader: - kv  27:                  tokenizer.ggml.token_type arr[i32,201088]  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+llama_model_loader: - kv  28:                      tokenizer.ggml.tokens arr[str,201088]  = ["!", "\"", "#", "$", "%", "&", "'", ...
+llama_model_loader: - kv  29:                       general.architecture str              = gpt-oss
+llama_model_loader: - kv  30:               gpt-oss.attention.head_count u32              = 64
+llama_model_loader: - kv  31:            gpt-oss.attention.head_count_kv u32              = 8
+llama_model_loader: - kv  32:               gpt-oss.attention.key_length u32              = 64
+llama_model_loader: - kv  33:   gpt-oss.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv  34:           gpt-oss.attention.sliding_window u32              = 128
+llama_model_loader: - kv  35:             gpt-oss.attention.value_length u32              = 64
+llama_model_loader: - kv  36:                        gpt-oss.block_count u32              = 36
+llama_model_loader: - kv  37:                     gpt-oss.context_length u32              = 131072
+llama_model_loader: - kv  38:                   gpt-oss.embedding_length u32              = 2880
+llama_model_loader: - kv  39:                       gpt-oss.expert_count u32              = 128
+llama_model_loader: - kv  40:                  gpt-oss.expert_used_count u32              = 4
+llama_model_loader: - kv  41:                gpt-oss.feed_forward_length u32              = 2880
+llama_model_loader: - kv  42:                     gpt-oss.rope.freq_base f32              = 150000.000000
+llama_model_loader: - kv  43:                gpt-oss.rope.scaling.factor f32              = 32.000000
+llama_model_loader: - kv  44: gpt-oss.rope.scaling.original_context_length u32              = 4096
+llama_model_loader: - kv  45:         gpt-oss.expert_feed_forward_length u32              = 2880
+llama_model_loader: - kv  46:                  gpt-oss.rope.scaling.type str              = yarn
+llama_model_loader: - kv  47:                         tokenizer.ggml.pre str              = gpt-4o
+llama_model_loader: - type  f32:  433 tensors
+llama_model_loader: - type bf16:  146 tensors
+llama_model_loader: - type mxfp4:  108 tensors
+print_info: file format = GGUF V3 (latest)
+print_info: file type   = unknown, may not work
+print_info: file size   = 60.87 GiB (4.48 BPW) 
+llama_prepare_model_devices: using device Vulkan0 (NVIDIA H100 NVL) (0000:04:00.0) - 95297 MiB free
+load: 0 unused tokens
+load: setting token '<|message|>' (200008) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|start|>' (200006) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|constrain|>' (200003) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|channel|>' (200005) attribute to USER_DEFINED (16), old attributes: 8
+load: printing all EOG tokens:
+load:   - 199999 ('<|endoftext|>')
+load:   - 200002 ('<|return|>')
+load:   - 200007 ('<|end|>')
+load:   - 200012 ('<|call|>')
+load: special_eog_ids contains both '<|return|>' and '<|call|>', or '<|calls|>' and '<|flush|>' tokens, removing '<|end|>' token from EOG list
+load: special tokens cache size = 1090
+load: token to piece cache size = 1.3413 MB
+print_info: arch                  = gpt-oss
+print_info: vocab_only            = 0
+print_info: no_alloc              = 0
+print_info: n_ctx_train           = 131072
+print_info: n_embd_inp            = 2880
+print_info: n_embd                = 2880
+print_info: n_embd_out            = 2880
+print_info: n_layer               = 36
+print_info: n_layer_all           = 36
+print_info: n_head                = 64
+print_info: n_head_kv             = 8
+print_info: n_rot                 = 64
+print_info: n_swa                 = 128
+print_info: is_swa_any            = 1
+print_info: n_embd_head_k         = 64
+print_info: n_embd_head_v         = 64
+print_info: n_gqa                 = 8
+print_info: n_embd_k_gqa          = 512
+print_info: n_embd_v_gqa          = 512
+print_info: f_norm_eps            = 0.0e+00
+print_info: f_norm_rms_eps        = 1.0e-05
+print_info: f_clamp_kqv           = 0.0e+00
+print_info: f_max_alibi_bias      = 0.0e+00
+print_info: f_logit_scale         = 0.0e+00
+print_info: f_attn_scale          = 0.0e+00
+print_info: f_attn_value_scale    = 0.0000
+print_info: n_ff                  = 2880
+print_info: n_expert              = 128
+print_info: n_expert_used         = 4
+print_info: n_expert_groups       = 0
+print_info: n_group_used          = 0
+print_info: causal attn           = 1
+print_info: pooling type          = -1
+print_info: rope type             = 2
+print_info: rope scaling          = yarn
+print_info: freq_base_train       = 150000.0
+print_info: freq_scale_train      = 0.03125
+print_info: freq_base_swa         = 150000.0
+print_info: freq_scale_swa        = 0.03125
+print_info: n_embd_head_k_swa     = 64
+print_info: n_embd_head_v_swa     = 64
+print_info: n_rot_swa             = 64
+print_info: n_ctx_orig_yarn       = 4096
+print_info: rope_yarn_log_mul     = 0.0000
+print_info: rope_finetuned        = unknown
+print_info: model type            = 120B
+print_info: model params          = 116.83 B
+print_info: general.name          = n/a
+print_info: n_ff_exp              = 2880
+print_info: vocab type            = BPE
+print_info: n_vocab               = 201088
+print_info: n_merges              = 446189
+print_info: BOS token             = 199998 '<|startoftext|>'
+print_info: EOS token             = 199999 '<|endoftext|>'
+print_info: EOT token             = 199999 '<|endoftext|>'
+print_info: PAD token             = 199999 '<|endoftext|>'
+print_info: LF token              = 198 'Ċ'
+print_info: EOG token             = 199999 '<|endoftext|>'
+print_info: EOG token             = 200002 '<|return|>'
+print_info: EOG token             = 200012 '<|call|>'
+print_info: max token length      = 256
+load_tensors: loading model tensors, this can take a while... (load_mode = mmap)
+time=2026-08-10T13:27:59.617+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+time=2026-08-10T13:28:04.127+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+load_tensors: offloading output layer to GPU
+load_tensors: offloading 35 repeating layers to GPU
+load_tensors: offloaded 37/37 layers to GPU
+load_tensors:   CPU_Mapped model buffer size =  1104.61 MiB
+load_tensors:      Vulkan0 model buffer size = 61223.72 MiB
+[GIN] 2026/08/10 - 13:28:11 |[97;42m 200 [0m|      30.761µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:28:11 |[97;42m 200 [0m|       17.62µs |       127.0.0.1 |[97;44m GET     [0m "/api/ps"
+time=2026-08-10T13:28:15.139+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+time=2026-08-10T13:28:16.932+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+cmn  common_init_: added <|endoftext|> logit bias = -inf
+cmn  common_init_: added <|return|> logit bias = -inf
+cmn  common_init_: added <|call|> logit bias = -inf
+llama_context: constructing llama_context
+llama_context: n_seq_max     = 1
+llama_context: n_ctx         = 131072
+llama_context: n_ctx_seq     = 131072
+llama_context: n_batch       = 1024
+llama_context: n_ubatch      = 1024
+llama_context: causal_attn   = 1
+llama_context: flash_attn    = auto
+llama_context: kv_unified    = false
+llama_context: freq_base     = 150000.0
+llama_context: freq_scale    = 0.03125
+llama_context: n_rs_seq      = 0
+llama_context: n_outputs_max = 1
+llama_context: Vulkan_Host  output buffer size =     0.77 MiB
+llama_kv_cache_iswa: creating non-SWA KV cache, size = 131072 cells
+llama_kv_cache:    Vulkan0 KV buffer size =  4608.00 MiB
+llama_kv_cache: size = 4608.00 MiB (131072 cells,  18 layers,  1/1 seqs), K (f16): 2304.00 MiB, V (f16): 2304.00 MiB
+llama_kv_cache: attn_rot_k = 0, n_embd_head_k_all = 64
+llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 64
+llama_kv_cache_iswa: creating     SWA KV cache, size = 1280 cells
+llama_kv_cache:    Vulkan0 KV buffer size =    45.00 MiB
+llama_kv_cache: size =   45.00 MiB (  1280 cells,  18 layers,  1/1 seqs), K (f16):   22.50 MiB, V (f16):   22.50 MiB
+llama_kv_cache: attn_rot_k = 0, n_embd_head_k_all = 64
+llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 64
+sched_reserve: reserving ...
+resolve_fused_ops: Flash Attention enabled
+resolve_fused_ops: resolving fused Gated Delta Net support:
+resolve_fused_ops: fused Gated Delta Net (autoregressive) enabled
+resolve_fused_ops: fused Gated Delta Net (chunked) enabled
+resolve_fused_ops: resolving fused Lightning Indexer support:
+resolve_fused_ops: Lightning Indexer enabled
+resolve_fused_ops: resolving fused DeepSeek V4 HC support:
+resolve_fused_ops: fused DeepSeek V4 HC pre enabled
+resolve_fused_ops: fused DeepSeek V4 HC comb enabled
+resolve_fused_ops: fused DeepSeek V4 HC post enabled
+sched_reserve:    Vulkan0 compute buffer size =   432.04 MiB
+sched_reserve: Vulkan_Host compute buffer size =   281.04 MiB
+sched_reserve: graph nodes  = 2021
+sched_reserve: graph splits = 2
+sched_reserve: reserve took 79.75 ms, sched copies = 1
+cmn  common_init_: KV cache shifting is not supported for this context, disabling KV cache shifting
+cmn  common_init_: warming up the model with an empty run - please wait ... (--no-warmup to disable)
+srv    load_model: initializing, n_slots = 1, n_ctx_slot = 131072, kv_unified = 'false'
+spec common_specu: no implementations specified for speculative decoding
+slot   load_model: id  0 | task -1 | new slot, n_ctx = 131072
+srv    load_model: prompt cache is enabled, size limit: 8192 MiB
+srv    load_model: use `--cache-ram 0` to disable the prompt cache
+srv    load_model: for more info see https://github.com/ggml-org/llama.cpp/pull/16391
+srv    load_model: context checkpoints enabled, max = 32, min spacing = 8192
+srv          init: idle slots will be saved to prompt cache upon starting a new task
+srv          init: init: chat template, example_format: '<|im_start|>system
+You are a helpful assistant<|im_end|>
+<|im_start|>user
+Hello<|im_end|>
+<|im_start|>assistant
+Hi there<|im_end|>
+<|im_start|>user
+How are you?<|im_end|>
+<|im_start|>assistant
+'
+srv          init: init: chat template, thinking = 0
+srv  llama_server: model loaded
+srv  llama_server: listening on http://127.0.0.1:46367
+srv  update_slots: all slots are idle
+time=2026-08-10T13:28:17.688+02:00 level=INFO source=llama_server.go:1360 msg="llama-server started in 20.03 seconds"
+time=2026-08-10T13:28:17.780+02:00 level=INFO source=images.go:373 msg="template selection" model=registry.ollama.ai/library/gpt-oss:120b selected=harmony renderer="" parser="" go_template="[completion tools thinking]" chat_template=null harmony="[completion tools thinking]" renderer_parser=null
+time=2026-08-10T13:28:17.781+02:00 level=INFO source=sched.go:728 msg="loaded runners" count=1
+time=2026-08-10T13:28:17.781+02:00 level=INFO source=llama_server.go:1293 msg="waiting for llama-server to start responding"
+time=2026-08-10T13:28:17.781+02:00 level=INFO source=llama_server.go:1360 msg="llama-server started in 20.12 seconds"
+[GIN] 2026/08/10 - 13:28:17 |[97;42m 200 [0m| 23.878000114s |       127.0.0.1 |[97;46m POST    [0m "/api/generate"
+[GIN] 2026/08/10 - 13:28:23 |[97;42m 200 [0m|      46.311µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 13:28:23 |[97;42m 200 [0m|     121.951µs |       127.0.0.1 |[97;44m GET     [0m "/api/ps"
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd-damo: error: *** STEP 15461.0 ON damo CANCELLED AT 2026-08-10T14:41:27 ***
+srun: error: ioctl(TIOCGWINSZ): Inappropriate ioctl for device
+srun: error: Not using a pseudo-terminal, disregarding --pty option
+time=2026-08-10T14:43:49.178+02:00 level=INFO source=routes.go:1933 msg="server config" env="map[CUDA_VISIBLE_DEVICES:1 GGML_VK_VISIBLE_DEVICES: GPU_DEVICE_ORDINAL:1 HIP_VISIBLE_DEVICES: HSA_OVERRIDE_GFX_VERSION: HTTPS_PROXY: HTTP_PROXY: LLAMA_ARG_FIT: LLAMA_ARG_FIT_TARGET: NO_PROXY: OLLAMA_CONTEXT_LENGTH:0 OLLAMA_DEBUG:INFO OLLAMA_DEBUG_LOG_REQUESTS:false OLLAMA_EDITOR: OLLAMA_FLASH_ATTENTION:false OLLAMA_GO_TEMPLATE:true OLLAMA_GPU_OVERHEAD:0 OLLAMA_HOST:http://127.0.0.1:1995 OLLAMA_IGPU_ENABLE: OLLAMA_KEEP_ALIVE:5m0s OLLAMA_KV_CACHE_TYPE: OLLAMA_LLM_LIBRARY: OLLAMA_LOAD_TIMEOUT:5m0s OLLAMA_MAX_LOADED_MODELS:0 OLLAMA_MAX_QUEUE:512 OLLAMA_MAX_TRANSFER_STREAMS:4 OLLAMA_MODELS:/home/maes/.ollama/models OLLAMA_NOHISTORY:false OLLAMA_NOPRUNE:false OLLAMA_NO_CLOUD:false OLLAMA_NUM_PARALLEL:1 OLLAMA_ORIGINS:[http://localhost https://localhost http://localhost:* https://localhost:* http://127.0.0.1 https://127.0.0.1 http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0 https://0.0.0.0 http://0.0.0.0:* https://0.0.0.0:* app://* file://* tauri://* vscode-webview://* vscode-file://*] OLLAMA_REMOTES:[ollama.com] OLLAMA_SCHED_SPREAD:false OLLAMA_VULKAN:true ROCR_VISIBLE_DEVICES:1 http_proxy: https_proxy: no_proxy:]"
+time=2026-08-10T14:43:49.178+02:00 level=INFO source=routes.go:1935 msg="Ollama cloud disabled: false"
+time=2026-08-10T14:43:49.187+02:00 level=INFO source=images.go:886 msg="total blobs: 74"
+time=2026-08-10T14:43:49.191+02:00 level=INFO source=images.go:893 msg="total unused blobs removed: 0"
+time=2026-08-10T14:43:49.193+02:00 level=INFO source=routes.go:1990 msg="Listening on 127.0.0.1:1995 (version 0.32.7)"
+time=2026-08-10T14:43:49.193+02:00 level=INFO source=runner.go:60 msg="discovering available GPUs..."
+time=2026-08-10T14:43:49.193+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" CUDA_VISIBLE_DEVICES=1
+time=2026-08-10T14:43:49.193+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" ROCR_VISIBLE_DEVICES=1
+time=2026-08-10T14:43:49.193+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" GPU_DEVICE_ORDINAL=1
+time=2026-08-10T14:43:49.193+02:00 level=WARN source=runner.go:726 msg="if GPUs are not correctly discovered, unset and try again"
+time=2026-08-10T14:43:49.204+02:00 level=INFO source=model_list_cache.go:112 msg="model list cache hydration complete" models=21 failures=0 elapsed=11.190941ms
+time=2026-08-10T14:43:49.349+02:00 level=INFO source=model_recommendations.go:177 msg="model recommendations cache sleep scheduled" wait=4h33m13.836336308s consecutive_failures=0
+srun: interrupt (one more within 1 sec to abort)
+srun: StepId=15462.0 task 0: running
+srun: sending Ctrl-C to StepId=15462.0
+srun: forcing job termination
+time=2026-08-10T14:43:54.012+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context canceled"
+time=2026-08-10T14:43:54.013+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context canceled" detail=""
+time=2026-08-10T14:43:54.013+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/cuda_v12]" extra_envs=map[] error="context canceled"
+time=2026-08-10T14:43:54.013+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/cuda_v12]" extra_envs=map[] error="context canceled" detail=""
+time=2026-08-10T14:43:54.013+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/cuda_v13]" extra_envs="map[CUDA_VISIBLE_DEVICES:0 GGML_CUDA_INIT:1]" error="context canceled"
+time=2026-08-10T14:43:54.013+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/cuda_v13]" extra_envs="map[CUDA_VISIBLE_DEVICES:0 GGML_CUDA_INIT:1]" error="context canceled" detail=""
+time=2026-08-10T14:43:54.014+02:00 level=INFO source=types.go:50 msg="inference compute" id=cpu library=cpu compute="" name=cpu description=cpu libdirs=ollama driver="" pci_id="" type="" total="1511.4 GiB" available="1303.9 GiB"
+time=2026-08-10T14:43:54.014+02:00 level=INFO source=routes.go:2040 msg="vram-based default context" total_vram="0 B" default_num_ctx=4096
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd-damo: error: *** STEP 15462.0 ON damo CANCELLED AT 2026-08-10T14:43:54 ***
+srun: error: ioctl(TIOCGWINSZ): Inappropriate ioctl for device
+srun: error: Not using a pseudo-terminal, disregarding --pty option
+time=2026-08-10T14:44:05.386+02:00 level=INFO source=routes.go:1933 msg="server config" env="map[CUDA_VISIBLE_DEVICES:1 GGML_VK_VISIBLE_DEVICES: GPU_DEVICE_ORDINAL:1 HIP_VISIBLE_DEVICES: HSA_OVERRIDE_GFX_VERSION: HTTPS_PROXY: HTTP_PROXY: LLAMA_ARG_FIT: LLAMA_ARG_FIT_TARGET: NO_PROXY: OLLAMA_CONTEXT_LENGTH:0 OLLAMA_DEBUG:INFO OLLAMA_DEBUG_LOG_REQUESTS:false OLLAMA_EDITOR: OLLAMA_FLASH_ATTENTION:false OLLAMA_GO_TEMPLATE:true OLLAMA_GPU_OVERHEAD:0 OLLAMA_HOST:http://127.0.0.1:1995 OLLAMA_IGPU_ENABLE: OLLAMA_KEEP_ALIVE:5m0s OLLAMA_KV_CACHE_TYPE: OLLAMA_LLM_LIBRARY: OLLAMA_LOAD_TIMEOUT:5m0s OLLAMA_MAX_LOADED_MODELS:0 OLLAMA_MAX_QUEUE:512 OLLAMA_MAX_TRANSFER_STREAMS:4 OLLAMA_MODELS:/home/maes/.ollama/models OLLAMA_NOHISTORY:false OLLAMA_NOPRUNE:false OLLAMA_NO_CLOUD:false OLLAMA_NUM_PARALLEL:1 OLLAMA_ORIGINS:[http://localhost https://localhost http://localhost:* https://localhost:* http://127.0.0.1 https://127.0.0.1 http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0 https://0.0.0.0 http://0.0.0.0:* https://0.0.0.0:* app://* file://* tauri://* vscode-webview://* vscode-file://*] OLLAMA_REMOTES:[ollama.com] OLLAMA_SCHED_SPREAD:false OLLAMA_VULKAN:true ROCR_VISIBLE_DEVICES:1 http_proxy: https_proxy: no_proxy:]"
+time=2026-08-10T14:44:05.386+02:00 level=INFO source=routes.go:1935 msg="Ollama cloud disabled: false"
+time=2026-08-10T14:44:05.391+02:00 level=INFO source=images.go:886 msg="total blobs: 74"
+time=2026-08-10T14:44:05.394+02:00 level=INFO source=images.go:893 msg="total unused blobs removed: 0"
+time=2026-08-10T14:44:05.396+02:00 level=INFO source=routes.go:1990 msg="Listening on 127.0.0.1:1995 (version 0.32.7)"
+time=2026-08-10T14:44:05.396+02:00 level=INFO source=runner.go:60 msg="discovering available GPUs..."
+time=2026-08-10T14:44:05.396+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" CUDA_VISIBLE_DEVICES=1
+time=2026-08-10T14:44:05.396+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" ROCR_VISIBLE_DEVICES=1
+time=2026-08-10T14:44:05.396+02:00 level=WARN source=runner.go:722 msg="user overrode visible devices" GPU_DEVICE_ORDINAL=1
+time=2026-08-10T14:44:05.396+02:00 level=WARN source=runner.go:726 msg="if GPUs are not correctly discovered, unset and try again"
+time=2026-08-10T14:44:05.406+02:00 level=INFO source=model_list_cache.go:112 msg="model list cache hydration complete" models=21 failures=0 elapsed=10.773218ms
+time=2026-08-10T14:44:05.527+02:00 level=INFO source=model_recommendations.go:177 msg="model recommendations cache sleep scheduled" wait=4h45m26.525529935s consecutive_failures=0
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=1 filter_id=1 library=Vulkan compute=0.0 name=Vulkan1 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:04:00.0 type=discrete total="93.6 GiB" available="93.1 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=7 filter_id=7 library=Vulkan compute=0.0 name=Vulkan7 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:c3:00.0 type=discrete total="93.6 GiB" available="93.1 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=2 filter_id=2 library=Vulkan compute=0.0 name=Vulkan2 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:43:00.0 type=discrete total="45.0 GiB" available="44.4 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=1 library=CUDA compute=8.9 name=CUDA0 description="NVIDIA L40S" libdirs=ollama,cuda_v13 driver=13.0 pci_id=0000:44:00.0 type=discrete total="44.4 GiB" available="44.0 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=4 filter_id=4 library=Vulkan compute=0.0 name=Vulkan4 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:45:00.0 type=discrete total="45.0 GiB" available="37.5 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=5 filter_id=5 library=Vulkan compute=0.0 name=Vulkan5 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:83:00.0 type=discrete total="45.0 GiB" available="37.1 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=6 filter_id=6 library=Vulkan compute=0.0 name=Vulkan6 description="NVIDIA L40S" libdirs=ollama,vulkan driver=0.0 pci_id=0000:84:00.0 type=discrete total="45.0 GiB" available="36.7 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=8 filter_id=8 library=Vulkan compute=0.0 name=Vulkan8 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:c4:00.0 type=discrete total="93.6 GiB" available="30.5 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=0 library=Vulkan compute=0.0 name=Vulkan0 description="NVIDIA H100 NVL" libdirs=ollama,vulkan driver=0.0 pci_id=0000:03:00.0 type=discrete total="93.6 GiB" available="30.5 GiB"
+time=2026-08-10T14:44:17.731+02:00 level=INFO source=routes.go:2040 msg="vram-based default context" total_vram="598.7 GiB" default_num_ctx=262144
+[GIN] 2026/08/10 - 14:44:19 |[97;42m 200 [0m|     139.531µs |       127.0.0.1 |[97;45m HEAD    [0m "/"
+[GIN] 2026/08/10 - 14:44:19 |[97;42m 200 [0m|      102.64µs |       127.0.0.1 |[97;44m GET     [0m "/api/ps"
+time=2026-08-10T14:44:41.966+02:00 level=WARN source=runner.go:584 msg="llama-server GPU discovery watchdog timed out" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded"
+time=2026-08-10T14:44:41.966+02:00 level=INFO source=runner.go:522 msg="failure during llama-server GPU discovery" OLLAMA_LIBRARY_PATH="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" extra_envs=map[] error="context deadline exceeded" detail=""
+time=2026-08-10T14:44:41.967+02:00 level=WARN source=runner.go:364 msg="unable to refresh free memory, using old values"
+time=2026-08-10T14:44:42.004+02:00 level=WARN source=llama_server.go:130 msg="llama-server discovery: timed out waiting for server startup" error="context deadline exceeded" libDirs="[/home/maes/.local/lib/ollama /home/maes/.local/lib/ollama/vulkan]" lines_captured=0
+time=2026-08-10T14:44:42.088+02:00 level=INFO source=sched.go:1013 msg="selecting single GPU for llama-server model" main_gpu=0 id=1 filter_id=1 library=Vulkan name=Vulkan1 description="NVIDIA H100 NVL" integrated=false predicted="67.2 GiB" available="93.1 GiB"
+time=2026-08-10T14:44:42.088+02:00 level=INFO source=sched.go:1132 msg="selecting GPU backend for llama-server model" library=Vulkan gpu_count=1 available_gpu_count=9
+time=2026-08-10T14:44:42.088+02:00 level=INFO source=server.go:109 msg="using llama-server for model" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a
+time=2026-08-10T14:44:42.088+02:00 level=WARN source=server.go:114 msg="requested context size too large for model" num_ctx=262144 n_ctx_train=131072
+time=2026-08-10T14:44:42.089+02:00 level=INFO source=llama_server.go:431 msg="starting llama-server" cmd="/home/maes/.local/lib/ollama/llama-server --model /home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a --port 37139 --host 127.0.0.1 --no-webui --offline -c 131072 -np 1 --log-verbosity 4 --no-log-prefix --no-log-timestamps --no-jinja --chat-template chatml --flash-attn auto -b 1024 -ub 1024 --split-mode none --main-gpu 0 --context-shift --keep 4"
+time=2026-08-10T14:44:42.090+02:00 level=INFO source=sched.go:613 msg="system memory" total="1511.4 GiB" free="1305.8 GiB" free_swap="7.0 GiB"
+time=2026-08-10T14:44:42.090+02:00 level=INFO source=sched.go:620 msg="gpu memory" id=1 library=Vulkan available="92.6 GiB" free="93.1 GiB" minimum="457.0 MiB" overhead="0 B"
+time=2026-08-10T14:44:42.090+02:00 level=INFO source=llama_server.go:1046 msg="loading model via llama-server" model=/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a
+time=2026-08-10T14:44:42.090+02:00 level=INFO source=llama_server.go:1293 msg="waiting for llama-server to start responding"
+time=2026-08-10T14:44:42.090+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+cmn  common_param: common_params_print_info: build 1 (96278e39f) with GNU 13.3.1 for Linux x86_64
+cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
+cmn  common_param: device_info:
+cmn  common_param:   - CPU     : AMD EPYC 9654 96-Core Processor (1547657 MiB, 1547657 MiB free)
+cmn  common_param:   - Vulkan0 : NVIDIA H100 NVL (95830 MiB, 95319 MiB free)
+cmn  common_param: system_info: n_threads = 192 (n_threads_batch = 192) / 384 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+srv          init: using 383 threads for HTTP server
+srv          init: The UI is disabled
+srv          init: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
+srv  llama_server: -----------------
+srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+srv  llama_server: this can be a security risk (cross-origin attacks)
+srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+srv  llama_server: -----------------
+srv         start: binding port with default address family
+srv    load_model: loading model '/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a'
+srv    load_model: local path '/home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a'
+cmn  common_init_: fitting params to device memory ...
+cmn  common_init_: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+common_params_fit_impl: getting device memory data for initial parameters:
+handle_gptoss: detected Ollama-format gpt-oss GGUF; applying compatibility fixes
+time=2026-08-10T14:44:42.843+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+common_memory_breakdown_print: | memory breakdown [MiB] | total    free     self   model   context   compute    unaccounted |
+common_memory_breakdown_print: |   - Vulkan0 (H100 NVL) | 95830 = 95289 + (66308 = 61223 +    4653 +     432) +      -65768 |
+common_memory_breakdown_print: |   - Host               |                   1385 =  1104 +       0 +     281                |
+common_params_fit_impl: projected to use 66308 MiB of device memory vs. 95289 MiB of free device memory
+common_params_fit_impl: will leave 28980 >= 1024 MiB of free device memory, no changes needed
+common_fit_params: successfully fit params to free device memory
+common_fit_params: fitting params to free memory took 1.01 seconds
+handle_gptoss: detected Ollama-format gpt-oss GGUF; applying compatibility fixes
+llama_model_loader: loaded meta data with 48 key-value pairs and 687 tensors from /home/maes/.ollama/models/blobs/sha256-6be6d66a3f546d8c19b130dc41dc24b2fc159f84ffbc76a0ee0676205083cf5a (version GGUF V3 (latest))
+llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+llama_model_loader: - kv   0:                          general.file_type u32              = 4
+llama_model_loader: - kv   1:               general.quantization_version u32              = 2
+llama_model_loader: - kv   2:                gptoss.attention.head_count u32              = 64
+llama_model_loader: - kv   3:             gptoss.attention.head_count_kv u32              = 8
+llama_model_loader: - kv   4:                gptoss.attention.key_length u32              = 64
+llama_model_loader: - kv   5:    gptoss.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv   6:            gptoss.attention.sliding_window u32              = 128
+llama_model_loader: - kv   7:              gptoss.attention.value_length u32              = 64
+llama_model_loader: - kv   8:                         gptoss.block_count u32              = 36
+llama_model_loader: - kv   9:                      gptoss.context_length u32              = 131072
+llama_model_loader: - kv  10:                    gptoss.embedding_length u32              = 2880
+llama_model_loader: - kv  11:                        gptoss.expert_count u32              = 128
+llama_model_loader: - kv  12:                   gptoss.expert_used_count u32              = 4
+llama_model_loader: - kv  13:                 gptoss.feed_forward_length u32              = 2880
+llama_model_loader: - kv  14:                      gptoss.rope.freq_base f32              = 150000.000000
+llama_model_loader: - kv  15:                 gptoss.rope.scaling.factor f32              = 32.000000
+llama_model_loader: - kv  16: gptoss.rope.scaling.original_context_length u32              = 4096
+llama_model_loader: - kv  17:               tokenizer.ggml.add_bos_token bool             = false
+llama_model_loader: - kv  18:               tokenizer.ggml.add_eos_token bool             = false
+llama_model_loader: - kv  19:           tokenizer.ggml.add_padding_token bool             = false
+llama_model_loader: - kv  20:                tokenizer.ggml.bos_token_id u32              = 199998
+llama_model_loader: - kv  21:                tokenizer.ggml.eos_token_id u32              = 199999
+llama_model_loader: - kv  22:               tokenizer.ggml.eos_token_ids arr[i32,3]       = [199999, 200002, 200012]
+llama_model_loader: - kv  23:                      tokenizer.ggml.merges arr[str,446189]  = ["Ġ Ġ", "Ġ ĠĠĠ", "ĠĠ ĠĠ", "...
+llama_model_loader: - kv  24:                       tokenizer.ggml.model str              = gpt2
+llama_model_loader: - kv  25:            tokenizer.ggml.padding_token_id u32              = 199999
+llama_model_loader: - kv  26:                      tokenizer.ggml.scores arr[f32,201088]  = [0.000000, 1.000000, 2.000000, 3.0000...
+llama_model_loader: - kv  27:                  tokenizer.ggml.token_type arr[i32,201088]  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+llama_model_loader: - kv  28:                      tokenizer.ggml.tokens arr[str,201088]  = ["!", "\"", "#", "$", "%", "&", "'", ...
+llama_model_loader: - kv  29:                       general.architecture str              = gpt-oss
+llama_model_loader: - kv  30:               gpt-oss.attention.head_count u32              = 64
+llama_model_loader: - kv  31:            gpt-oss.attention.head_count_kv u32              = 8
+llama_model_loader: - kv  32:               gpt-oss.attention.key_length u32              = 64
+llama_model_loader: - kv  33:   gpt-oss.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv  34:           gpt-oss.attention.sliding_window u32              = 128
+llama_model_loader: - kv  35:             gpt-oss.attention.value_length u32              = 64
+llama_model_loader: - kv  36:                        gpt-oss.block_count u32              = 36
+llama_model_loader: - kv  37:                     gpt-oss.context_length u32              = 131072
+llama_model_loader: - kv  38:                   gpt-oss.embedding_length u32              = 2880
+llama_model_loader: - kv  39:                       gpt-oss.expert_count u32              = 128
+llama_model_loader: - kv  40:                  gpt-oss.expert_used_count u32              = 4
+llama_model_loader: - kv  41:                gpt-oss.feed_forward_length u32              = 2880
+llama_model_loader: - kv  42:                     gpt-oss.rope.freq_base f32              = 150000.000000
+llama_model_loader: - kv  43:                gpt-oss.rope.scaling.factor f32              = 32.000000
+llama_model_loader: - kv  44: gpt-oss.rope.scaling.original_context_length u32              = 4096
+llama_model_loader: - kv  45:         gpt-oss.expert_feed_forward_length u32              = 2880
+llama_model_loader: - kv  46:                  gpt-oss.rope.scaling.type str              = yarn
+llama_model_loader: - kv  47:                         tokenizer.ggml.pre str              = gpt-4o
+llama_model_loader: - type  f32:  433 tensors
+llama_model_loader: - type bf16:  146 tensors
+llama_model_loader: - type mxfp4:  108 tensors
+print_info: file format = GGUF V3 (latest)
+print_info: file type   = unknown, may not work
+print_info: file size   = 60.87 GiB (4.48 BPW) 
+llama_prepare_model_devices: using device Vulkan0 (NVIDIA H100 NVL) (0000:04:00.0) - 95297 MiB free
+load: 0 unused tokens
+load: setting token '<|message|>' (200008) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|start|>' (200006) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|constrain|>' (200003) attribute to USER_DEFINED (16), old attributes: 8
+load: setting token '<|channel|>' (200005) attribute to USER_DEFINED (16), old attributes: 8
+load: printing all EOG tokens:
+load:   - 199999 ('<|endoftext|>')
+load:   - 200002 ('<|return|>')
+load:   - 200007 ('<|end|>')
+load:   - 200012 ('<|call|>')
+load: special_eog_ids contains both '<|return|>' and '<|call|>', or '<|calls|>' and '<|flush|>' tokens, removing '<|end|>' token from EOG list
+load: special tokens cache size = 1090
+load: token to piece cache size = 1.3413 MB
+print_info: arch                  = gpt-oss
+print_info: vocab_only            = 0
+print_info: no_alloc              = 0
+print_info: n_ctx_train           = 131072
+print_info: n_embd_inp            = 2880
+print_info: n_embd                = 2880
+print_info: n_embd_out            = 2880
+print_info: n_layer               = 36
+print_info: n_layer_all           = 36
+print_info: n_head                = 64
+print_info: n_head_kv             = 8
+print_info: n_rot                 = 64
+print_info: n_swa                 = 128
+print_info: is_swa_any            = 1
+print_info: n_embd_head_k         = 64
+print_info: n_embd_head_v         = 64
+print_info: n_gqa                 = 8
+print_info: n_embd_k_gqa          = 512
+print_info: n_embd_v_gqa          = 512
+print_info: f_norm_eps            = 0.0e+00
+print_info: f_norm_rms_eps        = 1.0e-05
+print_info: f_clamp_kqv           = 0.0e+00
+print_info: f_max_alibi_bias      = 0.0e+00
+print_info: f_logit_scale         = 0.0e+00
+print_info: f_attn_scale          = 0.0e+00
+print_info: f_attn_value_scale    = 0.0000
+print_info: n_ff                  = 2880
+print_info: n_expert              = 128
+print_info: n_expert_used         = 4
+print_info: n_expert_groups       = 0
+print_info: n_group_used          = 0
+print_info: causal attn           = 1
+print_info: pooling type          = -1
+print_info: rope type             = 2
+print_info: rope scaling          = yarn
+print_info: freq_base_train       = 150000.0
+print_info: freq_scale_train      = 0.03125
+print_info: freq_base_swa         = 150000.0
+print_info: freq_scale_swa        = 0.03125
+print_info: n_embd_head_k_swa     = 64
+print_info: n_embd_head_v_swa     = 64
+print_info: n_rot_swa             = 64
+print_info: n_ctx_orig_yarn       = 4096
+print_info: rope_yarn_log_mul     = 0.0000
+print_info: rope_finetuned        = unknown
+print_info: model type            = 120B
+print_info: model params          = 116.83 B
+print_info: general.name          = n/a
+print_info: n_ff_exp              = 2880
+print_info: vocab type            = BPE
+print_info: n_vocab               = 201088
+print_info: n_merges              = 446189
+print_info: BOS token             = 199998 '<|startoftext|>'
+print_info: EOS token             = 199999 '<|endoftext|>'
+print_info: EOT token             = 199999 '<|endoftext|>'
+print_info: PAD token             = 199999 '<|endoftext|>'
+print_info: LF token              = 198 'Ċ'
+print_info: EOG token             = 199999 '<|endoftext|>'
+print_info: EOG token             = 200002 '<|return|>'
+print_info: EOG token             = 200012 '<|call|>'
+print_info: max token length      = 256
+load_tensors: loading model tensors, this can take a while... (load_mode = mmap)
+time=2026-08-10T14:44:44.552+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"
+time=2026-08-10T14:44:48.960+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server loading model"
+load_tensors: offloading output layer to GPU
+load_tensors: offloading 35 repeating layers to GPU
+load_tensors: offloaded 37/37 layers to GPU
+load_tensors:   CPU_Mapped model buffer size =  1104.61 MiB
+load_tensors:      Vulkan0 model buffer size = 61223.72 MiB
+time=2026-08-10T14:45:00.232+02:00 level=INFO source=llama_server.go:1348 msg="waiting for llama-server to become available" status="llm server not responding"

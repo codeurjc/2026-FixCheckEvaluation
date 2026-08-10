@@ -1,0 +1,33 @@
+diff --git a/src/main/java/org/imdea/fixcheck/checker/FailureChecker.java b/src/main/java/org/imdea/fixcheck/checker/FailureChecker.java
+index 2a39710..7bcfc54 100644
+--- a/src/main/java/org/imdea/fixcheck/checker/FailureChecker.java
++++ b/src/main/java/org/imdea/fixcheck/checker/FailureChecker.java
+@@ -18,20 +18,24 @@ public class FailureChecker {
+    */
+   public static double similarity(Failure failure, String originalFailure) {
+     System.out.println("---> Checking similarity");
++    String originalTrace = normalizeFailureTrace(originalFailure);
+     System.out.println("Original failure:");
+-    System.out.println(originalFailure);
++    System.out.println(originalTrace);
+     System.out.println("Current failure:");
+     String trace = normalizeFailureTrace(failure.getTrace());
+     System.out.println(trace);
+-    double maxLength = Double.max(trace.length(), originalFailure.length());
+-    return (maxLength - getLevenshteinDistance(trace, originalFailure)) / maxLength;
++    double maxLength = Double.max(trace.length(), originalTrace.length());
++    return (maxLength - getLevenshteinDistance(trace, originalTrace)) / maxLength;
+   }
+ 
+   private static String normalizeFailureTrace(String trace) {
+     String[] lines = trace.split("\n");
+     String normalizedTrace = "";
+     for (String line : lines) {
+-      if (line.contains("at sun.reflect.NativeMethodAccessorImpl.invoke0")) // Everything after this line is not related to the actual test
++      // Everything after the reflective test invocation is runner infrastructure, not the actual test.
++      // The frame is sun.reflect.* up to Java 8 and (java.base/)jdk.internal.reflect.* from Java 9 on.
++      if (line.contains("sun.reflect.NativeMethodAccessorImpl.invoke0")
++          || line.contains("jdk.internal.reflect.NativeMethodAccessorImpl.invoke0"))
+         break;
+       normalizedTrace += line+"\n";
+     }

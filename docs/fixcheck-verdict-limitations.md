@@ -11,6 +11,9 @@ and when `codellama` does produce a real assertion and catches a failure, the
 similarity metric discards it as dissimilar because its stack-trace
 normalization is dead on Java 9+. Every number below was measured, not
 inferred.
+**Update 2026-08-10:** both defects are now fixed by local patches — see
+*Status* at the bottom; the body of this document describes the unpatched
+baseline.
 
 ## Why the developer's fix is the right probe
 
@@ -197,17 +200,38 @@ by an incomplete patch. FixCheck cannot distinguish the two.
 
 ## Status
 
-Both defects are one-line upstream bugs and **neither is patched here**:
+**Both defects are patched locally as of 2026-08-10.** The measurements above
+describe the *unpatched* vendored behavior and are kept as the baseline.
 
-| | file | fix |
+| | file | fix applied |
 |---|---|---|
-| 1 | `transform/input/InputTransformer.java:50` | compare against the resolved class name (or uncomment the re-append in `UsePreviousAssertGenerator`) |
-| 2 | `checker/FailureChecker.java:34` | also match `jdk.internal.reflect.…`, and normalize `originalFailure` too |
+| 1 | `transform/input/InputTransformer.java` | the guard now compares `FixCheckProperties.ASSERTION_GENERATOR` against `UsePreviousAssertGenerator.class.getName()` (what `loadProperties()` actually stores), so `previous-assertion` keeps the original assertions. The commented-out re-append in `UsePreviousAssertGenerator` is left as is — with removal no longer happening, re-appending would duplicate the assertions. |
+| 2 | `checker/FailureChecker.java` | `normalizeFailureTrace` now cuts at the reflection frame under both its pre-Java-9 (`sun.reflect.…`) and Java 9+ (`jdk.internal.reflect.…`) names, and is applied to `originalFailure` as well as to the prefix trace before the Levenshtein comparison. |
 
-`fixcheck/` is a gitignored clone, so a local edit is lost on re-clone; making
-either fix stick means forking, or applying a patch from
-`scripts/buildFixcheck.sh` after the clone step. `--fixcheck-assertions` makes
-it possible to measure the before/after.
+Since `fixcheck/` is a gitignored clone, the fixes live as patches in
+`scripts/fixcheck-patches/` and `scripts/buildFixcheck.sh` re-applies them
+(idempotently) after every fresh clone, before building the jar.
+`--fixcheck-assertions` makes it possible to measure the before/after.
+
+### Post-fix verification (2026-08-10)
+
+`test/e2e/test_fixcheck_devfix.py` with `previous-assertion` on both subjects,
+8/8 passed:
+
+- **Defect 1**: all 5 of Math 69's generated prefixes carry the two original
+  `assertTrue` statements (verified in `fixcheck-output/`), and the run
+  produced `assertion_failing = 1` — structurally impossible before the patch.
+  Math 69 went from `4 passing / 1 crashing / 0 assertion-failing` to
+  `2 passing / 2 crashing / 1 assertion-failing`.
+- **Defect 2**: the original failure trace is now trimmed at the reflection
+  frame (7 lines, zero Ant `JUnitTask` frames in the whole log). The
+  assertion-failing variation scored **0.693** — a comparison of comparable
+  heads, against 0.405 measured over untrimmed noise before.
+- The developer fixes are still (correctly) not flagged: 0.693 < 0.8. Given
+  the MATH-371 caveat above, not flagging Math 69 is the desirable outcome.
+
+The secondary observations (role-blind literal mutation, non-reproducible
+runs, `codellama` cost) are untouched and still apply.
 
 ## Reproducing
 
