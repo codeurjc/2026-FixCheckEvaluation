@@ -131,7 +131,7 @@ Arguments:
 | `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
 | `--fixcheck` | Run FixCheck on plausible patches (applied and every trigger test passing) as an overfitting check. Requires the jar from `bash scripts/buildFixcheck.sh`. | off |
 | `--fixcheck-prefixes` | Number of input variations ("prefixes") FixCheck generates per trigger method. | `25` |
-| `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `codellama`, `llama3.1`, `gpt-3.5`, `replit-code-llm`. `previous-assertion` keeps the trigger test's own assertions in every variation (restored by the patches in `scripts/fixcheck-patches/` — [background](docs/fixcheck-verdict-limitations.md)); `assert-true` only appends a vacuous `assertTrue(true)`. The Ollama-backed ones (`codellama`, `llama3.1`) generate new assertions with an LLM and need a local daemon — see *Ollama-backed assertion generators* below. `gpt-3.5` and `replit-code-llm` aren't wired up for this project's container/network setup yet. | `previous-assertion` |
+| `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `codellama`, `llama3.1`, `gpt-3.5`, `replit-code-llm`, or **`ollama:<model>[@[<host>:]<port>]`** for any model an Ollama daemon serves (e.g. `ollama:gpt-oss:120b@1995`). `previous-assertion` keeps the trigger test's own assertions in every variation (restored by the patches in `scripts/fixcheck-patches/` — [background](docs/fixcheck-verdict-limitations.md)); `assert-true` only appends a vacuous `assertTrue(true)`. The Ollama-backed ones generate new assertions with an LLM — see *Ollama-backed assertion generators* below. `gpt-3.5` and `replit-code-llm` aren't wired up for this project's container/network setup yet. | `previous-assertion` |
 | `--fixcheck-inputs-class` | Force FixCheck's `inputs-class` (e.g. `int`, `java.lang.String`) instead of inferring it from the trigger test source. Also the way to run FixCheck on a trigger test the heuristic considers unmutable (see *Not every bug is a FixCheck subject* below). | heuristic |
 | `--fixcheck-similarity-threshold` | Minimum failure-similarity score (0-1) a FixCheck failing variation needs to mark the patch suspicious. | `0.8` |
 | `--iteration`   | Iteration index; when set, artifacts go to `results/<model>/<project>/Bug_<bug_id>/<iteration>/` instead of `results/<model>/<project>/Bug_<bug_id>/`. Used by `run_iterations.py`. | none |
@@ -175,22 +175,39 @@ Three related upstream behaviors are worth knowing about when picking subjects:
 
 ### Ollama-backed assertion generators
 
-`--fixcheck-assertions codellama` (or `llama3.1`) asks a local Ollama daemon to
-write each variation's assertions. These are currently the *only* generators
-that produce a meaningful assertion at all
-([why](docs/fixcheck-verdict-limitations.md)), so they are worth the cost
-despite being far slower (one model call per prefix; on a local
-`codellama:7b`, generation dominated the run at ~2 min per prefix, and 11 min
-for Lang 12's larger test). Two details of the vendored jar make them
-need setup, because both are `private final` fields in
-`fixcheck/src/main/java/org/imdea/fixcheck/assertion/CodeLlamaOllama.java` and
-neither is configurable through the `.properties` file:
+An Ollama-backed generator asks a daemon to write each variation's assertions
+with an LLM, instead of reusing the trigger test's own. It costs one model call
+per prefix — on a local `codellama:7b` generation dominated the run at ~2 min
+per prefix, 11 min for Lang 12's larger test — but it is the only way to get an
+assertion the original test never made.
 
-- **The endpoint is hardcoded to `http://localhost:11434`.** Under Docker's
-  default bridge network that is the *container's* loopback, where nothing is
-  listening. `Experiment.py` therefore starts the container with
-  `network_mode="host"` whenever one of these generators is selected, so the
-  host's daemon is reachable under the name the jar insists on using.
+**Any model, any port (recommended).** `ollama:<model>[@[<host>:]<port>]` takes
+both from the command line:
+
+```bash
+python Experiment.py --project Math --bug-id 69 --fixcheck \
+    --fixcheck-assertions ollama:gpt-oss:120b@1995
+```
+
+- `ollama:gpt-oss:120b` — port `11434` on localhost
+- `ollama:gpt-oss:120b@1995` — port `1995` on localhost
+- `ollama:llama3.1:8b@gpu-box:11434` — another host
+
+The endpoint is separated with `@` because a colon already belongs to Ollama's
+own `<model>:<version>` tags. The model tag is used exactly as written (a bare
+name resolves to `<name>:latest`, as Ollama itself does). This is
+`assertion/OllamaGenerator.java`, added by
+`scripts/fixcheck-patches/0003-generic-ollama-assertion-generator.patch`; it
+prompts for bare assertion statements rather than a completed method, since
+asking a reasoning model to "complete the code" gets back a whole method that
+declares locals the prefix does not have.
+
+**The two legacy generators.** `--fixcheck-assertions codellama` (or
+`llama3.1`) still work, but both the endpoint and the model tag are
+`private final` fields in
+`fixcheck/src/main/java/org/imdea/fixcheck/assertion/CodeLlamaOllama.java`, so:
+
+- **The endpoint is hardcoded to `http://localhost:11434`.**
 - **The model name is hardcoded to the bare tag** (`codellama`), which Ollama
   resolves to `codellama:latest`. Having `codellama:7b` pulled is *not* enough.
   Alias it once:
@@ -200,9 +217,12 @@ neither is configurable through the `.properties` file:
   ollama cp codellama:7b codellama:latest
   ```
 
-Both conditions are checked before the run starts (`check_ollama_backend`), so
-a missing daemon or an unpulled tag produces one clear message instead of an
-empty report for every trigger class.
+Whichever is used, the daemon must be reachable *from inside the container*.
+When it is on the host's loopback, `Experiment.py` starts the container with
+`network_mode="host"` (`needs_host_network`); a generator naming a remote host
+does not need that. The daemon and the exact tag are checked before the run
+starts (`check_ollama_backend`), so a missing daemon or an unpulled tag
+produces one clear message instead of an empty report for every trigger class.
 
 ### Repeating a run (non-determinism)
 

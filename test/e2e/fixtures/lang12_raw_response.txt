@@ -1,0 +1,56 @@
+src/main/java/org/apache/commons/lang3/RandomStringUtils.java
+<<<<<<< SEARCH
+        if (start == 0 && end == 0) {
+                if (!letters && !numbers) {
+                    end = Integer.MAX_VALUE;
+                } else {
+                    end = 'z' + 1;
+                    start = ' ';                
+                }
+        }
+
+        char[] buffer = new char[count];
+        int gap = end - start;
+
+        while (count-- != 0) {
+            char ch;
+            if (chars == null) {
+                ch = (char) (random.nextInt(gap) + start);
+            } else {
+                ch = chars[random.nextInt(gap) + start];
+            }
+=======
+        // Handle custom character array separately
+        if (chars != null) {
+            if (chars.length == 0) {
+                throw new IllegalArgumentException("The chars array must not be empty");
+            }
+            if (start == 0 && end == 0) {
+                start = 0;
+                end = chars.length;
+            } else {
+                // Validate provided range
+                if (start < 0 || end > chars.length || start > end) {
+                    throw new IllegalArgumentException("Invalid start/end range");
+                }
+            }
+        } else if (start == 0 && end == 0) {
+            if (!letters && !numbers) {
+                end = Integer.MAX_VALUE;
+            } else {
+                end = 'z' + 1;
+                start = ' ';                
+            }
+        }
+
+        char[] buffer = new char[count];
+        int gap = end - start;
+
+        while (count-- != 0) {
+            char ch;
+            if (chars == null) {
+                ch = (char) (random.nextInt(gap) + start);
+            } else {
+                ch = chars[random.nextInt(gap) + start];
+            }
+>>>>>>> REPLACE

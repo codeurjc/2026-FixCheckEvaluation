@@ -1,0 +1,481 @@
+diff --git a/src/main/java/org/imdea/fixcheck/assertion/OllamaGenerator.java b/src/main/java/org/imdea/fixcheck/assertion/OllamaGenerator.java
+new file mode 100644
+index 0000000..d6ba939
+--- /dev/null
++++ b/src/main/java/org/imdea/fixcheck/assertion/OllamaGenerator.java
+@@ -0,0 +1,230 @@
++package org.imdea.fixcheck.assertion;
++
++import com.github.javaparser.ast.CompilationUnit;
++import org.imdea.fixcheck.assertion.common.AssertionsHelper;
++import org.imdea.fixcheck.prefix.Prefix;
++import org.imdea.fixcheck.properties.FixCheckProperties;
++import org.imdea.fixcheck.properties.OllamaProperty;
++import org.imdea.fixcheck.transform.common.TransformationHelper;
++import org.json.JSONObject;
++
++import java.io.BufferedReader;
++import java.io.InputStreamReader;
++import java.net.HttpURLConnection;
++import java.net.URL;
++import java.nio.charset.StandardCharsets;
++import java.util.ArrayList;
++import java.util.LinkedHashSet;
++import java.util.List;
++import java.util.Set;
++import java.util.regex.Pattern;
++
++/**
++ * OllamaGenerator class: assertion generator backed by any model served by a
++ * local or remote Ollama daemon.
++ *
++ * <p>Where {@code CodeLlamaOllama} and {@code Llama3_1Ollama} each hardcode one
++ * model tag and {@code http://localhost:11434}, this generator takes both from
++ * the configuration, so a model is selected as {@code ollama:<model>[@[<host>:]<port>]}
++ * (e.g. {@code ollama:gpt-oss:120b@1995}) without touching the sources. See
++ * {@link OllamaProperty} for the accepted forms.
++ *
++ * <p>The prompt asks for bare assertion statements rather than a completed
++ * method: reasoning models answer a "complete this code" prompt by re-emitting
++ * the whole method, often introducing local variables that do not exist in the
++ * prefix, which yields assertions that cannot compile once appended.
++ *
++ * @author Michel Maes
++ */
++public class OllamaGenerator extends AssertionGenerator {
++
++  private static final String SYSTEM = "You are an assertion generator for Java unit tests. "
++      + "You reply with Java assertion statements only: no prose, no markdown, no method or "
++      + "class declarations.";
++
++  /** Assertion calls the response scanner recognizes, optionally qualified. */
++  private static final Pattern ASSERTION_START = Pattern.compile(
++      "^(?:[A-Za-z_][A-Za-z0-9_.]*\\.)?"
++          + "(?:assertEquals|assertNotEquals|assertTrue|assertFalse|assertNotNull|assertNull"
++          + "|assertArrayEquals|assertSame|assertNotSame)\\s*\\(");
++
++  /** Reasoning models that do not use Ollama's separate 'thinking' field inline it instead. */
++  private static final Pattern REASONING_BLOCK = Pattern.compile(
++      "(?s)<(think|thinking|reasoning)>.*?</\\1>");
++
++  private final OllamaProperty endpoint;
++  private final int timeoutMillis;
++
++  /** Used by FixCheck itself, which instantiates generators reflectively. */
++  public OllamaGenerator() {
++    this(OllamaProperty.fromProperties(), FixCheckProperties.OLLAMA_TIMEOUT_SECONDS);
++  }
++
++  public OllamaGenerator(OllamaProperty endpoint, int timeoutSeconds) {
++    this.endpoint = endpoint;
++    this.timeoutMillis = timeoutSeconds * 1000;
++  }
++
++  @Override
++  public void generateAssertions(Prefix prefix) {
++    String prompt = generatePrompt(prefix);
++    System.out.println("prompt:");
++    System.out.println(prompt);
++    String responseText = performCall(prompt);
++    List<String> assertionsStr = getAssertionsFromResponseText(responseText);
++    System.out.println("---> assertions: " + assertionsStr);
++    System.out.println();
++    AssertionsHelper.appendAssertionsToPrefix(assertionsStr, prefix);
++    updateClassName(prefix);
++  }
++
++  /**
++   * Build the prompt: the original test as a reference, the variation to
++   * complete, and the rules that keep the answer appendable as-is.
++   *
++   * @param prefix Prefix to generate the prompt for
++   * @return Prompt for the model
++   */
++  private String generatePrompt(Prefix prefix) {
++    return "Below are two Java unit tests. The second one is a variation of the first, "
++        + "with its assertions removed.\n\n"
++        + "Reference test:\n" + prefix.getParent().getSourceCode() + "\n\n"
++        + "Variation to complete:\n" + prefix.getSourceCode() + "\n\n"
++        + "Write the JUnit assertion statements that must hold at the end of the variation.\n\n"
++        + "Rules:\n"
++        + "- Output ONLY assertion statements, one per line, each ending with a semicolon.\n"
++        + "- Use only the variables already declared in the variation. Do NOT declare new variables.\n"
++        + "- Do NOT repeat the method signature, the class, the existing statements, or any explanation.\n"
++        + "- Do NOT use markdown code fences.\n";
++  }
++
++  /**
++   * Perform the call to the Ollama generate API.
++   */
++  private String performCall(String prompt) {
++    try {
++      URL url = new URL(endpoint.getApiUrl());
++      HttpURLConnection con = (HttpURLConnection) url.openConnection();
++      con.setRequestMethod("POST");
++      con.setRequestProperty("Content-Type", "application/json");
++      // Without these an unreachable or wedged daemon hangs the whole run.
++      con.setConnectTimeout(timeoutMillis);
++      con.setReadTimeout(timeoutMillis);
++      JSONObject requestBody = new JSONObject();
++      requestBody.put("model", endpoint.getModel());
++      requestBody.put("system", SYSTEM);
++      requestBody.put("prompt", prompt);
++      requestBody.put("stream", false);
++      System.out.println("request: " + requestBody);
++      con.setDoOutput(true);
++      con.getOutputStream().write(requestBody.toString().getBytes(StandardCharsets.UTF_8));
++      StringBuilder response = new StringBuilder();
++      try (BufferedReader in = new BufferedReader(
++          new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8))) {
++        String inputLine;
++        while ((inputLine = in.readLine()) != null) {
++          response.append(inputLine).append("\n");
++        }
++      }
++      JSONObject jsonResponse = new JSONObject(response.toString());
++      String completion = jsonResponse.optString("response", "");
++      System.out.println("---> response: " + completion);
++      return completion;
++    } catch (Exception e) {
++      System.out.println("Error while performing the call to the model " + endpoint.getModel()
++          + " through Ollama at " + endpoint.getApiUrl());
++      e.printStackTrace();
++      throw new RuntimeException("Ollama call failed for " + endpoint, e);
++    }
++  }
++
++  /**
++   * Get assertions as strings from the response text.
++   *
++   * <p>Tolerates what instruction-tuned models add on top of the requested
++   * bare statements: markdown fences, inline reasoning blocks, comments, and
++   * assertions wrapped over several lines. Of the groups of consecutive
++   * assertions found, the last one is kept -- when a model re-emits the whole
++   * method despite the prompt, the completion it appended is at the end.
++   *
++   * @param text the response
++   * @return a list of assertion strings
++   */
++  static List<String> getAssertionsFromResponseText(String text) {
++    if (text == null) return new ArrayList<>();
++    String cleaned = REASONING_BLOCK.matcher(text).replaceAll("");
++    List<String> currentGroup = new ArrayList<>();
++    List<String> lastGroup = new ArrayList<>();
++    StringBuilder pending = new StringBuilder(); // assertion spanning several lines
++
++    for (String rawLine : cleaned.split("\\r?\\n")) {
++      String line = rawLine.trim();
++      // Transparent lines: they neither start nor break a group.
++      if (line.isEmpty() || line.startsWith("```") || line.startsWith("//")
++          || line.startsWith("/*") || line.startsWith("*") || line.equals("}")) continue;
++      if (pending.length() == 0 && !ASSERTION_START.matcher(line).find()) {
++        // Real code that is not an assertion: the group ends here.
++        if (!currentGroup.isEmpty()) {
++          lastGroup = currentGroup;
++          currentGroup = new ArrayList<>();
++        }
++        continue;
++      }
++      pending.append(pending.length() == 0 ? line : " " + line);
++      String candidate = pending.toString();
++      if (candidate.endsWith(";") && isBalanced(candidate)) {
++        currentGroup.add(candidate);
++        pending.setLength(0);
++      } else if (candidate.length() > 4000) {
++        pending.setLength(0); // runaway; give up on this one
++      }
++    }
++    if (!currentGroup.isEmpty()) lastGroup = currentGroup;
++
++    // A model asked twice for the same assertion sometimes emits it twice.
++    Set<String> unique = new LinkedHashSet<>(lastGroup);
++    return new ArrayList<>(unique);
++  }
++
++  /** True when every '(' in the statement is closed, ignoring string literals. */
++  private static boolean isBalanced(String statement) {
++    int depth = 0;
++    boolean inString = false;
++    boolean inChar = false;
++    for (int i = 0; i < statement.length(); i++) {
++      char c = statement.charAt(i);
++      if (i > 0 && statement.charAt(i - 1) == '\\') continue;
++      if (c == '"' && !inChar) inString = !inString;
++      else if (c == '\'' && !inString) inChar = !inChar;
++      else if (!inString && !inChar) {
++        if (c == '(') depth++;
++        else if (c == ')') depth--;
++      }
++    }
++    return depth == 0 && !inString && !inChar;
++  }
++
++  /**
++   * Update the class name with a new name
++   * @param prefix Prefix to update
++   */
++  private void updateClassName(Prefix prefix) {
++    String currentClassName = prefix.getClassName();
++    String newClassName = currentClassName + "withOllama" + modelSuffix();
++    prefix.setClassName(newClassName);
++    CompilationUnit compilationUnit = prefix.getMethodCompilationUnit();
++    compilationUnit.getClassByName(currentClassName).get().setName(newClassName);
++    TransformationHelper.updateCompilationUnitNames(compilationUnit, currentClassName, newClassName);
++  }
++
++  /** The model tag as a Java identifier fragment, e.g. 'gpt-oss:120b' -> 'Gptoss120b'. */
++  private String modelSuffix() {
++    StringBuilder sanitized = new StringBuilder();
++    for (char c : endpoint.getModel().toCharArray()) {
++      if (Character.isLetterOrDigit(c)) sanitized.append(c);
++    }
++    if (sanitized.length() == 0) return "";
++    sanitized.setCharAt(0, Character.toUpperCase(sanitized.charAt(0)));
++    return sanitized.toString();
++  }
++}
+diff --git a/src/main/java/org/imdea/fixcheck/properties/AssertionGeneratorProperty.java b/src/main/java/org/imdea/fixcheck/properties/AssertionGeneratorProperty.java
+index 4d7bd42..9d2b694 100644
+--- a/src/main/java/org/imdea/fixcheck/properties/AssertionGeneratorProperty.java
++++ b/src/main/java/org/imdea/fixcheck/properties/AssertionGeneratorProperty.java
+@@ -25,9 +25,14 @@ public class AssertionGeneratorProperty {
+   }
+ 
+   public static String parseOption(String option) {
++    // Any model served by Ollama, selected as 'ollama:<model>[@[<host>:]<port>]'
++    // (see OllamaProperty). Not a fixed key, so it is resolved before the map.
++    if (OllamaProperty.isOllamaOption(option))
++      return "org.imdea.fixcheck.assertion.OllamaGenerator";
+     if (!Options.containsKey(option)) {
+       System.out.println("Error: Invalid option for assertion generator: " + option);
+-      System.out.println("Valid options are: " + Options.keySet());
++      System.out.println("Valid options are: " + Options.keySet()
++          + ", or '" + OllamaProperty.OPTION_PREFIX + ":<model>[@[<host>:]<port>]'");
+       System.exit(1);
+     }
+     return Options.get(option);
+diff --git a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+index af22eb3..f040fcc 100644
+--- a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
++++ b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+@@ -40,6 +40,15 @@ public class FixCheckProperties {
+   // Properties related to prefixes
+   public static int PREFIX_VARIATIONS = 1; // Total number of prefix variations to generate
+   public static String ASSERTION_GENERATOR = "org.imdea.fixcheck.assertion.AssertTrueGenerator"; // Assertion mechanism to use
++  public static String ASSERTION_GENERATOR_OPTION; // The assertion-generator option as written, before resolving it to a class
++
++  // Properties related to the generic Ollama assertion generator (OllamaProperty).
++  // Unset by default: the endpoint may instead be given inline in the
++  // assertion-generator option, as 'ollama:<model>[@[<host>:]<port>]'.
++  public static String OLLAMA_MODEL; // Model tag to query, e.g. gpt-oss:120b
++  public static String OLLAMA_HOST; // Host serving the Ollama API (default localhost)
++  public static int OLLAMA_PORT = -1; // Port of the Ollama API (default 11434)
++  public static int OLLAMA_TIMEOUT_SECONDS = 600; // Connect/read timeout for each model call
+ 
+   // Properties related to inputs
+   public static String INPUTS_CLASS; // Full name of the inputs class
+@@ -105,8 +114,10 @@ public class FixCheckProperties {
+         System.out.println("Error: assertion-generator property is required");
+         System.exit(1);
+       } else {
++        FixCheckProperties.ASSERTION_GENERATOR_OPTION = prop.getProperty("assertion-generator");
+         FixCheckProperties.ASSERTION_GENERATOR = AssertionGeneratorProperty.parseOption(prop.getProperty("assertion-generator"));
+       }
++      loadOllamaProperties(prop);
+       System.out.println("classpath: " + FixCheckProperties.FULL_CLASSPATH);
+       System.out.println("test classes path: " + FixCheckProperties.TEST_CLASSES_PATH);
+       System.out.println("test class: " + FixCheckProperties.TEST_CLASS);
+@@ -121,6 +132,30 @@ public class FixCheckProperties {
+     }
+   }
+ 
++  /**
++   * Load the properties of the generic Ollama assertion generator, and resolve
++   * the endpoint right away when that generator was selected: an invalid model
++   * or port has to be reported here, since FixCheck instantiates generators
++   * reflectively and would otherwise report it as an unknown generator class.
++   */
++  private static void loadOllamaProperties(Properties prop) {
++    FixCheckProperties.OLLAMA_MODEL = prop.getProperty("ollama-model");
++    FixCheckProperties.OLLAMA_HOST = prop.getProperty("ollama-host");
++    if (prop.getProperty("ollama-port") != null)
++      FixCheckProperties.OLLAMA_PORT = Integer.parseInt(prop.getProperty("ollama-port").trim());
++    if (prop.getProperty("ollama-timeout-seconds") != null)
++      FixCheckProperties.OLLAMA_TIMEOUT_SECONDS =
++          Integer.parseInt(prop.getProperty("ollama-timeout-seconds").trim());
++    if (!OllamaProperty.isOllamaOption(FixCheckProperties.ASSERTION_GENERATOR_OPTION)) return;
++    try {
++      System.out.println("ollama endpoint: " + OllamaProperty.fromProperties()
++          + " (timeout " + FixCheckProperties.OLLAMA_TIMEOUT_SECONDS + "s)");
++    } catch (IllegalArgumentException e) {
++      System.out.println("Error: " + e.getMessage());
++      System.exit(1);
++    }
++  }
++
+   /**
+    * Setup all Properties.
+    */
+diff --git a/src/main/java/org/imdea/fixcheck/properties/OllamaProperty.java b/src/main/java/org/imdea/fixcheck/properties/OllamaProperty.java
+new file mode 100644
+index 0000000..83187d4
+--- /dev/null
++++ b/src/main/java/org/imdea/fixcheck/properties/OllamaProperty.java
+@@ -0,0 +1,157 @@
++package org.imdea.fixcheck.properties;
++
++/**
++ * OllamaProperty class: resolves which Ollama model the generic
++ * {@code org.imdea.fixcheck.assertion.OllamaGenerator} talks to, and where.
++ *
++ * <p>Unlike {@code CodeLlamaOllama} and {@code Llama3_1Ollama}, which hardcode
++ * both the model tag and {@code http://localhost:11434}, the endpoint here is
++ * configurable in two ways:
++ *
++ * <ul>
++ *   <li>inline in the {@code assertion-generator} option itself, as
++ *       {@code ollama:<model>[@[<host>:]<port>]} -- so a single string can
++ *       travel through a command line; or</li>
++ *   <li>with the standalone {@code ollama-model}, {@code ollama-host} and
++ *       {@code ollama-port} properties.</li>
++ * </ul>
++ *
++ * The inline spec wins over the standalone properties, which in turn win over
++ * the defaults ({@code localhost:11434}).
++ *
++ * <p>The model keeps Ollama's own {@code <model>:<version>} shape
++ * ({@code gpt-oss:120b}); the separator before the endpoint is {@code @}
++ * precisely because a colon is already part of a model tag.
++ *
++ * @author Michel Maes
++ */
++public class OllamaProperty {
++
++  public static final String OPTION_PREFIX = "ollama";
++
++  private static final String DEFAULT_HOST = "localhost";
++  private static final int DEFAULT_PORT = 11434;
++
++  private final String model;
++  private final String host;
++  private final int port;
++
++  private OllamaProperty(String model, String host, int port) {
++    this.model = model;
++    this.host = host;
++    this.port = port;
++  }
++
++  /**
++   * Returns true iff the given {@code assertion-generator} option selects the
++   * generic Ollama generator, i.e. it is {@code ollama} or {@code ollama:...}.
++   */
++  public static boolean isOllamaOption(String option) {
++    return option != null
++        && (option.equals(OPTION_PREFIX) || option.startsWith(OPTION_PREFIX + ":"));
++  }
++
++  /**
++   * Resolve the endpoint from the loaded properties.
++   */
++  public static OllamaProperty fromProperties() {
++    return parse(FixCheckProperties.ASSERTION_GENERATOR_OPTION,
++        FixCheckProperties.OLLAMA_MODEL,
++        FixCheckProperties.OLLAMA_HOST,
++        FixCheckProperties.OLLAMA_PORT);
++  }
++
++  /**
++   * Resolve the endpoint from an inline option spec plus the standalone
++   * property values (any of which may be null / unset).
++   *
++   * @param option the raw {@code assertion-generator} option
++   * @param modelProperty value of {@code ollama-model}, or null
++   * @param hostProperty value of {@code ollama-host}, or null
++   * @param portProperty value of {@code ollama-port}, or a non-positive number when unset
++   * @throws IllegalArgumentException if no model was given, or the spec is malformed
++   */
++  public static OllamaProperty parse(String option, String modelProperty, String hostProperty,
++                                     int portProperty) {
++    String model = modelProperty;
++    String host = hostProperty;
++    int port = portProperty;
++
++    String spec = inlineSpec(option);
++    if (spec != null && !spec.isEmpty()) {
++      // The model tag itself contains colons, so the endpoint is split off at
++      // the last '@' -- a character Ollama model names cannot contain.
++      int at = spec.lastIndexOf('@');
++      String modelPart = (at == -1) ? spec : spec.substring(0, at);
++      String endpointPart = (at == -1) ? "" : spec.substring(at + 1);
++      if (!modelPart.isEmpty()) model = modelPart;
++      if (at != -1 && endpointPart.isEmpty())
++        throw new IllegalArgumentException(
++            "Malformed assertion-generator '" + option + "': nothing after '@'. "
++                + "Expected " + OPTION_PREFIX + ":<model>[@[<host>:]<port>]");
++      if (!endpointPart.isEmpty()) {
++        int colon = endpointPart.lastIndexOf(':');
++        if (colon == -1) {
++          // Bare number is a port; anything else is a host.
++          if (isNumber(endpointPart)) port = parsePort(endpointPart, option);
++          else host = endpointPart;
++        } else {
++          String hostPart = endpointPart.substring(0, colon);
++          if (!hostPart.isEmpty()) host = hostPart;
++          port = parsePort(endpointPart.substring(colon + 1), option);
++        }
++      }
++    }
++
++    if (model == null || model.trim().isEmpty())
++      throw new IllegalArgumentException(
++          "No Ollama model configured. Give it inline as '"
++              + OPTION_PREFIX + ":<model>[@[<host>:]<port>]' (e.g. '"
++              + OPTION_PREFIX + ":gpt-oss:120b@1995') or with the 'ollama-model' property.");
++
++    return new OllamaProperty(model.trim(),
++        (host == null || host.trim().isEmpty()) ? DEFAULT_HOST : host.trim(),
++        (port > 0) ? port : DEFAULT_PORT);
++  }
++
++  /**
++   * The part of the option after the {@code ollama} prefix, or null when the
++   * option does not select this generator at all.
++   */
++  private static String inlineSpec(String option) {
++    if (!isOllamaOption(option)) return null;
++    return option.equals(OPTION_PREFIX) ? "" : option.substring(OPTION_PREFIX.length() + 1);
++  }
++
++  private static boolean isNumber(String value) {
++    if (value.isEmpty()) return false;
++    for (int i = 0; i < value.length(); i++) {
++      if (!Character.isDigit(value.charAt(i))) return false;
++    }
++    return true;
++  }
++
++  private static int parsePort(String value, String option) {
++    if (!isNumber(value))
++      throw new IllegalArgumentException(
++          "Malformed assertion-generator '" + option + "': '" + value + "' is not a port number. "
++              + "Expected " + OPTION_PREFIX + ":<model>[@[<host>:]<port>]");
++    int port = Integer.parseInt(value);
++    if (port <= 0 || port > 65535)
++      throw new IllegalArgumentException(
++          "Malformed assertion-generator '" + option + "': port " + port + " is out of range.");
++    return port;
++  }
++
++  public String getModel() { return model; }
++
++  public String getHost() { return host; }
++
++  public int getPort() { return port; }
++
++  /** The Ollama generate endpoint to POST to. */
++  public String getApiUrl() { return "http://" + host + ":" + port + "/api/generate"; }
++
++  @Override
++  public String toString() { return "model=" + model + " at " + getApiUrl(); }
++}

@@ -21,10 +21,12 @@ configuration directly through ``__init__`` rather than an argparse
 ``Namespace``.
 """
 
+import argparse
 import csv
 import json
 import os
 import re
+from collections import namedtuple
 
 from docker_utils import exec_in_container, export_property, run_step
 
@@ -42,11 +44,11 @@ DEFAULT_FIXCHECK_PREFIXES = 25
 DEFAULT_FIXCHECK_ASSERTIONS = "previous-assertion"
 DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD = 0.8
 
-# Assertion generators that ask a local Ollama daemon to write the assertions
-# instead of reusing the original test's. Both ``CodeLlamaOllama`` and
+# Assertion generators that ask an Ollama daemon to write the assertions
+# instead of reusing the original test's. ``CodeLlamaOllama`` and
 # ``Llama3_1Ollama`` hardcode the endpoint *and* the model tag as
 # ``private final`` fields, so neither is configurable through the
-# ``.properties`` file -- the value here has to match the Java source exactly
+# ``.properties`` file -- the values here have to match the Java source exactly
 # (fixcheck/src/main/java/org/imdea/fixcheck/assertion/).
 FIXCHECK_OLLAMA_GENERATORS = {
     "codellama": "codellama",
@@ -57,21 +59,140 @@ FIXCHECK_OLLAMA_GENERATORS = {
 # daemon running on the host -- see :func:`needs_host_network`.
 FIXCHECK_OLLAMA_URL = "http://localhost:11434"
 
+# The generic generator (``assertion/OllamaGenerator.java``) takes the model
+# and the endpoint from the configuration instead, selected as
+# ``ollama:<model>[@[<host>:]<port>]``. The endpoint separator is ``@``
+# because a colon is already part of Ollama's ``<model>:<version>`` tags.
+FIXCHECK_OLLAMA_OPTION_PREFIX = "ollama"
+DEFAULT_FIXCHECK_OLLAMA_HOST = "localhost"
+DEFAULT_FIXCHECK_OLLAMA_PORT = 11434
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+OllamaBackend = namedtuple("OllamaBackend", "model host port base_url wanted_tag")
+
+
+def _make_backend(model, host, port):
+    """Build an :class:`OllamaBackend`, resolving the tag Ollama will match.
+
+    A bare model name is resolved by Ollama to ``<name>:latest``, so that is
+    the tag ``/api/tags`` has to list for the call to succeed.
+    """
+    return OllamaBackend(
+        model=model, host=host, port=port,
+        base_url=f"http://{host}:{port}",
+        wanted_tag=model if ":" in model else f"{model}:latest",
+    )
+
+
+def parse_ollama_generator(assertion_generator):
+    """Parse an ``ollama:<model>[@[<host>:]<port>]`` spec into a backend.
+
+    Returns ``None`` when the string does not select the generic Ollama
+    generator, so callers can use it as a test. Mirrors
+    ``fixcheck/src/main/java/org/imdea/fixcheck/properties/OllamaProperty.java``
+    -- keep the two in step.
+
+    >>> parse_ollama_generator("ollama:gpt-oss:120b@1995").model
+    'gpt-oss:120b'
+
+    :raises ValueError: if the spec selects the generator but is malformed.
+    """
+    prefix = FIXCHECK_OLLAMA_OPTION_PREFIX
+    if assertion_generator == prefix:
+        raise ValueError(
+            f"{assertion_generator!r} does not name a model; use "
+            f"'{prefix}:<model>[@[<host>:]<port>]', e.g. '{prefix}:gpt-oss:120b@1995'"
+        )
+    if not assertion_generator.startswith(f"{prefix}:"):
+        return None
+
+    spec = assertion_generator[len(prefix) + 1:]
+    # The model tag itself contains colons, so the endpoint is split off at
+    # the last '@' -- a character Ollama model names cannot contain.
+    model, sep, endpoint = spec.rpartition("@")
+    if not sep:
+        model, endpoint = spec, ""
+    if not model:
+        raise ValueError(
+            f"{assertion_generator!r} does not name a model; use "
+            f"'{prefix}:<model>[@[<host>:]<port>]'"
+        )
+
+    host, port = DEFAULT_FIXCHECK_OLLAMA_HOST, DEFAULT_FIXCHECK_OLLAMA_PORT
+    if sep and not endpoint:
+        raise ValueError(f"{assertion_generator!r} has nothing after '@'")
+    if endpoint:
+        host_part, colon, port_part = endpoint.rpartition(":")
+        if not colon:
+            # A bare number is a port; anything else is a host.
+            if endpoint.isdigit():
+                port = int(endpoint)
+            else:
+                host = endpoint
+        else:
+            host = host_part or host
+            if not port_part.isdigit():
+                raise ValueError(
+                    f"{assertion_generator!r}: {port_part!r} is not a port number"
+                )
+            port = int(port_part)
+        if not 0 < port < 65536:
+            raise ValueError(f"{assertion_generator!r}: port {port} is out of range")
+    return _make_backend(model, host, port)
+
+
+def resolve_ollama_backend(assertion_generator):
+    """The Ollama endpoint a generator will call, or ``None`` if it calls none.
+
+    Covers both the two hardcoded legacy generators and the configurable
+    ``ollama:<model>[@[<host>:]<port>]`` form.
+    """
+    if assertion_generator in FIXCHECK_OLLAMA_GENERATORS:
+        return _make_backend(
+            FIXCHECK_OLLAMA_GENERATORS[assertion_generator],
+            DEFAULT_FIXCHECK_OLLAMA_HOST, DEFAULT_FIXCHECK_OLLAMA_PORT,
+        )
+    return parse_ollama_generator(assertion_generator)
+
+
+def validate_assertion_generator(value):
+    """argparse ``type`` for ``--fixcheck-assertions``.
+
+    A plain ``choices=`` list cannot express the open-ended
+    ``ollama:<model>`` form, so the check lives here.
+    """
+    if value in FIXCHECK_ASSERTION_GENERATORS:
+        return value
+    try:
+        if parse_ollama_generator(value) is not None:
+            return value
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc))
+    raise argparse.ArgumentTypeError(
+        f"invalid assertion generator {value!r}; expected one of "
+        f"{FIXCHECK_ASSERTION_GENERATORS} or "
+        f"'{FIXCHECK_OLLAMA_OPTION_PREFIX}:<model>[@[<host>:]<port>]'"
+    )
+
 
 def needs_host_network(assertion_generator):
     """True when FixCheck will call a service on the *host's* ``localhost``.
 
-    The Ollama-backed generators post to a hardcoded
-    ``http://localhost:11434``. Under Docker's default bridge network that
-    resolves to the container's own loopback, where nothing is listening, so
-    every assertion-generation call dies with a ``ConnectException``. Running
-    the container with ``network_mode="host"`` makes the host's daemon
-    reachable under the very name the jar insists on using.
+    The Ollama-backed generators post to a loopback address. Under Docker's
+    default bridge network that resolves to the container's own loopback,
+    where nothing is listening, so every assertion-generation call dies with a
+    ``ConnectException``. Running the container with ``network_mode="host"``
+    makes the host's daemon reachable under the very name the jar uses. A
+    generator pointed at a non-loopback host needs no such thing.
 
     ``Experiment.py`` consults this when starting the container, since the
     network mode is fixed at creation time -- long before FixCheck runs.
     """
-    return assertion_generator in FIXCHECK_OLLAMA_GENERATORS
+    try:
+        backend = resolve_ollama_backend(assertion_generator)
+    except ValueError:
+        return False
+    return backend is not None and backend.host in _LOOPBACK_HOSTS
 
 
 def check_ollama_backend(container, assertion_generator):
@@ -82,20 +203,19 @@ def check_ollama_backend(container, assertion_generator):
     model surfaces only as a ``RuntimeException`` per prefix and an
     unexplained "report.csv missing or unparsable" for every trigger class.
 
-    Note that FixCheck asks for a *bare* model name (``codellama``), which
-    Ollama resolves to ``codellama:latest``; having ``codellama:7b`` pulled
-    is not enough, hence the exact-tag comparison.
+    Note that a *bare* model name (``codellama``) is resolved by Ollama to
+    ``codellama:latest``; having ``codellama:7b`` pulled is not enough, hence
+    the exact-tag comparison.
     """
-    model = FIXCHECK_OLLAMA_GENERATORS[assertion_generator]
-    wanted = model if ":" in model else f"{model}:latest"
+    backend = resolve_ollama_backend(assertion_generator)
 
     probe = exec_in_container(
-        container, f"curl -s --max-time 10 {FIXCHECK_OLLAMA_URL}/api/tags"
+        container, f"curl -s --max-time 10 {backend.base_url}/api/tags"
     )
     if not probe.ok or not probe.output.strip():
         return (
             f"assertion-generator={assertion_generator!r} needs an Ollama "
-            f"daemon at {FIXCHECK_OLLAMA_URL} reachable from inside the "
+            f"daemon at {backend.base_url} reachable from inside the "
             "container, but it did not respond. Start Ollama on the host and "
             "make sure the container runs with host networking."
         )
@@ -103,15 +223,21 @@ def check_ollama_backend(container, assertion_generator):
         available = [m.get("name", "") for m in json.loads(probe.output).get("models", [])]
     except ValueError:
         return (
-            f"unexpected response from {FIXCHECK_OLLAMA_URL}/api/tags: "
+            f"unexpected response from {backend.base_url}/api/tags: "
             f"{probe.output[:200]!r}"
         )
-    if wanted not in available:
+    if backend.wanted_tag not in available:
+        hint = (
+            f"FixCheck hardcodes that name, so alias an existing tag to it, "
+            f"e.g.: ollama cp <your-tag> {backend.wanted_tag}"
+            if assertion_generator in FIXCHECK_OLLAMA_GENERATORS
+            else "Pull it, or name an available tag in --fixcheck-assertions."
+        )
         return (
             f"assertion-generator={assertion_generator!r} requests the model "
-            f"{model!r}, which Ollama resolves to {wanted!r}, but only "
-            f"{available} are available. FixCheck hardcodes that name, so "
-            f"alias an existing tag to it, e.g.: ollama cp <your-tag> {wanted}"
+            f"{backend.model!r}, which Ollama resolves to "
+            f"{backend.wanted_tag!r}, but only {available} are available. "
+            f"{hint}"
         )
     return None
 
@@ -559,7 +685,7 @@ class FixCheckWrapper:
             # An LLM-backed generator is worth checking before anything else:
             # if the daemon or the model is missing, every prefix's assertion
             # call throws and the only symptom is an empty report per class.
-            if self.assertion_generator in FIXCHECK_OLLAMA_GENERATORS:
+            if resolve_ollama_backend(self.assertion_generator) is not None:
                 backend_error = check_ollama_backend(
                     container, self.assertion_generator
                 )

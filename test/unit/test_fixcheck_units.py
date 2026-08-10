@@ -15,7 +15,10 @@ Run with:
     .venv/bin/python -m pytest test/unit/test_fixcheck_units.py -v
 """
 
+import argparse
 import json
+
+import pytest
 
 from Experiment import extract_trigger_method_sources_by_class
 from FixCheckWrapper import (
@@ -26,7 +29,10 @@ from FixCheckWrapper import (
     needs_host_network,
     parse_fixcheck_report,
     parse_fixcheck_scores,
+    parse_ollama_generator,
+    resolve_ollama_backend,
     select_fixcheck_inputs,
+    validate_assertion_generator,
 )
 
 # Verbatim header from fixcheck/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java.
@@ -402,12 +408,18 @@ def test_needs_host_network_only_for_ollama_generators():
 
 
 class _FakeContainer:
-    """Stands in for a docker container, returning a canned exec result."""
+    """Stands in for a docker container, returning a canned exec result.
+
+    Records the commands it was given, so a test can check *what* was probed
+    and not only what the probe returned.
+    """
 
     def __init__(self, exit_code, output):
         self._result = (exit_code, output.encode("utf-8"))
+        self.commands = []
 
     def exec_run(self, command, workdir=None, demux=False):
+        self.commands.append(command)
         return self._result
 
 
@@ -441,3 +453,91 @@ def test_check_ollama_backend_reports_unparsable_response():
     container = _FakeContainer(0, "<html>502 Bad Gateway</html>")
     error = check_ollama_backend(container, "codellama")
     assert error and "unexpected response" in error
+
+
+# ------------------------------------------- generic 'ollama:<model>' generator
+#
+# These mirror OllamaProperty.parse() in
+# fixcheck/src/main/java/org/imdea/fixcheck/properties/OllamaProperty.java;
+# the two parsers must agree, since the Python side decides the container's
+# network mode and probes the daemon before the jar ever reads the option.
+
+@pytest.mark.parametrize("spec,model,host,port", [
+    # The endpoint is split at '@' precisely because the model tag already
+    # contains the ':' of <model>:<version>.
+    ("ollama:gpt-oss:120b@1995", "gpt-oss:120b", "localhost", 1995),
+    ("ollama:gpt-oss:120b", "gpt-oss:120b", "localhost", 11434),
+    ("ollama:mistral", "mistral", "localhost", 11434),
+    ("ollama:llama3.1:8b@remote.lan:1995", "llama3.1:8b", "remote.lan", 1995),
+    ("ollama:mistral@remote.lan", "mistral", "remote.lan", 11434),
+])
+def test_parse_ollama_generator_reads_model_and_endpoint(spec, model, host, port):
+    backend = parse_ollama_generator(spec)
+    assert (backend.model, backend.host, backend.port) == (model, host, port)
+    assert backend.base_url == f"http://{host}:{port}"
+
+
+def test_parse_ollama_generator_resolves_the_tag_ollama_will_match():
+    # A tagged model is used as-is; a bare name is what Ollama expands to
+    # '<name>:latest', which is the tag /api/tags has to list.
+    assert parse_ollama_generator("ollama:gpt-oss:120b").wanted_tag == "gpt-oss:120b"
+    assert parse_ollama_generator("ollama:mistral").wanted_tag == "mistral:latest"
+
+
+def test_parse_ollama_generator_ignores_the_fixed_option_keys():
+    assert parse_ollama_generator("previous-assertion") is None
+    assert parse_ollama_generator("codellama") is None
+
+
+@pytest.mark.parametrize("spec", [
+    "ollama",             # no model at all
+    "ollama:",            # ditto
+    "ollama:m@",          # nothing after the endpoint separator
+    "ollama:m@host:abc",  # port is not a number
+    "ollama:m@99999",     # port out of range
+])
+def test_parse_ollama_generator_rejects_malformed_specs(spec):
+    with pytest.raises(ValueError):
+        parse_ollama_generator(spec)
+
+
+def test_resolve_ollama_backend_covers_the_legacy_generators():
+    # The two hardcoded ones always mean localhost:11434 with a bare tag.
+    backend = resolve_ollama_backend("codellama")
+    assert backend.base_url == "http://localhost:11434"
+    assert backend.wanted_tag == "codellama:latest"
+    assert resolve_ollama_backend("previous-assertion") is None
+
+
+def test_needs_host_network_follows_the_configured_host():
+    # Host networking exists only to make the *host's* loopback reachable, so
+    # a daemon named by a remote address does not need it.
+    assert needs_host_network("ollama:gpt-oss:120b@1995")
+    assert not needs_host_network("ollama:gpt-oss:120b@remote.lan:1995")
+    assert not needs_host_network("previous-assertion")
+
+
+def test_check_ollama_backend_probes_the_configured_port():
+    container = _FakeContainer(0, _tags_json("gpt-oss:120b"))
+    assert check_ollama_backend(container, "ollama:gpt-oss:120b@1995") is None
+    assert "http://localhost:1995/api/tags" in container.commands[-1]
+
+
+def test_check_ollama_backend_reports_a_model_absent_from_the_daemon():
+    container = _FakeContainer(0, _tags_json("gpt-oss:20b"))
+    error = check_ollama_backend(container, "ollama:gpt-oss:120b@1995")
+    assert error and "gpt-oss:120b" in error
+    # The 'ollama cp' advice belongs to the generators with a hardcoded tag;
+    # here the tag is the user's own choice.
+    assert "ollama cp" not in error
+
+
+def test_validate_assertion_generator_accepts_both_forms():
+    assert validate_assertion_generator("previous-assertion") == "previous-assertion"
+    assert validate_assertion_generator("ollama:gpt-oss:120b@1995") == "ollama:gpt-oss:120b@1995"
+
+
+@pytest.mark.parametrize("value", ["nope", "ollama:m@host:abc"])
+def test_validate_assertion_generator_rejects_the_rest(value):
+    with pytest.raises(argparse.ArgumentTypeError):
+        validate_assertion_generator(value)

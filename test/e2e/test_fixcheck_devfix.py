@@ -19,14 +19,13 @@ The test is parametrized over two axes:
 They are crossed, and each combination gets its own container run (~2 min,
 more when the generator calls an LLM) shared by the four checks below.
 
-Which generator is used is not a detail: with ``previous-assertion`` upstream
-strips the original assertions and never adds them back (``InputTransformer``
-compares ``ASSERTION_GENERATOR`` against the option key while
-``FixCheckProperties`` stores the resolved class name, so the guard never
-fires, and ``UsePreviousAssertGenerator``'s re-append is commented out).
-Every prefix then runs without assertions, which makes ``passing`` counts
-vacuous and leaves crashes as the only detectable failure -- worth keeping in
-mind when reading a "not suspicious" verdict.
+Which generator is used is not a detail. ``previous-assertion`` reuses the
+trigger test's own assertions and ``ollama:<model>`` has one written by an LLM,
+while ``assert-true`` only appends a vacuous ``assertTrue(true)`` -- under that
+last one ``passing`` counts say nothing and a crash is the only detectable
+failure. See docs/fixcheck-verdict-limitations.md, which also records the two
+upstream defects (since patched here) that used to strip the assertions from
+*every* generator's prefixes.
 
 Not every Defects4J bug is a usable FixCheck subject (see *Not every bug is a
 FixCheck subject* in README.md), so a listed bug has three possible outcomes:
@@ -70,35 +69,17 @@ Run with:
         --fixcheck-assertions previous-assertion,codellama
 """
 
-import difflib
-import json
+import argparse
 import os
-import shutil
 
 import pytest
 
-from Experiment import (
-    DEFECTS4J_IMAGE,
-    FIXCHECK_DIR,
-    FIXCHECK_JAR,
-    evaluate_fix,
-    extract_trigger_method_sources_by_class,
-    get_trigger_tests,
-    locate_source_files,
-    locate_test_files,
-    parse_failing_test_names,
-    read_sources,
-    run_step,
-    run_trigger_tests_raw,
-    start_container,
-)
-from FixCheckWrapper import (
-    FIXCHECK_ASSERTION_GENERATORS,
-    FixCheckWrapper,
-    fixcheck_failure_log_path,
-    group_triggers_by_class,
-    needs_host_network,
-    write_fixcheck_failure_logs,
+from Experiment import DEFECTS4J_IMAGE, FIXCHECK_JAR
+from FixCheckWrapper import validate_assertion_generator
+from fixcheck_devfix_pipeline import (
+    LOGS_DIR,
+    docker_image_available,
+    fixcheck_on_developer_fix,
 )
 
 # Candidate subjects, as ``(project, bug_id)``. Extend this list to try a new
@@ -118,9 +99,6 @@ FIXCHECK_BUGS = [
 NUM_PREFIXES = 5
 SIMILARITY_THRESHOLD = 0.8
 
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LOGS_DIR = os.path.join(_REPO_ROOT, "logs", "test")
-
 
 def pytest_generate_tests(metafunc):
     """Turn ``--fixcheck-assertions`` into a second parametrization axis.
@@ -136,28 +114,14 @@ def pytest_generate_tests(metafunc):
         return
     raw = metafunc.config.getoption("--fixcheck-assertions")
     generators = [g.strip() for g in raw.split(",") if g.strip()]
-    unknown = [g for g in generators if g not in FIXCHECK_ASSERTION_GENERATORS]
-    if unknown:
+    for generator in generators:
         # Fail at collection rather than after a couple of minutes of
         # container setup, which is when FixCheck itself would reject it.
-        raise pytest.UsageError(
-            f"unknown --fixcheck-assertions value(s) {unknown}; "
-            f"valid options are {FIXCHECK_ASSERTION_GENERATORS}"
-        )
+        try:
+            validate_assertion_generator(generator)
+        except argparse.ArgumentTypeError as exc:
+            raise pytest.UsageError(f"bad --fixcheck-assertions value: {exc}")
     metafunc.parametrize("assertion_generator", generators, scope="module")
-
-
-def _docker_image_available():
-    """True when the Docker daemon is reachable and the image is present."""
-    try:
-        import docker
-
-        client = docker.from_env()
-        client.ping()
-        tags = [tag for image in client.images.list() for tag in image.tags]
-        return DEFECTS4J_IMAGE in tags
-    except Exception:
-        return False
 
 
 pytestmark = [
@@ -167,57 +131,10 @@ pytestmark = [
                f"(expected at {FIXCHECK_JAR})",
     ),
     pytest.mark.skipif(
-        not _docker_image_available(),
+        not docker_image_available(),
         reason=f"Docker daemon or image {DEFECTS4J_IMAGE} not available",
     ),
 ]
-
-
-def _developer_diff(buggy_sources, fixed_sources):
-    """Build a unified diff from the buggy sources to the developer's fix."""
-    fixed_by_path = dict(fixed_sources)
-    diffs = []
-    for rel_path, buggy_content in buggy_sources:
-        fixed_content = fixed_by_path.get(rel_path, buggy_content)
-        if fixed_content == buggy_content:
-            continue
-        diff = difflib.unified_diff(
-            buggy_content.split("\n"), fixed_content.split("\n"),
-            fromfile=f"a/{rel_path}", tofile=f"b/{rel_path}", lineterm="",
-        )
-        diffs.append("\n".join(diff))
-    return "\n".join(d for d in diffs if d)
-
-
-def _collect_logs(log_dir, workdir, result, trigger_tests, dev_diff):
-    """Copy a run's artifacts out of the container volume into ``log_dir``.
-
-    The checkout lives in a pytest ``tmp_path`` that is eventually recycled,
-    so anything worth inspecting by hand has to be copied out while it still
-    exists. Keeps the per-class layout FixCheck produced, plus the inputs
-    needed to make sense of it: the patch under test and the *pre-fix* failure
-    trace each generated prefix is compared against.
-    """
-    os.makedirs(log_dir, exist_ok=True)
-    with open(os.path.join(log_dir, "result.json"), "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
-    with open(os.path.join(log_dir, "developer.diff"), "w", encoding="utf-8") as f:
-        f.write(dev_diff)
-
-    for fqcn in group_triggers_by_class(trigger_tests):
-        trace = fixcheck_failure_log_path(workdir, fqcn)
-        if os.path.exists(trace):
-            shutil.copy(trace, os.path.join(log_dir, f"{fqcn}.failing_tests"))
-
-    for record in result["per_test_class"]:
-        run_dir = record.get("run_dir")
-        if not run_dir or not os.path.isdir(run_dir):
-            continue
-        dest = os.path.join(log_dir, record["test_class"].rsplit(".", 1)[-1])
-        # copytree over the whole run dir: it holds fixcheck.properties,
-        # fixcheck.log and fixcheck-output/ (report.csv, the scores file and
-        # the generated prefix sources under passing-/failing-/non-compiling-tests).
-        shutil.copytree(run_dir, dest, dirs_exist_ok=True)
 
 
 @pytest.fixture(scope="module", params=FIXCHECK_BUGS,
@@ -225,128 +142,23 @@ def _collect_logs(log_dir, workdir, result, trigger_tests, dev_diff):
 def fixcheck_devfix(request, tmp_path_factory, assertion_generator):
     """Apply a bug's developer fix and run FixCheck against it.
 
-    Checks out both the buggy (``<id>b``) and fixed (``<id>f``) revisions, builds
-    a diff between them (the real developer patch, not an LLM guess), applies
-    it to the buggy checkout, confirms it actually fixes the trigger tests
-    (a precondition for the test's premise, not something FixCheck-related),
-    and then runs FixCheck on it exactly as ``Experiment.py`` would with
-    ``--fixcheck``. The container is always removed afterwards.
+    The pipeline itself lives in ``fixcheck_devfix_pipeline`` since
+    ``test_fixcheck_ollama_generator.py`` needs the very same preamble.
 
     Module-scoped, so the four checks below share one container run per
     (bug, generator) pair rather than paying for it four times.
     """
-    import docker
-    from Experiment import apply_diff
-
     project, bug_id = request.param
-    mount_dir = str(tmp_path_factory.mktemp("workspace"))
-    workdir_b = os.path.join(mount_dir, f"{project}_{bug_id}")
-    workdir_f = os.path.join(mount_dir, f"{project}_{bug_id}_fixed")
-
-    # Start from a clean slate so a stale directory can never be mistaken for
-    # this run's output. Scoped to this (bug, generator) pair, so other
-    # subjects keep theirs and two generators can be compared side by side.
+    # Scoped to this (bug, generator) pair, so other subjects keep their
+    # artifacts and two generators can be compared side by side.
     log_dir = os.path.join(LOGS_DIR, f"{project}_{bug_id}", assertion_generator)
-    if os.path.isdir(log_dir):
-        shutil.rmtree(log_dir)
-
-    client = docker.from_env()
-    extra_mounts = {FIXCHECK_DIR: {"bind": FIXCHECK_DIR, "mode": "ro"}}
-    container = start_container(
-        client, mount_dir, extra_mounts=extra_mounts,
-        network_mode="host" if needs_host_network(assertion_generator) else None,
-    )
-    try:
-        # 1. Check out both revisions of the bug.
-        checkout_b = run_step(
-            container, f"defects4j checkout -p {project} -v {bug_id}b -w {workdir_b}",
-            workdir=None, description=f"Checking out {project} {bug_id}b",
-        )
-        assert checkout_b.ok, f"buggy checkout failed:\n{checkout_b.output}"
-        checkout_f = run_step(
-            container, f"defects4j checkout -p {project} -v {bug_id}f -w {workdir_f}",
-            workdir=None, description=f"Checking out {project} {bug_id}f (developer fix)",
-        )
-        assert checkout_f.ok, f"fixed checkout failed:\n{checkout_f.output}"
-
-        # 2. Compile + test the buggy revision (pre-fix).
-        compile_before = run_step(
-            container, "defects4j compile", workdir_b,
-            description="Compiling buggy sources (pre-fix)",
-        )
-        assert compile_before.ok, f"pre-fix compilation failed:\n{compile_before.output}"
-        test_before = run_step(
-            container, "defects4j test", workdir_b,
-            description="Running test suite (pre-fix)",
-        )
-        failing_before_names = parse_failing_test_names(test_before.output)
-
-        # 3. Trigger tests + their pre-fix failure trace (must be captured
-        #    now, before the patch is applied -- same reason Experiment.py
-        #    does this in pipeline step 5d).
-        trigger_tests = get_trigger_tests(container, workdir_b)
-        assert trigger_tests, "no trigger tests found"
-        trigger_raw = run_trigger_tests_raw(container, workdir_b, trigger_tests)
-        write_fixcheck_failure_logs(workdir_b, trigger_tests, trigger_raw)
-
-        test_classes = sorted({t.split("::")[0] for t in trigger_tests})
-        test_files = locate_test_files(container, workdir_b, test_classes)
-        trigger_method_sources = extract_trigger_method_sources_by_class(
-            trigger_tests, read_sources(test_files)
-        )
-
-        # 4. Build the developer's diff (<id>b -> <id>f) and apply it to workdir_b.
-        files_b = locate_source_files(container, workdir_b)
-        buggy_sources = read_sources(files_b)
-        assert buggy_sources, "no buggy source files could be read"
-        files_f = [(rel, os.path.join(workdir_f, rel)) for rel, _ in files_b]
-        fixed_sources = read_sources(files_f)
-        dev_diff = _developer_diff(buggy_sources, fixed_sources)
-        assert dev_diff.strip(), "developer fix produced an empty diff"
-
-        applied, apply_log = apply_diff(container, workdir_b, dev_diff)
-        assert applied, f"developer diff failed to apply:\n{apply_log}"
-
-        # 5. Compile + test post-fix, and confirm the developer fix actually
-        #    fixes the trigger tests -- a precondition for this test's
-        #    premise, independent of FixCheck.
-        compile_after = run_step(
-            container, "defects4j compile", workdir_b,
-            description="Compiling patched sources (post-fix)",
-        )
-        assert compile_after.ok, f"post-fix compilation failed:\n{compile_after.output}"
-        test_after = run_step(
-            container, "defects4j test", workdir_b,
-            description="Running test suite (post-fix)",
-        )
-        failing_after_names = parse_failing_test_names(test_after.output)
-        triggers_fixed, new_failures, _fixed = evaluate_fix(
-            trigger_tests, failing_before_names, failing_after_names, applied
-        )
-        assert triggers_fixed, (
-            "developer fix did not make the trigger tests pass -- "
-            f"still failing: {sorted(set(trigger_tests) & set(failing_after_names))}"
-        )
-
-        # 6. Run FixCheck exactly as Experiment.py would with --fixcheck.
-        fixcheck = FixCheckWrapper(
-            num_prefixes=NUM_PREFIXES,
-            assertion_generator=assertion_generator,
-            similarity_threshold=SIMILARITY_THRESHOLD,
-        )
-        result = fixcheck.run(container, workdir_b, trigger_tests, trigger_method_sources)
-        result["project"], result["bug_id"] = project, bug_id
-        print(f"\n===== FixCheck result ({project} {bug_id}, {assertion_generator}, "
-              "developer fix) =====\n")
-        print(result)
-        print("\n===== End of FixCheck result =====\n")
-
-        # 7. Copy the artifacts out before the tmp checkout goes away. Done
-        #    before any skip below, so a "not a FixCheck subject" verdict is
-        #    just as inspectable as a real result.
-        _collect_logs(log_dir, workdir_b, result, trigger_tests, dev_diff)
-        print(f"[test] FixCheck artifacts kept in: {log_dir}")
-
+    with fixcheck_on_developer_fix(
+        project, bug_id, assertion_generator,
+        mount_dir=str(tmp_path_factory.mktemp("workspace")),
+        log_dir=log_dir,
+        num_prefixes=NUM_PREFIXES,
+        similarity_threshold=SIMILARITY_THRESHOLD,
+    ) as (result, _workdir):
         # A bug whose every trigger class was skipped is not a FixCheck
         # subject at all -- documented upstream behavior rather than a
         # defect, so report it as a skip carrying the reason.
@@ -356,11 +168,7 @@ def fixcheck_devfix(request, tmp_path_factory, assertion_generator):
                 f"{r['test_class']}: {r.get('error')}" for r in records
             )
             pytest.skip(f"{project} {bug_id} is not a FixCheck subject -- {reasons}")
-
         yield result
-    finally:
-        container.stop()
-        container.remove()
 
 
 def test_fixcheck_runs_cleanly(fixcheck_devfix):

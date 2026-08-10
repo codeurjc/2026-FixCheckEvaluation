@@ -51,6 +51,7 @@ from FixCheckWrapper import (
     FixCheckWrapper,
     group_triggers_by_class,
     needs_host_network,
+    validate_assertion_generator,
     write_fixcheck_failure_logs,
 )
 from FixGenerator import FixGenerator, normalize_diff
@@ -632,12 +633,17 @@ def main():
     )
     parser.add_argument(
         "--fixcheck-assertions", default=DEFAULT_FIXCHECK_ASSERTIONS,
-        choices=FIXCHECK_ASSERTION_GENERATORS,
+        type=validate_assertion_generator,
+        metavar="GENERATOR",
         help="FixCheck's assertion-generation strategy (default: "
-             f"{DEFAULT_FIXCHECK_ASSERTIONS!r}). 'codellama' and 'llama3.1' "
-             "ask a local Ollama daemon to write the assertions: the container "
-             "then runs with host networking, and the model must be pulled "
-             "under the exact tag FixCheck hardcodes ('codellama:latest', "
+             f"{DEFAULT_FIXCHECK_ASSERTIONS!r}). One of "
+             f"{FIXCHECK_ASSERTION_GENERATORS}, or "
+             "'ollama:<model>[@[<host>:]<port>]' to use any model served by an "
+             "Ollama daemon (e.g. 'ollama:gpt-oss:120b@1995'). The Ollama-backed "
+             "ones ask the daemon to write the assertions, so the container runs "
+             "with host networking when the daemon is on localhost; the legacy "
+             "'codellama' and 'llama3.1' additionally require the model to be "
+             "pulled under the exact tag FixCheck hardcodes ('codellama:latest', "
              "'llama3.1:latest'). 'gpt-3.5' and 'replit-code-llm' are not "
              "wired up for this project's container/network setup yet.",
     )

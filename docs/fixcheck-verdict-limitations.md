@@ -171,6 +171,19 @@ flagged patch and a missed one.
   `ArrayIndexOutOfBoundsException` **inside the test**, before reaching the code
   under test. They tell us nothing about the patch, yet they inflate
   `failing_prefixes`; only the similarity gate keeps them from mattering.
+- **A crashing variation silently skips assertion generation entirely.**
+  `FixCheck.generateSimilarPrefixes` runs each variation once *without*
+  assertions and only calls the generator `if (result.getFailureCount() == 0)`.
+  So the mutation defect above does more than add noise: every variation it
+  breaks is also one the LLM is never asked about. Measured on Math 69 with
+  `NUM_PREFIXES = 3` (2026-08-10): all three variations crashed on an
+  out-of-bounds index, the generator was invoked **zero** times, and the run
+  still produced a clean `report.csv` reading `crashing: 3` — indistinguishable,
+  from the report alone, from a run where the model was consulted and found
+  nothing. When measuring an LLM-backed generator, count the
+  `---> assertion generator:` lines in `fixcheck.log` rather than trusting the
+  report; a subject whose `inputs-class` is `java.lang.String` (Lang 12) is far
+  more likely to survive to that step than an `int` one.
 - **Runs are not reproducible.** The literal to mutate and its replacement are
   chosen at random: the same bug and generator gave `4 passing / 1 crashing` on
   one run and `2 passing / 3 crashing` on the next. Aggregate over repetitions
@@ -232,6 +245,34 @@ Since `fixcheck/` is a gitignored clone, the fixes live as patches in
 
 The secondary observations (role-blind literal mutation, non-reproducible
 runs, `codellama` cost) are untouched and still apply.
+
+### Any Ollama model as the generator (2026-08-10)
+
+The investigation above could only compare `codellama` against the two
+assertion-free generators, because `CodeLlamaOllama` and `Llama3_1Ollama`
+hardcode their model tag *and* `http://localhost:11434` as `private final`
+fields. `assertion/OllamaGenerator.java` (patch
+`0003-generic-ollama-assertion-generator.patch`) removes that limit: the
+model and endpoint come from the configuration, selected as
+`ollama:<model>[@[<host>:]<port>]` — the endpoint is split at `@` because a
+colon already belongs to Ollama's `<model>:<version>` tags.
+
+Its prompt asks for **bare assertion statements**, not a completed method.
+That is not cosmetic: asked to "complete the code snippet" the way
+`CodeLlamaOllama` does, `gpt-oss:120b` returned a whole method that first
+declared `double pValue = ...` and then asserted on it, so appending only the
+assertion line would reference a variable the prefix does not have. With the
+statement-only prompt the same model returned exactly
+`assertTrue(corrInstance.getCorrelationPValues().getEntry(0, 1) > 0);`, three
+times out of three.
+
+Measured on Lang 12's developer fix (`NUM_PREFIXES = 3`,
+`ollama:gpt-oss:120b@1995`, via `test/e2e/test_fixcheck_ollama_generator.py`):
+the generator was invoked for all 3 variations, returned real assertions for 2
+of them (`assertEquals(1, DUMMY.length);`, `assertEquals('a', DUMMY[0]);`) and
+an empty list for the third, all 3 prefixes compiled and passed, and
+`assertions_gen_time` was 31 s in total — roughly 10 s per call, against the
+125 s and 696 s that `codellama:7b` needed for a single bug's assertions.
 
 ## Reproducing
 
