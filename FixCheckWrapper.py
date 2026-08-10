@@ -22,6 +22,7 @@ configuration directly through ``__init__`` rather than an argparse
 """
 
 import csv
+import json
 import os
 import re
 
@@ -40,6 +41,79 @@ FIXCHECK_ASSERTION_GENERATORS = [
 DEFAULT_FIXCHECK_PREFIXES = 25
 DEFAULT_FIXCHECK_ASSERTIONS = "previous-assertion"
 DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD = 0.8
+
+# Assertion generators that ask a local Ollama daemon to write the assertions
+# instead of reusing the original test's. Both ``CodeLlamaOllama`` and
+# ``Llama3_1Ollama`` hardcode the endpoint *and* the model tag as
+# ``private final`` fields, so neither is configurable through the
+# ``.properties`` file -- the value here has to match the Java source exactly
+# (fixcheck/src/main/java/org/imdea/fixcheck/assertion/).
+FIXCHECK_OLLAMA_GENERATORS = {
+    "codellama": "codellama",
+    "llama3.1": "llama3.1",
+}
+# Also hardcoded in those two classes. Because it is *localhost*, the
+# experiment container must share the host's network namespace to reach a
+# daemon running on the host -- see :func:`needs_host_network`.
+FIXCHECK_OLLAMA_URL = "http://localhost:11434"
+
+
+def needs_host_network(assertion_generator):
+    """True when FixCheck will call a service on the *host's* ``localhost``.
+
+    The Ollama-backed generators post to a hardcoded
+    ``http://localhost:11434``. Under Docker's default bridge network that
+    resolves to the container's own loopback, where nothing is listening, so
+    every assertion-generation call dies with a ``ConnectException``. Running
+    the container with ``network_mode="host"`` makes the host's daemon
+    reachable under the very name the jar insists on using.
+
+    ``Experiment.py`` consults this when starting the container, since the
+    network mode is fixed at creation time -- long before FixCheck runs.
+    """
+    return assertion_generator in FIXCHECK_OLLAMA_GENERATORS
+
+
+def check_ollama_backend(container, assertion_generator):
+    """Check the container can reach the Ollama model the generator wants.
+
+    Returns ``None`` when everything is in place, otherwise an error string
+    explaining what to fix. Without this, a missing daemon or an unpulled
+    model surfaces only as a ``RuntimeException`` per prefix and an
+    unexplained "report.csv missing or unparsable" for every trigger class.
+
+    Note that FixCheck asks for a *bare* model name (``codellama``), which
+    Ollama resolves to ``codellama:latest``; having ``codellama:7b`` pulled
+    is not enough, hence the exact-tag comparison.
+    """
+    model = FIXCHECK_OLLAMA_GENERATORS[assertion_generator]
+    wanted = model if ":" in model else f"{model}:latest"
+
+    probe = exec_in_container(
+        container, f"curl -s --max-time 10 {FIXCHECK_OLLAMA_URL}/api/tags"
+    )
+    if not probe.ok or not probe.output.strip():
+        return (
+            f"assertion-generator={assertion_generator!r} needs an Ollama "
+            f"daemon at {FIXCHECK_OLLAMA_URL} reachable from inside the "
+            "container, but it did not respond. Start Ollama on the host and "
+            "make sure the container runs with host networking."
+        )
+    try:
+        available = [m.get("name", "") for m in json.loads(probe.output).get("models", [])]
+    except ValueError:
+        return (
+            f"unexpected response from {FIXCHECK_OLLAMA_URL}/api/tags: "
+            f"{probe.output[:200]!r}"
+        )
+    if wanted not in available:
+        return (
+            f"assertion-generator={assertion_generator!r} requests the model "
+            f"{model!r}, which Ollama resolves to {wanted!r}, but only "
+            f"{available} are available. FixCheck hardcodes that name, so "
+            f"alias an existing tag to it, e.g.: ollama cp <your-tag> {wanted}"
+        )
+    return None
 
 # Method names FixCheck treats as assertions and therefore refuses to mutate
 # (``transform/input/InputTransformer.java``'s ``isAssertion``).
@@ -461,10 +535,12 @@ class FixCheckWrapper:
             ``suspicious`` (``failing_prefixes > 0 and
             max_failure_similarity >= self.similarity_threshold``).
 
-            ``suspicious`` being false is only meaningful when
-            ``analyzed_test_classes > 0``: with nothing analyzed there is
-            simply no evidence either way, which is why the two are reported
-            separately.
+            ``analyzed_test_classes > 0`` is necessary for ``suspicious:
+            False`` to mean anything -- with nothing analyzed there is no
+            evidence either way -- but it is far from sufficient. Two measured
+            upstream defects make a negative verdict weak evidence in general;
+            see docs/fixcheck-verdict-limitations.md before reporting one as
+            a result.
         """
         result = {
             "ran": True,
@@ -480,6 +556,19 @@ class FixCheckWrapper:
             "suspicious": False,
         }
         try:
+            # An LLM-backed generator is worth checking before anything else:
+            # if the daemon or the model is missing, every prefix's assertion
+            # call throws and the only symptom is an empty report per class.
+            if self.assertion_generator in FIXCHECK_OLLAMA_GENERATORS:
+                backend_error = check_ollama_backend(
+                    container, self.assertion_generator
+                )
+                if backend_error:
+                    result["ok"] = False
+                    result["error"] = backend_error
+                    print(f"[fixcheck] WARNING: FixCheck skipped: {backend_error}")
+                    return result
+
             # The post-fix `defects4j test` already compiled the patched
             # checkout; recompiling here is cheap and idempotent, and
             # protects any future caller that invokes FixCheck without

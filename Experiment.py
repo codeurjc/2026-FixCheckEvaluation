@@ -50,6 +50,7 @@ from FixCheckWrapper import (
     FIXCHECK_JAR,
     FixCheckWrapper,
     group_triggers_by_class,
+    needs_host_network,
     write_fixcheck_failure_logs,
 )
 from FixGenerator import FixGenerator, normalize_diff
@@ -109,7 +110,7 @@ def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, appli
     return triggers_fixed, new_failures, fixed
 
 
-def start_container(client, mount_dir, extra_mounts=None):
+def start_container(client, mount_dir, extra_mounts=None, network_mode=None):
     """Start an ephemeral Defects4J container with the workdir mounted.
 
     The host directory is bound to the *same absolute path* inside the container
@@ -127,6 +128,11 @@ def start_container(client, mount_dir, extra_mounts=None):
             "mode": ...}}`` volume entries merged into the container's
             ``volumes`` -- used to mount FIXCHECK_DIR read-only for
             ``--fixcheck``.
+        network_mode: Optional Docker network mode. Defaults to the usual
+            bridge network; ``"host"`` is needed when something inside the
+            container has to reach a daemon on the host's ``localhost``, as
+            FixCheck's Ollama-backed assertion generators do (see
+            ``FixCheckWrapper.needs_host_network``).
     """
     print(f"[experiment] Starting container from {DEFECTS4J_IMAGE} ...")
     volumes = {mount_dir: {"bind": mount_dir, "mode": "rw"}}
@@ -137,9 +143,19 @@ def start_container(client, mount_dir, extra_mounts=None):
         detach=True,
         tty=True,
         user=f"{os.getuid()}:{os.getgid()}",
-        # HOME must be writable by the host uid for `git config --global`.
-        environment={"HOME": "/tmp"},
+        environment={
+            # HOME must be writable by the host uid for `git config --global`.
+            "HOME": "/tmp",
+            # The image ships no locale, so the JVM picks file.encoding=
+            # ANSI_X3.4-1968 (US-ASCII) and javac rejects any source holding a
+            # non-ASCII byte -- Math 69's RandomKey.java has an en dash in a
+            # Javadoc citation, which is enough to fail `defects4j compile`
+            # outright. Defects4J's ant targets set no -encoding, so fixing the
+            # locale is the only lever we have.
+            "LANG": "C.UTF-8",
+        },
         volumes=volumes,
+        network_mode=network_mode,
     )
     print(f"[experiment] Container started: {container.short_id}")
 
@@ -618,8 +634,11 @@ def main():
         "--fixcheck-assertions", default=DEFAULT_FIXCHECK_ASSERTIONS,
         choices=FIXCHECK_ASSERTION_GENERATORS,
         help="FixCheck's assertion-generation strategy (default: "
-             f"{DEFAULT_FIXCHECK_ASSERTIONS!r}). The LLM-backed options "
-             "('codellama', 'llama3.1', 'gpt-3.5', 'replit-code-llm') are not "
+             f"{DEFAULT_FIXCHECK_ASSERTIONS!r}). 'codellama' and 'llama3.1' "
+             "ask a local Ollama daemon to write the assertions: the container "
+             "then runs with host networking, and the model must be pulled "
+             "under the exact tag FixCheck hardcodes ('codellama:latest', "
+             "'llama3.1:latest'). 'gpt-3.5' and 'replit-code-llm' are not "
              "wired up for this project's container/network setup yet.",
     )
     parser.add_argument(
@@ -670,7 +689,17 @@ def main():
 
     client = docker.from_env()
     extra_mounts = {FIXCHECK_DIR: {"bind": FIXCHECK_DIR, "mode": "ro"}} if args.fixcheck else None
-    container = start_container(client, mount_dir, extra_mounts=extra_mounts)
+    # The network mode is fixed when the container is created, so an
+    # Ollama-backed assertion generator has to be accounted for up front.
+    network_mode = (
+        "host" if args.fixcheck and needs_host_network(args.fixcheck_assertions) else None
+    )
+    if network_mode == "host":
+        print(f"[experiment] Using host networking so FixCheck's "
+              f"'{args.fixcheck_assertions}' generator can reach Ollama.")
+    container = start_container(
+        client, mount_dir, extra_mounts=extra_mounts, network_mode=network_mode
+    )
 
     try:
         # 1. Checkout the buggy version.

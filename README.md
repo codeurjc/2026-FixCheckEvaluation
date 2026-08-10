@@ -40,14 +40,17 @@ that fail regardless of the patch.
      every trigger test passing), runs
      [FixCheck](https://github.com/facumolina/fixcheck) (vendored in
      `fixcheck/`) as an overfitting check: it mutates the trigger test's
-     inputs, reruns the generated variations against the **patched** program
-     — reusing the original test's assertions by default
-     (`previous-assertion`) — and measures how similar each failing
-     variation's failure trace is to the original bug's. A failing variation
-     with high similarity is evidence the patch didn't really fix the
-     underlying defect rather than just satisfying the trigger test. This is
-     purely advisory: it never changes `fixed`, only adds a `fixcheck` block
-     and a `fixcheck_suspicious` flag to `result.json`.
+     inputs, re-generates the assertions (strategy chosen with
+     `--fixcheck-assertions`), reruns the variations against the **patched**
+     program, and measures how similar each failing variation's failure trace
+     is to the original bug's. A failing variation with high similarity is
+     evidence the patch didn't really fix the underlying defect rather than
+     just satisfying the trigger test. This is purely advisory: it never
+     changes `fixed`, only adds a `fixcheck` block and a `fixcheck_suspicious`
+     flag to `result.json`. Before reporting those verdicts as results, read
+     [docs/fixcheck-verdict-limitations.md](docs/fixcheck-verdict-limitations.md):
+     two measured upstream defects make a negative verdict much weaker than it
+     looks.
    - Writes the validation artifacts (`apply.log`, `test_before.log`,
      `test_after.log`) and the combined `result.json`.
    - Always stops and removes the container at the end.
@@ -124,7 +127,7 @@ Arguments:
 | `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
 | `--fixcheck` | Run FixCheck on plausible patches (applied and every trigger test passing) as an overfitting check. Requires the jar from `bash scripts/buildFixcheck.sh`. | off |
 | `--fixcheck-prefixes` | Number of input variations ("prefixes") FixCheck generates per trigger method. | `25` |
-| `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `replit-code-llm`, `gpt-3.5`, `codellama`, `llama3.1`. The LLM-backed options aren't wired up for this project's container/network setup yet. | `previous-assertion` |
+| `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `codellama`, `llama3.1`, `gpt-3.5`, `replit-code-llm`. Only the Ollama-backed ones (`codellama`, `llama3.1`) actually produce a meaningful assertion ([why](docs/fixcheck-verdict-limitations.md)), and they need a local daemon — see *Ollama-backed assertion generators* below. `gpt-3.5` and `replit-code-llm` aren't wired up for this project's container/network setup yet. | `previous-assertion` |
 | `--fixcheck-inputs-class` | Force FixCheck's `inputs-class` (e.g. `int`, `java.lang.String`) instead of inferring it from the trigger test source. Also the way to run FixCheck on a trigger test the heuristic considers unmutable (see *Not every bug is a FixCheck subject* below). | heuristic |
 | `--fixcheck-similarity-threshold` | Minimum failure-similarity score (0-1) a FixCheck failing variation needs to mark the patch suspicious. | `0.8` |
 | `--iteration`   | Iteration index; when set, artifacts go to `results/<model>/<project>/Bug_<bug_id>/<iteration>/` instead of `results/<model>/<project>/Bug_<bug_id>/`. Used by `run_iterations.py`. | none |
@@ -165,6 +168,37 @@ Three related upstream behaviors are worth knowing about when picking subjects:
   at all — the `non_compiling` count in `report.csv` is unreachable in
   practice. This is an upstream bug; the integration treats it as one more
   advisory failure.
+
+### Ollama-backed assertion generators
+
+`--fixcheck-assertions codellama` (or `llama3.1`) asks a local Ollama daemon to
+write each variation's assertions. These are currently the *only* generators
+that produce a meaningful assertion at all
+([why](docs/fixcheck-verdict-limitations.md)), so they are worth the cost
+despite being far slower (one model call per prefix; on a local
+`codellama:7b`, generation dominated the run at ~2 min per prefix, and 11 min
+for Lang 12's larger test). Two details of the vendored jar make them
+need setup, because both are `private final` fields in
+`fixcheck/src/main/java/org/imdea/fixcheck/assertion/CodeLlamaOllama.java` and
+neither is configurable through the `.properties` file:
+
+- **The endpoint is hardcoded to `http://localhost:11434`.** Under Docker's
+  default bridge network that is the *container's* loopback, where nothing is
+  listening. `Experiment.py` therefore starts the container with
+  `network_mode="host"` whenever one of these generators is selected, so the
+  host's daemon is reachable under the name the jar insists on using.
+- **The model name is hardcoded to the bare tag** (`codellama`), which Ollama
+  resolves to `codellama:latest`. Having `codellama:7b` pulled is *not* enough.
+  Alias it once:
+
+  ```bash
+  ollama pull codellama:7b
+  ollama cp codellama:7b codellama:latest
+  ```
+
+Both conditions are checked before the run starts (`check_ollama_backend`), so
+a missing daemon or an unpulled tag produces one clear message instead of an
+empty report for every trigger class.
 
 ### Repeating a run (non-determinism)
 

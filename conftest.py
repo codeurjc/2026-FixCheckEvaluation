@@ -33,6 +33,17 @@ def pytest_addoption(parser):
         "--run-benchmark", action="store_true", default=False,
         help="run model-quality benchmark tests (LLM must actually fix the bug)",
     )
+    # --- FixCheck assertion generators ---------------------------------------
+    #
+    # Which generator(s) test/e2e/test_fixcheck_devfix.py runs each subject
+    # with. Comma-separated to compare several in one go; each one multiplies
+    # the run time, so the default stays at a single generator.
+    parser.addoption(
+        "--fixcheck-assertions", action="store", default="previous-assertion",
+        help="comma-separated FixCheck assertion generator(s) for the devfix "
+             "e2e test, e.g. 'previous-assertion,codellama' (default: "
+             "previous-assertion)",
+    )
 
 
 def pytest_configure(config):

@@ -1,5 +1,5 @@
 """
-Integration test: run FixCheck against a Defects4J bug's *developer* fix.
+Integration test: run FixCheck against Defects4J bugs' *developer* fixes.
 
 Unlike the LLM-generated fixes exercised by ``test_experiment_lang1.py`` /
 ``test_benchmark_lang1.py``, this applies the actual upstream patch (checked
@@ -8,36 +8,72 @@ result does not depend on LLM luck: a genuinely correct fix should never be
 flagged suspicious. This is the deterministic alternative described in
 docs/plan-add-fixcheck-step.md's verification checklist.
 
-The subject is **Lang 12**, not Lang 1, because most Defects4J bugs are not
-usable FixCheck subjects at all (see *Not every bug is a FixCheck subject* in
-README.md):
+The test is parametrized over two axes:
 
-- Lang 1's ``TestLang747`` is nothing but ``assertEquals(...)`` lines, and
-  FixCheck only mutates literals outside assertions, so no ``inputs-class``
-  exists for it and the run is skipped rather than crashed.
-- Lang 10's ``FastDateFormat_ParserTest`` *inherits* its trigger method, which
-  FixCheck cannot see, and its sibling class's generated prefixes fail to
-  compile -- which upstream turns into a ``NullPointerException`` and no
-  report at all.
+- **the subject**, from :data:`FIXCHECK_BUGS` -- add a candidate by appending
+  a ``(project, bug_id)`` pair there;
+- **the assertion generator**, from ``--fixcheck-assertions`` (comma-separated,
+  default ``previous-assertion``), so the same subjects can be compared under
+  several generators in one go.
 
-Lang 12's ``RandomStringUtilsTest`` declares its inputs in ordinary
-statements, so it exercises the path that actually produces a report. It also
-covers the per-method filtering: its second trigger method (``testLANG805``)
-has no mutable literal and must be dropped from ``test-methods``, since
-FixCheck would otherwise abort the whole class over it.
+They are crossed, and each combination gets its own container run (~2 min,
+more when the generator calls an LLM) shared by the four checks below.
+
+Which generator is used is not a detail: with ``previous-assertion`` upstream
+strips the original assertions and never adds them back (``InputTransformer``
+compares ``ASSERTION_GENERATOR`` against the option key while
+``FixCheckProperties`` stores the resolved class name, so the guard never
+fires, and ``UsePreviousAssertGenerator``'s re-append is commented out).
+Every prefix then runs without assertions, which makes ``passing`` counts
+vacuous and leaves crashes as the only detectable failure -- worth keeping in
+mind when reading a "not suspicious" verdict.
+
+Not every Defects4J bug is a usable FixCheck subject (see *Not every bug is a
+FixCheck subject* in README.md), so a listed bug has three possible outcomes:
+
+- **passed** -- FixCheck analyzed at least one of the bug's trigger classes
+  and did not flag the developer fix. Individual classes it declined to
+  attempt are tolerated, since a bug can mix the two: Math 69's
+  ``SpearmansRankCorrelationTest`` inherits ``testPValueNearZero`` from
+  ``PearsonsCorrelationTest``, which is analyzed normally.
+- **skipped** -- FixCheck ran cleanly but had nothing to analyze at all:
+  *every* trigger class was declined because its literals only occur inside
+  assertions (Lang 1's ``NumberUtilsTest``) or its trigger method is
+  inherited and therefore invisible to FixCheck (Lang 10's
+  ``FastDateFormat_ParserTest``). That is documented upstream behavior, not a
+  defect, so it is reported as a skip with the reason rather than a failure.
+- **failed** -- anything else: the integration, or FixCheck itself, broke.
+
+Every run's artifacts are copied to
+``logs/test/<Project>_<BugId>/<generator>/`` for manual inspection -- most
+usefully ``<TestClass>/fixcheck.log`` (the prompts and the assertions the
+generator produced) and ``<TestClass>/fixcheck-output/`` (the generated prefix
+sources, ``report.csv`` and ``scores-failing-tests.csv``). Keying by generator
+keeps two of them comparable side by side for the same bug; each directory is
+wiped at the start of its own run so it never mixes results.
 
 Requires a running Docker daemon with the ``defects4j:3.0.1`` image and the
 FixCheck jar built (``bash scripts/buildFixcheck.sh``). Both are checked
-independently of Ollama/any LLM backend -- this test never calls one. Skipped
+independently of Ollama/any LLM backend -- with the default
+``previous-assertion`` generator this test never calls one. Skipped
 automatically when either prerequisite is missing.
 
 Run with:
 
     .venv/bin/python -m pytest test/e2e/test_fixcheck_devfix.py -v -s
+
+    # a single subject
+    .venv/bin/python -m pytest test/e2e/test_fixcheck_devfix.py -v -s -k Lang-12
+
+    # compare two assertion generators on every subject
+    .venv/bin/python -m pytest test/e2e/test_fixcheck_devfix.py -v -s \
+        --fixcheck-assertions previous-assertion,codellama
 """
 
 import difflib
+import json
 import os
+import shutil
 
 import pytest
 
@@ -56,10 +92,59 @@ from Experiment import (
     run_trigger_tests_raw,
     start_container,
 )
-from FixCheckWrapper import FixCheckWrapper, write_fixcheck_failure_logs
+from FixCheckWrapper import (
+    FIXCHECK_ASSERTION_GENERATORS,
+    FixCheckWrapper,
+    fixcheck_failure_log_path,
+    group_triggers_by_class,
+    needs_host_network,
+    write_fixcheck_failure_logs,
+)
 
-PROJECT = "Lang"
-BUG_ID = "12"
+# Candidate subjects, as ``(project, bug_id)``. Extend this list to try a new
+# bug; each entry becomes its own parametrized run (test id ``<Project>-<id>``).
+#
+# Lang 12 is the reference subject: its ``RandomStringUtilsTest`` declares
+# inputs in ordinary statements, so it exercises the path that actually
+# produces a report, and its second trigger method (``testLANG805``) has no
+# mutable literal -- covering the per-method filtering that keeps one awkward
+# method from aborting the whole class.
+FIXCHECK_BUGS = [
+    ("Lang", "12"),
+    ("Math", "69"),
+    # ("Lang", "1"),   # verified skip: NumberUtilsTest is all assertions
+]
+
+NUM_PREFIXES = 5
+SIMILARITY_THRESHOLD = 0.8
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+LOGS_DIR = os.path.join(_REPO_ROOT, "logs", "test")
+
+
+def pytest_generate_tests(metafunc):
+    """Turn ``--fixcheck-assertions`` into a second parametrization axis.
+
+    Crossed with :data:`FIXCHECK_BUGS`, so ``--fixcheck-assertions
+    previous-assertion,codellama`` runs every subject under both generators
+    and each combination keeps its own log directory. Done here rather than
+    with a static ``params=`` list because the choice is a run-time one: an
+    LLM-backed generator costs a model call per prefix, so which generators
+    are worth paying for depends on what is being investigated.
+    """
+    if "assertion_generator" not in metafunc.fixturenames:
+        return
+    raw = metafunc.config.getoption("--fixcheck-assertions")
+    generators = [g.strip() for g in raw.split(",") if g.strip()]
+    unknown = [g for g in generators if g not in FIXCHECK_ASSERTION_GENERATORS]
+    if unknown:
+        # Fail at collection rather than after a couple of minutes of
+        # container setup, which is when FixCheck itself would reject it.
+        raise pytest.UsageError(
+            f"unknown --fixcheck-assertions value(s) {unknown}; "
+            f"valid options are {FIXCHECK_ASSERTION_GENERATORS}"
+        )
+    metafunc.parametrize("assertion_generator", generators, scope="module")
 
 
 def _docker_image_available():
@@ -104,9 +189,41 @@ def _developer_diff(buggy_sources, fixed_sources):
     return "\n".join(d for d in diffs if d)
 
 
-@pytest.fixture(scope="module")
-def fixcheck_devfix(tmp_path_factory):
-    """Apply the bug's developer fix and run FixCheck against it.
+def _collect_logs(log_dir, workdir, result, trigger_tests, dev_diff):
+    """Copy a run's artifacts out of the container volume into ``log_dir``.
+
+    The checkout lives in a pytest ``tmp_path`` that is eventually recycled,
+    so anything worth inspecting by hand has to be copied out while it still
+    exists. Keeps the per-class layout FixCheck produced, plus the inputs
+    needed to make sense of it: the patch under test and the *pre-fix* failure
+    trace each generated prefix is compared against.
+    """
+    os.makedirs(log_dir, exist_ok=True)
+    with open(os.path.join(log_dir, "result.json"), "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
+    with open(os.path.join(log_dir, "developer.diff"), "w", encoding="utf-8") as f:
+        f.write(dev_diff)
+
+    for fqcn in group_triggers_by_class(trigger_tests):
+        trace = fixcheck_failure_log_path(workdir, fqcn)
+        if os.path.exists(trace):
+            shutil.copy(trace, os.path.join(log_dir, f"{fqcn}.failing_tests"))
+
+    for record in result["per_test_class"]:
+        run_dir = record.get("run_dir")
+        if not run_dir or not os.path.isdir(run_dir):
+            continue
+        dest = os.path.join(log_dir, record["test_class"].rsplit(".", 1)[-1])
+        # copytree over the whole run dir: it holds fixcheck.properties,
+        # fixcheck.log and fixcheck-output/ (report.csv, the scores file and
+        # the generated prefix sources under passing-/failing-/non-compiling-tests).
+        shutil.copytree(run_dir, dest, dirs_exist_ok=True)
+
+
+@pytest.fixture(scope="module", params=FIXCHECK_BUGS,
+                ids=[f"{p}-{b}" for p, b in FIXCHECK_BUGS])
+def fixcheck_devfix(request, tmp_path_factory, assertion_generator):
+    """Apply a bug's developer fix and run FixCheck against it.
 
     Checks out both the buggy (``<id>b``) and fixed (``<id>f``) revisions, builds
     a diff between them (the real developer patch, not an LLM guess), applies
@@ -114,27 +231,41 @@ def fixcheck_devfix(tmp_path_factory):
     (a precondition for the test's premise, not something FixCheck-related),
     and then runs FixCheck on it exactly as ``Experiment.py`` would with
     ``--fixcheck``. The container is always removed afterwards.
+
+    Module-scoped, so the four checks below share one container run per
+    (bug, generator) pair rather than paying for it four times.
     """
     import docker
     from Experiment import apply_diff
 
+    project, bug_id = request.param
     mount_dir = str(tmp_path_factory.mktemp("workspace"))
-    workdir_b = os.path.join(mount_dir, f"{PROJECT}_{BUG_ID}")
-    workdir_f = os.path.join(mount_dir, f"{PROJECT}_{BUG_ID}_fixed")
+    workdir_b = os.path.join(mount_dir, f"{project}_{bug_id}")
+    workdir_f = os.path.join(mount_dir, f"{project}_{bug_id}_fixed")
+
+    # Start from a clean slate so a stale directory can never be mistaken for
+    # this run's output. Scoped to this (bug, generator) pair, so other
+    # subjects keep theirs and two generators can be compared side by side.
+    log_dir = os.path.join(LOGS_DIR, f"{project}_{bug_id}", assertion_generator)
+    if os.path.isdir(log_dir):
+        shutil.rmtree(log_dir)
 
     client = docker.from_env()
     extra_mounts = {FIXCHECK_DIR: {"bind": FIXCHECK_DIR, "mode": "ro"}}
-    container = start_container(client, mount_dir, extra_mounts=extra_mounts)
+    container = start_container(
+        client, mount_dir, extra_mounts=extra_mounts,
+        network_mode="host" if needs_host_network(assertion_generator) else None,
+    )
     try:
         # 1. Check out both revisions of the bug.
         checkout_b = run_step(
-            container, f"defects4j checkout -p {PROJECT} -v {BUG_ID}b -w {workdir_b}",
-            workdir=None, description=f"Checking out {PROJECT} {BUG_ID}b",
+            container, f"defects4j checkout -p {project} -v {bug_id}b -w {workdir_b}",
+            workdir=None, description=f"Checking out {project} {bug_id}b",
         )
         assert checkout_b.ok, f"buggy checkout failed:\n{checkout_b.output}"
         checkout_f = run_step(
-            container, f"defects4j checkout -p {PROJECT} -v {BUG_ID}f -w {workdir_f}",
-            workdir=None, description=f"Checking out {PROJECT} {BUG_ID}f (developer fix)",
+            container, f"defects4j checkout -p {project} -v {bug_id}f -w {workdir_f}",
+            workdir=None, description=f"Checking out {project} {bug_id}f (developer fix)",
         )
         assert checkout_f.ok, f"fixed checkout failed:\n{checkout_f.output}"
 
@@ -199,14 +330,32 @@ def fixcheck_devfix(tmp_path_factory):
 
         # 6. Run FixCheck exactly as Experiment.py would with --fixcheck.
         fixcheck = FixCheckWrapper(
-            num_prefixes=5,
-            assertion_generator="previous-assertion",
-            similarity_threshold=0.8,
+            num_prefixes=NUM_PREFIXES,
+            assertion_generator=assertion_generator,
+            similarity_threshold=SIMILARITY_THRESHOLD,
         )
         result = fixcheck.run(container, workdir_b, trigger_tests, trigger_method_sources)
-        print(f"\n===== FixCheck result ({PROJECT} {BUG_ID}, developer fix) =====\n")
+        result["project"], result["bug_id"] = project, bug_id
+        print(f"\n===== FixCheck result ({project} {bug_id}, {assertion_generator}, "
+              "developer fix) =====\n")
         print(result)
         print("\n===== End of FixCheck result =====\n")
+
+        # 7. Copy the artifacts out before the tmp checkout goes away. Done
+        #    before any skip below, so a "not a FixCheck subject" verdict is
+        #    just as inspectable as a real result.
+        _collect_logs(log_dir, workdir_b, result, trigger_tests, dev_diff)
+        print(f"[test] FixCheck artifacts kept in: {log_dir}")
+
+        # A bug whose every trigger class was skipped is not a FixCheck
+        # subject at all -- documented upstream behavior rather than a
+        # defect, so report it as a skip carrying the reason.
+        records = result["per_test_class"]
+        if result["ok"] and records and all(r.get("skipped") for r in records):
+            reasons = "; ".join(
+                f"{r['test_class']}: {r.get('error')}" for r in records
+            )
+            pytest.skip(f"{project} {bug_id} is not a FixCheck subject -- {reasons}")
 
         yield result
     finally:
@@ -220,11 +369,27 @@ def test_fixcheck_runs_cleanly(fixcheck_devfix):
     assert result["ok"], f"FixCheck did not run cleanly: {result.get('error')}"
 
 
-def test_fixcheck_produced_a_report_for_every_trigger_class(fixcheck_devfix):
-    """Every trigger class got a parsed report.csv, not just an attempt."""
+def _analyzed(result):
+    """The trigger classes FixCheck actually attempted.
+
+    Excludes the ones it declined up front (``skipped``): a trigger method
+    whose literals all sit inside assertions, or that is inherited and so
+    invisible to FixCheck, cannot yield a report by design. A bug can mix the
+    two -- Math 69's ``SpearmansRankCorrelationTest`` inherits
+    ``testPValueNearZero`` from ``PearsonsCorrelationTest``, which is analyzed
+    normally -- so this has to be per class, not per bug. When *every* class
+    is skipped the fixture skips the bug outright.
+    """
+    return [r for r in result["per_test_class"] if not r.get("skipped")]
+
+
+def test_fixcheck_produced_a_report_for_every_analyzed_class(fixcheck_devfix):
+    """Every trigger class FixCheck attempted got a parsed report.csv."""
     result = fixcheck_devfix
     assert result["per_test_class"], "no per-class FixCheck records"
-    for record in result["per_test_class"]:
+    analyzed = _analyzed(result)
+    assert analyzed, "FixCheck attempted no trigger class"
+    for record in analyzed:
         assert record["ok"], (
             f"FixCheck({record['test_class']}) produced no usable report: "
             f"{record.get('error')}"
@@ -239,7 +404,7 @@ def test_fixcheck_generated_usable_prefixes(fixcheck_devfix):
     would read "supported" purely because nothing was ever executed.
     """
     result = fixcheck_devfix
-    for record in result["per_test_class"]:
+    for record in _analyzed(result):
         report = record["report"]
         assert report, f"no report for {record['test_class']}"
         executed = report["passing"] + report["crashing"] + report["assertion_failing"]
@@ -258,8 +423,9 @@ def test_developer_fix_is_not_suspicious(fixcheck_devfix):
         "no trigger class was analyzed, so 'not suspicious' would be vacuous"
     )
     assert not result["suspicious"], (
-        f"FixCheck flagged {PROJECT} {BUG_ID}'s actual developer fix as "
-        f"suspicious (failing_prefixes={result['failing_prefixes']}, "
+        f"FixCheck flagged {result['project']} {result['bug_id']}'s actual "
+        f"developer fix as suspicious "
+        f"(failing_prefixes={result['failing_prefixes']}, "
         f"max_failure_similarity={result['max_failure_similarity']}); "
         "this is the fix that defines the bug as fixed, so this indicates a "
         "bug in the integration rather than a real overfitting patch."

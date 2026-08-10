@@ -15,11 +15,15 @@ Run with:
     .venv/bin/python -m pytest test/unit/test_fixcheck_units.py -v
 """
 
+import json
+
 from Experiment import extract_trigger_method_sources_by_class
 from FixCheckWrapper import (
     _resolve_classpath,
     build_fixcheck_properties,
+    check_ollama_backend,
     group_triggers_by_class,
+    needs_host_network,
     parse_fixcheck_report,
     parse_fixcheck_scores,
     select_fixcheck_inputs,
@@ -382,3 +386,58 @@ def test_resolve_classpath_anchors_relative_entries_to_workdir():
 
 def test_resolve_classpath_drops_empty_entries():
     assert _resolve_classpath("/wd", "target/classes::") == "/wd/target/classes"
+
+
+# ------------------------------------------------------- Ollama-backed generators
+
+def test_needs_host_network_only_for_ollama_generators():
+    # These two post to a hardcoded http://localhost:11434, which under the
+    # default bridge network is the container's own (empty) loopback.
+    assert needs_host_network("codellama")
+    assert needs_host_network("llama3.1")
+    # These do not touch the host's localhost, so the default network is fine.
+    assert not needs_host_network("previous-assertion")
+    assert not needs_host_network("assert-true")
+    assert not needs_host_network("gpt-3.5")
+
+
+class _FakeContainer:
+    """Stands in for a docker container, returning a canned exec result."""
+
+    def __init__(self, exit_code, output):
+        self._result = (exit_code, output.encode("utf-8"))
+
+    def exec_run(self, command, workdir=None, demux=False):
+        return self._result
+
+
+def _tags_json(*names):
+    return json.dumps({"models": [{"name": n} for n in names]})
+
+
+def test_check_ollama_backend_ok_when_exact_tag_present():
+    container = _FakeContainer(0, _tags_json("codellama:latest", "other:7b"))
+    assert check_ollama_backend(container, "codellama") is None
+
+
+def test_check_ollama_backend_rejects_wrong_tag_of_right_model():
+    # The crux: FixCheck hardcodes the bare name 'codellama', which Ollama
+    # resolves to 'codellama:latest'. Having codellama:7b pulled is NOT
+    # enough, and the failure is otherwise invisible until every prefix's
+    # assertion call has already thrown.
+    container = _FakeContainer(0, _tags_json("codellama:7b"))
+    error = check_ollama_backend(container, "codellama")
+    assert error and "codellama:latest" in error
+    assert "ollama cp" in error, "the error should say how to fix it"
+
+
+def test_check_ollama_backend_reports_unreachable_daemon():
+    container = _FakeContainer(7, "")  # curl exit 7: connection refused
+    error = check_ollama_backend(container, "codellama")
+    assert error and "did not respond" in error
+
+
+def test_check_ollama_backend_reports_unparsable_response():
+    container = _FakeContainer(0, "<html>502 Bad Gateway</html>")
+    error = check_ollama_backend(container, "codellama")
+    assert error and "unexpected response" in error
