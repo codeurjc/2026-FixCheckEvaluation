@@ -638,3 +638,24 @@ def test_jira_projects_are_unaffected_by_trimming():
             text, status = issue_text(project, bug_id)
             if status == ISSUE_AVAILABLE:
                 assert text == raw, f"{project} {bug_id} was altered"
+
+
+def test_runcampaign_does_not_put_the_bug_list_inside_export():
+    """`sbatch --export=NAME=VALUE,...` is comma-separated, so a value holding
+    a comma is truncated at the first one.
+
+    Passing `BUG_IDS=1,2,3` that way delivered `BUG_IDS=1`, and every project
+    ran only its first bug -- silently, because the job looks perfectly healthy.
+    The list has to travel through the exported environment with a bare
+    `--export=ALL` instead. The smoke test missed it because `--bug-id 1` makes
+    every project's list a single id with no comma.
+    """
+    script = open(os.path.join(_repo_root(), "scripts/runCampaign.sh"),
+                  encoding="utf-8").read()
+    code = [l for l in script.splitlines() if not l.lstrip().startswith("#")]
+    assert any("--export=ALL \\" in l or l.strip() == "--export=ALL" for l in code), \
+        "the submission must use a bare --export=ALL"
+    assert not any("--export=ALL," in l for l in code), \
+        "BUG_IDS in --export=NAME=VALUE would be cut at its first comma"
+    assert any(l.strip().startswith("export ") and "BUG_IDS=" in l for l in code), \
+        "BUG_IDS must be exported into the environment instead"

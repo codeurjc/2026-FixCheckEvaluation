@@ -96,13 +96,20 @@ while IFS=$'\t' read -r project label bug_ids count walltime; do
 
     if [ -n "$DRY_RUN" ]; then
         printf "%-18s %-10s %-14s %s\n" "$label" "$count" "$walltime" "(dry-run)"
-        echo "    sbatch --job-name=fc-$label --gpus=$GPU --cpus-per-task=$CPUS --time=$walltime \\"
-        echo "        --export=ALL,PROJECT=$project,BUG_IDS=$bug_ids,MODEL=$MODEL,TIMEOUT=$TIMEOUT,FIXCHECK_PREFIXES=$FIXCHECK_PREFIXES \\"
-        echo "        scripts/project_job.sbatch"
+        echo "    PROJECT=$project BUG_IDS=$bug_ids MODEL=$MODEL TIMEOUT=$TIMEOUT FIXCHECK_PREFIXES=$FIXCHECK_PREFIXES \\"
+        echo "      sbatch --job-name=fc-$label --gpus=$GPU --cpus-per-task=$CPUS --time=$walltime \\"
+        echo "        --export=ALL scripts/project_job.sbatch"
         continue
     fi
 
     mkdir -p scripts/logs
+    # The job's inputs travel through the *environment*, not through
+    # `--export=NAME=VALUE`. SLURM separates that list with commas, so a value
+    # containing one is silently truncated at the first: BUG_IDS=1,2,3 arrived
+    # as BUG_IDS=1 and every project ran only its first bug. Exporting here and
+    # passing a bare `--export=ALL` propagates the values intact.
+    export PROJECT_DIR PROJECT="$project" BUG_IDS="$bug_ids" MODEL TIMEOUT \
+           FIXCHECK_PREFIXES EXTRA_ARGS
     # Submit held so the per-job log directory can be created before SLURM
     # opens --output/--error: it will not create the parent itself, and the job
     # id is only known once the job has been submitted.
@@ -113,7 +120,7 @@ while IFS=$'\t' read -r project label bug_ids count walltime; do
         --time="$walltime" \
         --output="scripts/logs/%j/slurm.out" \
         --error="scripts/logs/%j/slurm.err" \
-        --export=ALL,PROJECT_DIR="$PROJECT_DIR",PROJECT="$project",BUG_IDS="$bug_ids",MODEL="$MODEL",TIMEOUT="$TIMEOUT",FIXCHECK_PREFIXES="$FIXCHECK_PREFIXES",EXTRA_ARGS="$EXTRA_ARGS" \
+        --export=ALL \
         scripts/project_job.sbatch)
 
     mkdir -p "scripts/logs/$JOB_ID/bugs"
