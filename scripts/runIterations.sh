@@ -5,7 +5,10 @@ BUG_ID=${BUG_ID:-1}
 MODEL=${MODEL:-ollama/qwen3.6:35b} #ollama/gpt-oss:120b
 ITERATIONS=${ITERATIONS:-10}
 
-OLLAMA_BASE_URL=http://localhost:1995 \
+# Honour an already-exported OLLAMA_BASE_URL (slurm_job.sbatch sets it to the
+# port its own daemon actually got), falling back to the historical one for
+# manual runs against a hand-started Ollama.
+OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://localhost:1995}" \
 .venv/bin/python run_iterations.py \
     --project $PROJECT \
     --bug-id $BUG_ID \

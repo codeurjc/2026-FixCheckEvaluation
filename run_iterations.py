@@ -35,7 +35,6 @@ every run, so they behave exactly as they do there:
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 
@@ -44,73 +43,13 @@ EXPERIMENT = os.path.join(HERE, "Experiment.py")
 
 sys.path.insert(0, HERE)
 from Experiment import DEFAULT_MODEL, model_dir_name  # noqa: E402
-
-
-def clean_checkout(workdir, project, bug_id):
-    """Remove the per-bug checkout so the next run starts from a clean slate.
-
-    ``Experiment.py`` checks out into ``<workdir>/<project>_<bug_id>``; deleting
-    it between runs guarantees no leftover (possibly half-patched) sources leak
-    from one iteration into the next.
-    """
-    checkout = os.path.join(os.path.abspath(workdir), f"{project}_{bug_id}")
-    if os.path.isdir(checkout):
-        shutil.rmtree(checkout)
-
-
-def parse_bug_ids(tokens):
-    """Expand ``--bug-id`` tokens (single ids and ``lo-hi`` ranges) into ids.
-
-    Each token is either a plain id (``"7"`` -> ``[7]``) or an inclusive range
-    (``"1-5"`` -> ``[1, 2, 3, 4, 5]``). Order is preserved and duplicates are
-    dropped, so ``["1-3", "5", "5"]`` yields ``[1, 2, 3, 5]``. Ids are returned
-    as strings to match the ``results/.../Bug_<bug>`` path convention used
-    throughout this script.
-    """
-    ids, seen = [], set()
-    for token in tokens:
-        token = token.strip()
-        if "-" in token:
-            lo, hi = token.split("-", 1)
-            span = range(int(lo), int(hi) + 1)
-        else:
-            span = [int(token)]
-        for n in span:
-            if n not in seen:
-                seen.add(n)
-                ids.append(str(n))
-    return ids
-
-
-def experiment_args(args):
-    """Translate this runner's parsed args into Experiment.py CLI flags.
-
-    Only options the user actually set are forwarded, so Experiment.py keeps
-    ownership of the defaults (model, temperature) — there is no second copy of
-    them to drift out of sync here.
-    """
-    forwarded = []
-    if args.model is not None:
-        forwarded += ["--model", args.model]
-    if args.temperature is not None:
-        forwarded += ["--temperature", str(args.temperature)]
-    if args.include_test_code:
-        forwarded.append("--include-test-code")
-    if args.include_test_log:
-        forwarded.append("--include-test-log")
-    if args.include_issue:
-        forwarded.append("--include-issue")
-    if args.fixcheck:
-        forwarded.append("--fixcheck")
-    if args.fixcheck_prefixes is not None:
-        forwarded += ["--fixcheck-prefixes", str(args.fixcheck_prefixes)]
-    if args.fixcheck_assertions is not None:
-        forwarded += ["--fixcheck-assertions", args.fixcheck_assertions]
-    if args.fixcheck_inputs_class is not None:
-        forwarded += ["--fixcheck-inputs-class", args.fixcheck_inputs_class]
-    if args.fixcheck_similarity_threshold is not None:
-        forwarded += ["--fixcheck-similarity-threshold", str(args.fixcheck_similarity_threshold)]
-    return forwarded
+from experiment_runner import (  # noqa: E402
+    add_experiment_flags,
+    clean_checkout,
+    experiment_args,
+    load_result,
+    parse_bug_ids,
+)
 
 
 def run_once(project, bug_id, workdir, iteration, forwarded):
@@ -126,18 +65,6 @@ def run_once(project, bug_id, workdir, iteration, forwarded):
     print(f"\n{'=' * 70}\n[run_iterations] Iteration {iteration}\n{'=' * 70}")
     print("$ " + " ".join(cmd))
     return subprocess.run(cmd).returncode
-
-
-def load_result(model_dir, project, bug_id, iteration):
-    """Load an iteration's result.json, or None if it is missing/unreadable."""
-    path = os.path.join(
-        "results", model_dir, project, f"Bug_{bug_id}", str(iteration), "result.json"
-    )
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return None
 
 
 def process_bug(project, bug_id, model_dir, iterations, workdir, forwarded):
@@ -247,50 +174,10 @@ def main():
         "--iterations", type=int, default=5,
         help="Number of times to run the experiment (default: 5).",
     )
-    # --- Flags mirrored from Experiment.py and forwarded to each run. ---
-    # Defaults live in Experiment.py; here they default to None/off so only
-    # user-supplied values are passed through.
-    parser.add_argument(
-        "--model", default=None,
-        help="LLM model identifier (default: Experiment.py's default).",
-    )
-    parser.add_argument(
-        "--temperature", type=float, default=None,
-        help="LLM sampling temperature (default: Experiment.py's default).",
-    )
-    parser.add_argument(
-        "--include-test-code", action="store_true",
-        help="Include the regression (trigger) test source file(s) in the prompt.",
-    )
-    parser.add_argument(
-        "--include-test-log", action="store_true",
-        help="Include the regression (trigger) test's failure log in the prompt.",
-    )
-    parser.add_argument(
-        "--include-issue", action="store_true",
-        help="Include the original bug-tracker issue report in the prompt.",
-    )
-    parser.add_argument(
-        "--fixcheck", action="store_true",
-        help="Run FixCheck on plausible patches (forwarded to Experiment.py).",
-    )
-    parser.add_argument(
-        "--fixcheck-prefixes", type=int, default=None,
-        help="FixCheck number-of-prefixes (default: Experiment.py's default).",
-    )
-    parser.add_argument(
-        "--fixcheck-assertions", default=None,
-        help="FixCheck assertion-generator option (default: Experiment.py's default).",
-    )
-    parser.add_argument(
-        "--fixcheck-inputs-class", default=None,
-        help="Force FixCheck's inputs-class (default: Experiment.py's heuristic).",
-    )
-    parser.add_argument(
-        "--fixcheck-similarity-threshold", type=float, default=None,
-        help="FixCheck suspicious-verdict similarity threshold "
-             "(default: Experiment.py's default).",
-    )
+    # The fix/FixCheck flags are registered from experiment_runner so this
+    # runner and run_project.py cannot drift apart; they default to None/off
+    # there, so only user-supplied values reach Experiment.py.
+    add_experiment_flags(parser)
     args = parser.parse_args()
 
     project = args.project

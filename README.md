@@ -257,6 +257,40 @@ they behave exactly as they do there. Its per-bug and global summaries, and
 `summary.json`, also report a `fixcheck_suspicious` count alongside
 `applied`/`triggers_fixed`/`fixed`.
 
+### Running the whole benchmark
+
+To run every bug of one or more projects — the full 854-bug campaign — use
+`scripts/runCampaign.sh`, which submits **one SLURM job per project** (all of
+that project's bugs sequentially on its GPU, several projects in parallel):
+
+```bash
+./scripts/runCampaign.sh --projects JacksonXml,Csv,Codec       # pilot: 40 bugs
+./scripts/runCampaign.sh --projects all --minutes-per-bug 25   # all 854
+./scripts/runCampaign.sh --projects all --dry-run              # show, don't submit
+```
+
+Each job runs `run_project.py`, which runs `Experiment.py` **once per bug** (as
+opposed to `run_iterations.py`'s N times), takes the bug list from Defects4J's
+own `active-bugs.csv` so deprecated ids are never attempted, isolates per-bug
+failures, enforces a per-bug timeout, deletes each checkout when it is done,
+and resumes by skipping bugs that already have a `result.json`. It can also be
+run directly, outside SLURM:
+
+```bash
+python run_project.py --project Lang                  # all 61 active bugs
+python run_project.py --project Lang --bug-id 1,3-5 --dry-run
+```
+
+`summarize_campaign.py` aggregates the whole campaign out of `results/`:
+
+```bash
+python summarize_campaign.py --list-failures
+```
+
+See [scripts/README.md](scripts/README.md) for the options and
+[docs/campaign.md](docs/campaign.md) for the protocol, including why 280 of the
+854 bugs need `GITHUB_TOKEN` set for `--include-issue` to work at all.
+
 ## Output
 
 Artifacts are written to `results/<model>/<project>/Bug_<bug_id>/` (or
@@ -273,7 +307,13 @@ set), where `<model>` is `--model` with any `<provider>/` prefix stripped
   response, whether the regression test code/log/issue were included in the
   prompt (`included_test_code`, `included_test_log`, `included_issue`), and
   the FixCheck overfitting check's result (`fixcheck`, `fixcheck_suspicious`
-  — see below).
+  — see below). `included_issue` reflects whether an issue was *actually*
+  fetched, so a rate-limited or unreachable tracker records `false` rather
+  than claiming the issue reached the prompt.
+- `run_status.json` — only written by `run_project.py`: how the run itself
+  went (`status` of `ok`/`error`/`timeout`, `exit_code`, `seconds`) alongside
+  the outcome flags. This is what distinguishes "the model did not fix it"
+  from "the run never completed", and what a resumed campaign consults.
 - `test_before.log` / `test_after.log` — test suite output before and after the
   fix.
 - `apply.log` — output of the `git apply` attempts.

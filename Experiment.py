@@ -31,6 +31,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import sys
 import urllib.error
 import urllib.parse
@@ -440,7 +441,15 @@ class _HTMLTextExtractor(HTMLParser):
 
 
 def _http_get_json(url):
-    request = urllib.request.Request(url, headers={"User-Agent": "FixCheckEvaluation"})
+    headers = {"User-Agent": "FixCheckEvaluation"}
+    # Unauthenticated api.github.com allows 60 requests/hour per IP. A full
+    # benchmark run touches 280 GitHub-tracked bugs at two calls each, and
+    # several jobs share the node's IP, so without a token nearly all of those
+    # issue fetches fail -- silently, since fetch_issue_text swallows the error.
+    token = os.getenv("GITHUB_TOKEN")
+    if token and "api.github.com" in url:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(request, timeout=15) as resp:
         return json.loads(resp.read().decode("utf-8", errors="replace"))
 
@@ -586,7 +595,21 @@ def write_text(results_dir, filename, content):
         f.write(content or "")
 
 
+def _exit_on_sigterm(signum, _frame):
+    """Turn SIGTERM into SystemExit so the container teardown still runs.
+
+    Python does not run ``finally`` blocks when the default SIGTERM handler
+    fires, so a run killed by a bulk runner's timeout or by ``scancel`` would
+    leak its Docker container -- exactly how a stray ``defects4j:3.0.1``
+    container ends up running for weeks. Raising instead lets ``main()``'s
+    ``finally`` stop and remove it.
+    """
+    raise SystemExit(128 + signum)
+
+
 def main():
+    signal.signal(signal.SIGTERM, _exit_on_sigterm)
+
     parser = argparse.ArgumentParser(
         description="Generate and evaluate an LLM bug fix on a Defects4J bug."
     )
@@ -887,7 +910,10 @@ def main():
             "raw_response": gen["raw_response"],
             "included_test_code": test_sources is not None,
             "included_test_log": test_log is not None,
-            "included_issue": issue_text is not None,
+            # bool(), not "is not None": fetch_issue_text returns "" when the
+            # tracker is unreachable or rate-limited, and reporting that as
+            # "the issue was in the prompt" would misdescribe the run.
+            "included_issue": bool(issue_text),
             "fixcheck": fixcheck_result,
             "fixcheck_suspicious": fixcheck_suspicious,
         }

@@ -16,31 +16,25 @@
 set -e
 
 PROJECT_DIR="$HOME/2026-FixCheckEvaluation"
-OLLAMA_PORT="1995"
-OLLAMA_HOST="127.0.0.1:$OLLAMA_PORT"
 
 cd "$PROJECT_DIR"
 source .venv/bin/activate
 
-export OLLAMA_HOST="$OLLAMA_HOST"
-
 # Same defaults as runIterations.sh, resolved here too so the model is known
-# up front for the "ollama pull" step below.
+# up front for the Ollama startup below.
 PROJECT="${PROJECT:-Chart}"
 BUG_ID="${BUG_ID:-1}"
 MODEL="${MODEL:-ollama/qwen3.6:35b}"
 ITERATIONS="${ITERATIONS:-10}"
 export PROJECT BUG_ID MODEL ITERATIONS
 
-OLLAMA_PID=""
-cleanup() {
-    if [ -n "$OLLAMA_PID" ] && kill -0 "$OLLAMA_PID" 2>/dev/null; then
-        echo "Stopping Ollama (PID $OLLAMA_PID)..."
-        kill "$OLLAMA_PID" 2>/dev/null || true
-        wait "$OLLAMA_PID" 2>/dev/null || true
-    fi
-}
-trap cleanup EXIT INT TERM
+# The Ollama lifecycle is shared with scripts/project_job.sbatch. It matters
+# here too: this job used to `pkill -f "ollama serve"` and bind a fixed port
+# 1995, which on this single-node cluster would kill every concurrently running
+# campaign job's daemon. start_ollama picks a free port and stop_ollama kills
+# only its own PID.
+source scripts/ollama_serve.sh
+trap stop_ollama EXIT INT TERM
 
 echo "========================================"
 echo "FixCheckEvaluation - Job $SLURM_JOB_ID (node $SLURM_JOB_NODELIST)"
@@ -52,44 +46,14 @@ echo "========================================"
 LOG_DIR="$PROJECT_DIR/scripts/logs/$SLURM_JOB_ID"
 mkdir -p "$LOG_DIR"
 
-echo "[1/4] Cleaning up previous Ollama processes..."
-pkill -f "ollama serve" || true
-sleep 2
+echo "[1/2] Starting Ollama on a free port..."
+start_ollama "$MODEL" "$LOG_DIR/ollama.log"
 
-echo "[2/4] Starting Ollama..."
-ollama serve > "$LOG_DIR/ollama.log" 2>&1 &
-OLLAMA_PID=$!
-echo "Ollama PID: $OLLAMA_PID"
+# runIterations.sh reads this to point Experiment.py at the right daemon; the
+# port is no longer the historical fixed 1995.
+export OLLAMA_BASE_URL
 
-max_retries=30
-retry_count=0
-echo "Waiting for Ollama to be ready..."
-while [ $retry_count -lt $max_retries ]; do
-    if curl -s "http://$OLLAMA_HOST/api/tags" > /dev/null 2>&1; then
-        echo "✓ Ollama is up"
-        break
-    fi
-    echo "Attempt $((retry_count + 1))/$max_retries..."
-    sleep 2
-    retry_count=$((retry_count + 1))
-done
-
-if [ $retry_count -eq $max_retries ]; then
-    echo "✗ Error: Ollama did not respond"
-    exit 1
-fi
-
-# Strip the "ollama/" provider prefix to get the model name for the ollama CLI
-MODEL_NAME="${MODEL#ollama/}"
-echo "[3/4] Checking/pulling model: $MODEL_NAME"
-if ! ollama list | grep -q "$MODEL_NAME"; then
-    echo "Pulling model $MODEL_NAME..."
-    ollama pull "$MODEL_NAME"
-else
-    echo "✓ Model $MODEL_NAME already present"
-fi
-
-echo "[4/4] Running scripts/runIterations.sh..."
+echo "[2/2] Running scripts/runIterations.sh..."
 echo "====================================="
 
 if bash scripts/runIterations.sh; then

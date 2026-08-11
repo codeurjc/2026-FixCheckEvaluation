@@ -66,12 +66,11 @@ pull the model if missing, run `runIterations.sh`, and release the GPU when
 done) so Ollama doesn't have to be managed by hand.
 
 - **`slurm_job.sbatch`** is the actual job: it requests a GPU
-  (`--gpus=L40S:1` by default), starts `ollama serve`, waits until it
-  responds, runs `ollama pull` for the configured model if it isn't
-  downloaded yet, and executes `runIterations.sh`. On exit (success or
-  failure) it kills the Ollama process, and SLURM releases the GPU once the
-  job finishes. It isn't meant to be submitted by hand — use
-  `runWithSlurm.sh` instead.
+  (`--gpus=L40S:1` by default), starts `ollama serve` through
+  [`ollama_serve.sh`](#ollama_servesh), waits until it responds, and executes
+  `runIterations.sh`. On exit (success or failure) it kills *its own* Ollama
+  process, and SLURM releases the GPU once the job finishes. It isn't meant to
+  be submitted by hand — use `runWithSlurm.sh` instead.
 - **`runWithSlurm.sh`** is a thin wrapper that submits `slurm_job.sbatch`
   with `sbatch` and returns immediately. Unlike `srun`, an `sbatch` job runs
   detached from the terminal: you can close it without cancelling the run.
@@ -111,3 +110,81 @@ and the job id is only known after submission — the wrapper submits the job
 held (`--hold`), creates `scripts/logs/<job_id>/`, and then releases it
 (`scontrol release`), so the directory always exists before the job writes to
 it.
+
+## ollama_serve.sh
+
+Shared Ollama lifecycle for every SLURM job, meant to be **sourced**:
+
+```bash
+source scripts/ollama_serve.sh
+start_ollama "ollama/gpt-oss:120b" "$LOG_DIR/ollama.log"
+trap stop_ollama EXIT INT TERM
+```
+
+It exists because this cluster is a **single node**: every job of a campaign
+lands on the same machine, so the two habits the old inline version had were
+fatal once more than one job ran at a time.
+
+- **No `pkill -f "ollama serve"`.** That pattern kill took out the sibling
+  jobs' daemons; the victims then produce empty results with no obvious cause.
+  `stop_ollama` kills exactly one recorded PID.
+- **No fixed port.** `start_ollama` derives a candidate from the job id
+  (`21000 + job_id % 900`), probes it with a real `bind()`, and — the part that
+  makes it race-free rather than merely unlikely to collide — **retries on the
+  next port if the daemon dies during startup**, which is what losing a bind
+  race looks like. It binds loopback only, so no sibling can reach it, and it
+  exports `OLLAMA_PORT`, `OLLAMA_HOST` and `OLLAMA_BASE_URL`.
+- **It never `ollama pull`s.** The model store is shared by every concurrent
+  job, and two simultaneous pulls of the same multi-GB blob is the one way to
+  corrupt it. A missing model is a hard error telling you to pull it by hand.
+- It sets `OLLAMA_CONTEXT_LENGTH=49152` to match what `llms/ollama_llm.py`
+  requests. FixCheck's `OllamaGenerator` sends no options, so without this the
+  server would spin up a *second* runner at its default context — and two
+  runners of a 64 GB model do not fit on a 96 GB H100, so the model would be
+  unloaded and reloaded on every switch between fix and assertion generation.
+
+## runCampaign.sh and project_job.sbatch
+
+Run `Experiment.py` across whole projects — the full-benchmark campaign. One
+sbatch job per project, all of that project's bugs sequentially on its GPU;
+parallelism comes from several project jobs running at once. See
+[docs/campaign.md](../docs/campaign.md) for the protocol.
+
+```bash
+./scripts/runCampaign.sh --projects JacksonXml,Csv,Codec       # pilot: 40 bugs
+./scripts/runCampaign.sh --projects all --minutes-per-bug 25   # all 854
+./scripts/runCampaign.sh --projects Closure --chunks 2         # split a big one
+./scripts/runCampaign.sh --projects all --dry-run              # show, don't submit
+```
+
+| Option | Meaning | Default |
+|---|---|---|
+| `--projects` | `all`, or a comma-separated list | `all` |
+| `--bug-id` | `all`, or ids/ranges (`1,3-5`); only with a single project | `all` |
+| `--model` | used for the fix **and** for FixCheck's assertions | `ollama/gpt-oss:120b` |
+| `--gpu` | passed to `sbatch --gpus` | `H100:1` |
+| `--fixcheck-prefixes` | variations FixCheck generates per bug | `10` |
+| `--timeout` | per-bug wall-clock limit, in seconds | `7200` |
+| `--minutes-per-bug` | sizes each job's `--time` | `20` |
+| `--chunks` | split each project's bugs across N jobs | `1` |
+| `--retry-errored` / `--no-resume` | forwarded to `run_project.py` | off |
+| `--dry-run` | print the `sbatch` lines and exit | off |
+
+`--gpu` defaults to `H100:1` deliberately: `gpt-oss:120b` needs ~64 GB and does
+not fit on this cluster's 46 GB L40S cards. Each job's `--time` is
+`bugs × minutes + 1 h`, capped at the partition's 6-day limit, so short projects
+stay backfill-friendly instead of every job asking for the maximum.
+
+**`project_job.sbatch`** is the job itself: it starts Ollama on its own port,
+derives `--fixcheck-assertions` from `$MODEL` and that port (so the two
+notations for the same model can never disagree), and runs `run_project.py`
+against a **per-job** mount root `workspace/job_<job_id>/`. Per-job, not
+per-project, because `--chunks` can split one project over two jobs and the
+container reaper filters by that path. Submitted by `runCampaign.sh`, which
+reuses the held→mkdir→release trick described above.
+
+Logs land in `scripts/logs/<job_id>/`: `slurm.out`, `ollama.log`,
+`manifest.json` (git sha, argv, model, port, resolved bug ids),
+`status.jsonl` (one line per finished bug — `tail -f` this) and
+`bugs/<Project>_<id>.log` (one full `Experiment.py` log per bug, because a
+single Closure test run would otherwise drown the shared log).
