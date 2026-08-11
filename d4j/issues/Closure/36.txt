@@ -1,0 +1,51 @@
+Summary: goog.addSingletonGetter prevents unused class removal
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// @use_closure_library true
+// @formatting pretty_print,print_input_delimiter
+// @warning_level VERBOSE
+// @debug true
+// ==/ClosureCompiler==
+
+goog.provide('foo');
+
+var foo = function() { this.values = []; };
+goog.addSingletonGetter(foo);
+
+foo.prototype.add = function(value) {this.values.push(value)};
+
+
+<b>What is the expected output? What do you see instead?</b>
+
+Expect: The code is completely removed.
+
+Instead:
+
+(function($ctor$$) {
+  $ctor$$.$getInstance$ = function $$ctor$$$$getInstance$$() {
+    return $ctor$$.$instance_$ || ($ctor$$.$instance_$ = new $ctor$$)
+  }
+})(function() {
+});
+
+
+What version of the product are you using? On what operating system?
+
+http://closure-compiler.appspot.com on Feb 28, 2012
+
+Please provide any additional information below.
+
+Comment:
+The failure sequence is like this:
+1) remove unused prototype properties removes the properties
+2) inlineVariables moves the constructor into the goog.addSingletonGetter call
+3) NameAnalyzer won't remove it because it has no name 
+4) goog.addSingletonGetter has side-effect so it won't be removed on its own.
+
+Comment:
+This issue was closed by revision r1800.

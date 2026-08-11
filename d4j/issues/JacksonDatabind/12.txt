@@ -1,0 +1,116 @@
+Title: @JsonDeserialize on Map with contentUsing custom deserializer overwrites default behavior
+
+Body:
+I recently updated from version 2.3.3 to 2.5.1 and encountered a new issue with our custom deserializers. They either seemed to stop working or were active on the wrong fields.
+I could narrow it down to some change in version 2.4.4 (2.4.3 is still working for me)
+
+I wrote a test to show this behavior. It seems to appear when there a two maps with the same key and value types in a bean, and only one of them has a custom deserializer. The deserializer is then falsely used either for both or none of the maps.
+
+This test works for me in version 2.4.3 and fails with higher versions.
+
+``` java
+import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
+import java.util.Map;
+
+import org.junit.Test;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+
+public class DeserializeTest {
+
+    @Test
+    public void testIt() throws Exception {
+        ObjectMapper om = new ObjectMapper();
+        String json = "{\"map1\":{\"a\":1},\"map2\":{\"a\":1}}";
+        TestBean bean = om.readValue(json.getBytes(), TestBean.class);
+
+        assertEquals(100, bean.getMap1().get("a").intValue());
+        assertEquals(1, bean.getMap2().get("a").intValue());
+    }
+
+    public static class TestBean {
+
+        @JsonProperty("map1")
+        @JsonDeserialize(contentUsing = CustomDeserializer.class)
+        Map<String, Integer> map1;
+
+        @JsonProperty("map2")
+        Map<String, Integer> map2;
+
+        public Map<String, Integer> getMap1() {
+            return map1;
+        }
+
+        public void setMap1(Map<String, Integer> map1) {
+            this.map1 = map1;
+        }
+
+        public Map<String, Integer> getMap2() {
+            return map2;
+        }
+
+        public void setMap2(Map<String, Integer> map2) {
+            this.map2 = map2;
+        }
+    }
+
+    public static class CustomDeserializer extends StdDeserializer<Integer> {
+
+        public CustomDeserializer() {
+            super(Integer.class);
+        }
+
+        @Override
+        public Integer deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+            Integer value = p.readValueAs(Integer.class);
+            return value * 100;
+        }
+    }
+}
+```
+
+
+Comment:
+That does not sound good.
+
+Looking at 2.4.4, my first thought was this could be due to #604 (fixed in 2.4.5 by #635), but if 2.4.5 also fails, this is probably not the case.
+
+Thank you for reproduction, I will try to figure out what is causing the failure.
+
+
+Comment:
+Ok, yes. It is due to #604 as well. Looks like checks to prevent incorrect caching were still not strict enough.
+On plus side, easy to fix.
+
+I will probably release 2.4.5.1 "micro-patch" of just `jackson-databind` soon (and not release full set of all other artifacts). And this fix along with others will get in 2.4.6 when it gets released.
+
+
+Comment:
+I just released `2.4.5.1`, should be available via Maven in an hour. Note that only `jackson-databind` released, as per above; 2.4.5 of other components may (and needs to be) used.
+
+
+Comment:
+Thank you for the quick resultion!
+
+
+Comment:
+Thank you for reporting this! I need to do bit more work on 2.5 to ensure other cases are not affected, since `Collection` caching was also extended. These are difficult ones to trouble-shoot, but knowing the problem it is easier to write proper tests now -- reproduction requires specific sequence of resolution calls (custom one first vs last).
+
+
+Comment:
+After fixing part of the problem (which resolved the unit test failure), I added some more variants, and found out that there is another problematic sequence. Will try to address that.
+Further, whereas this only affects `Map`s in 2.4.4 / 2.4.5, it also affects `Collection`s in 2.5 (since their cachability was enabled in 2.5).
+
+Reopening for additional work.
+
+
+Comment:
+Ok: fixed completely (as far as I know) for 2.4.6 and 2.5.2.

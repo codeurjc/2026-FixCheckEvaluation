@@ -1,0 +1,27 @@
+Summary: Compiler ignores 'delete' statements, can break functionality.
+
+Description:
+When the compiler rewrites internally-referenced object variables to non-object  variables, as in the example below, it ignores 'delete' statements. These delete statements work as expected with the objects originally written, but don't function the same when the variables are no longer object properties. See:
+
+(function(arg) {
+  var foo = {};
+
+  foo.bar = arg;
+
+  console.log(foo.bar);
+
+  delete foo.bar;
+
+  console.log(foo.bar);
+})();
+
+Compiles to (simple setting):
+(function(a){console.log(a);delete a;console.log(a)})();
+
+Perhaps the compiler needs to look for these delete statements and change them to setting the rewritten variable to undefined instead.
+
+Comment:
+Thanks for the report.
+
+Comment:
+This issue was closed by revision r2343.

@@ -1,0 +1,26 @@
+Summary: SetUniqueList set method use corrupts uniqness
+
+Description:
+When set method is used to put element (Strawberry) on list, then it is possible to add the same element (Strawberry) with add method. Also you cannot add element (Lemon) that has been once removed with set method. Reproduction code below:
+
+
+List<String> list = new LinkedList<String>();
+SetUniqueList decoratedList = SetUniqueList.decorate(list);
+
+decoratedList.add("Apple");
+decoratedList.add("Lemon");
+decoratedList.add("Orange");
+
+System.out.println(decoratedList.toString());
+
+decoratedList.set(1, "Strawberry");
+
+System.out.println(decoratedList.toString());
+
+decoratedList.add(1, "Strawberry");
+
+System.out.println(decoratedList.toString());
+
+decoratedList.add(1, "Lemon");
+
+System.out.println(decoratedList.toString());

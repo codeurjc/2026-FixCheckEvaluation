@@ -1,0 +1,79 @@
+Summary: Type checker misses annotations on functions defined within functions
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile the following code under --warning_level VERBOSE
+
+var ns = {};
+
+/** @param {string=} b */
+ns.a = function(b) {}
+
+function d() {
+    ns.a();
+    ns.a(123);
+}
+
+2. Observe that the type checker correctly emits one warning, as 123 
+doesn't match the type {string}
+
+3. Now compile the code with ns.a defined within an anonymous function, 
+like so:
+
+var ns = {};
+
+(function() {
+    /** @param {string=} b */
+    ns.a = function(b) {}
+})();
+
+function d() {
+    ns.a();
+    ns.a(123);
+}
+
+4. Observe that a warning is emitted for calling ns.a with 0 parameters, and 
+not for the type error, as though the @param declaration were ignored. 
+
+<b>What version of the product are you using? On what operating system?</b>
+r15
+
+<b>Please provide any additional information below.</b>
+
+This sort of module pattern is common enough that it strikes me as worth 
+supporting.
+
+One last note to make matters stranger: if the calling code isn't itself within 
+a function, no warnings are emitted at all:
+
+var ns = {};
+
+(function() {
+    /** @param {string=} b */
+    ns.a = function(b) {}
+})();
+
+ns.a();
+ns.a(123);
+
+Comment:
+thanks for the report. I vaguely recall there was a very specific reason why this
+case wasn't handled, but I think that reason might have gone away. I'll play with it
+again and report back.
+
+Comment:
+notice that if you define ns.a in a local scope, and use it in a later scope, this will now work.
+
+i'm still working on the case where you define ns.a in a local scope and call it from a global scope.
+
+Comment:
+Nick, this specific issue is fixed any reason not to close this?
+
+Comment:
+nope, the specific issue is not fixed. did you read my last comment?
+
+Comment:
+I understand now.  #3 is fixed now but not the call from global scope.
+
+Comment:
+This issue was closed by revision r2240.

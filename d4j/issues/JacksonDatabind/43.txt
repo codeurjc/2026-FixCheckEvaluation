@@ -1,0 +1,35 @@
+Title: Problem with Object id handling, explicit `null` token
+
+Body:
+According to #742, it shouldn't throw an exception if the value of the property is null
+
+
+Comment:
+I'd like bit more explanation here, as well as unit test showing in what cases should this be a problem.
+Deserializers are typically never called with null tokens, as it is caller's responsibility to handle that (for root value handling it's mapper/reader, for POJO/Collection/Map properties, deserializer for that structured type)
+
+
+Comment:
+The problem is that the JSON I want to deserialize has a null id {"id":null, "text1":"value1", ..  }, and if it's defined in the bean as @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id"), then it throws the exception I mentioned before.
+
+I've fixed it with a Stringify parametrization, so all the null attributes of my JSON are removed before the deserialization. Anyway, I don't know if it's the best way to fix this issue.
+
+
+Comment:
+@xavitorrens As I said, without a reproducible test case I can not help more -- it is possible there is a flaw, but I would need help in knowing where. Standard default deserializer does not have to deal with `null`s, but it sounds like this is related to Object Id handling, which does reorder things, and may be accidentally exposing nulls. It is not something you should have to handle.
+
+
+Comment:
+I've made a test for reproduce the case described in this case. Of course the test pass with no problems in this branch because the correction has done.
+
+
+Comment:
+Thanks! I think I'll just cut'n paste it to 2.7 branch to see what needs to be done.
+
+
+Comment:
+Ok I solved the problem shown: if I am right, it's simply just matter of moving check bit earlier and based on current token, instead of relying on deserializer to handle it. This is better in that deserializers are not expected to handle nulls (for simplicity, originally, but at this point it is just the documented behavior followed by all standard deserializers -- if I was to redesign API I might not to do it that way because it also prevents deserializers from being able to coerce nulls into anything else).
+
+
+Comment:
+Thank you very much. I see your point, it seems better.

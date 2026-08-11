@@ -1,0 +1,40 @@
+Title: Selector parsing gets confused by commata in regexes
+
+Body:
+The selector `div, li:matches([0-9,]+)` causes a java.util.regex.PatternSyntaxException because  [QueryParser (line 63)](https://github.com/jhy/jsoup/blob/master/src/main/java/org/jsoup/select/QueryParser.java#L63) thinks that the comma inside the regex is a combinator and thus extracts `, li:matches([0-9` as the second alternative.
+
+Instead of scanning ahead with `chompTo(","), the parser needs to parse its way through the alternative until it reaches a comma or the end of a string. That way, commata in regular expressions will be correctly interpreted as part of the regex.
+
+Note that there may be many more variations of this bug in the parser. Wherever a construct allows embedding an arbitrary string one should expect this problem. `[attr=a,b]` for example is likely to cause the same issue. In a way, any invocation of chompTo() needs to examined.
+
+
+Comment:
+I currently work around this by escaping the comma in the regex as in `div, li:matches([0-9\\x2C]+)`.
+
+
+Comment:
+Thanks for pointing this out! Fixed now.
+
+
+Comment:
+Thank you!
+
+On Mon, Apr 2, 2012 at 7:42 PM, Jonathan Hedley <
+reply@reply.github.com
+
+> wrote:
+> 
+> Thanks for pointing this out! Fixed now.
+> 
+> ---
+> 
+> Reply to this email directly or view it on GitHub:
+> https://github.com/jhy/jsoup/issues/179#issuecomment-4893325
+
+## 
+
+Hannes Schmidt
+Software Engineer
+Eyealike, Inc.
+206 696 2316
+hannes@eyealike.com

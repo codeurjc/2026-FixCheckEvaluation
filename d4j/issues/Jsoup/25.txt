@@ -1,0 +1,25 @@
+Title: JSoup is not preserving whitespace for <textArea> tags
+
+Body:
+This tag may have been mistakenly left out of the array of preserveWhitespace tags in the Tag class:
+
+private static final String[] preserveWhitespaceTags = {"pre", "plaintext", "title"};
+
+There is a comment next to the preserveWhitespace  boolean that indicates this should have been added here.
+ private boolean preserveWhitespace = false; // for pre, textarea, script etc
+
+
+Comment:
+Would be nice if this could be corrected, indeed.
+For the now, as i can't patch the library (entreprise repository ...), i'm doing on my side this ugly trick to switch the preserveWhiteSpace boolean for each TextArea Jsoup Tag object (just after parsing the document).
+
+``` java
+for (final Element e : jsoupDoc.getAllElements() ) {
+    if (e.tagName().equalsIgnoreCase("textarea")) {
+        final Tag tag = e.tag();
+        final Field privateStringField = Tag.class.getDeclaredField("preserveWhitespace");
+        privateStringField.setAccessible(true);
+        privateStringField.set(tag, true);
+    }
+}
+```

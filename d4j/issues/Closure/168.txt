@@ -1,0 +1,110 @@
+Summary: Wrong argument count error not reported on this aliasing (on function with @this annotation)
+
+Description:
+The following code (attached as test2-1.js) when compiled with:
+java -jar build/compiler.jar --compilation_level=ADVANCED_OPTIMIZATIONS --jscomp_error=accessControls --jscomp_error=checkTypes --jscomp_error=checkVars --jscomp_error=uselessCode --jscomp_off=globalThis --js ~/Desktop/test2.js 
+
+correctly fails with:
+
+/Users/dolapo/Desktop/test2.js:28: ERROR - Function Person.prototype.getName: called with 1 argument(s). Function requires at least 0 argument(s) and no more than 0 argument(s).
+
+However, if the say function is modified such that this is aliased and the function is called within a setTimeout (test2-2.js), the error is not caught
+
+
+
+
+
+test2-1.js:
+var makeClass = function(protoMethods) {
+  var clazz = function() {
+    this.initialize.apply(this, arguments);
+  }
+  for (var i in protoMethods) {
+    clazz.prototype[i] = protoMethods[i];
+  }
+
+  return clazz;
+}
+
+/** @constructor */
+var Person = function(name){};
+Person = makeClass(/** @lends Person.prototype */ {
+  /** @this {Person} */
+  initialize: function(name) {
+    this.name = name;
+  },
+
+  /** @this {Person} */
+  getName: function() { return this.name; },
+
+  /**
+   * @param {string} message
+   * @this {Person}
+   */
+  say: function(message) {
+    window.console.log(this.getName(1) + ' says: ' + message);
+  }
+});
+
+
+var joe = new Person('joe');
+joe.say('hi');
+var jane = new Person('jane');
+jane.say('hello');
+
+
+
+test2-2.js:
+
+var makeClass = function(protoMethods) {
+  var clazz = function() {
+    this.initialize.apply(this, arguments);
+  }
+  for (var i in protoMethods) {
+    clazz.prototype[i] = protoMethods[i];
+  }
+
+  return clazz;
+}
+
+/** @constructor */
+var Person = function(name){};
+Person = makeClass(/** @lends Person.prototype */ {
+  /** @this {Person} */
+  initialize: function(name) {
+    this.name = name;
+  },
+
+  /** @this {Person} */
+  getName: function() { return this.name; },
+
+  /**
+   * @param {string} message
+   * @this {Person}
+   */
+  say: function(message) {
+    // window.console.log(this.getName(1) + ' says: ' + message);
+    var self = this;
+    setTimeout(function() {
+      window.console.log(self.getName(1) + ' says: ' + message);
+    }, 500); 
+  }
+});
+
+
+var joe = new Person('joe');
+joe.say('hi');
+var jane = new Person('jane');
+jane.say('hello');
+
+Comment:
+Thank you for the report.
+
+Comment:
+This issue was closed by revision r2131.
+
+Comment:
+This issue was closed by revision r2132.
+
+Comment:
+This issue was closed by revision r2137.

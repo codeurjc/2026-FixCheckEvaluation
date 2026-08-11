@@ -1,0 +1,7 @@
+Summary: Stubbing mocks that are configured to return mocks yields exception
+
+Description:
+Example:
+
+IMethods mock = mock(IMethods.class, RETURNS_MOCKS);
+when(mock.objectReturningMethodNoArgs()).thenReturn(null);

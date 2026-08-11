@@ -1,0 +1,80 @@
+Title: 1.6.0 dropping a ' on a particular javascript string
+
+Body:
+Loses a single quote when the javascript contains a partial tag, exampled pared from ad section of http://scienceblogs.com/pharyngula.  Note in the result that '&lt;/scr is missing closing ' :
+
+Input:
+
+<pre>
+&lt;HTML>
+&lt;body>
+ &lt;div>
+  &lt;script language="JavaScript1.1"> 
+    document.write('&lt;/scr' + 'ipt>');
+  &lt;/script>
+ &lt;/div>
+&lt;/body>
+&lt;/HTML>
+</pre>
+
+
+Result:
+
+<pre>
+&lt;html>
+ &lt;body> 
+  &lt;div> 
+   &lt;script language="JavaScript1.1"> 
+    document.write('&lt;/scr + 'ipt>');
+  
+   &lt;/script> 
+  &lt;/div>  
+ &lt;/body>
+&lt;/html>
+</pre>
+
+
+Comment:
+Actually just got the latest from git and it seems to be working for 1.6.1!  Easy..
+
+
+Comment:
+Hi the problem is actually not fixed in 1.6.1 if the script tag contains an HTML comment.
+
+Input:
+
+``` html
+<script>
+  <!--
+    document.write('</scr' + 'ipt>');
+  // -->
+</script>
+```
+
+Result:
+
+``` html
+<script>
+  <!--
+    document.write('</scr + 'ipt>');
+  // -->
+</script>
+```
+
+Maybe this issue need to be reopened?
+
+
+Comment:
+Ok, reopened.  Interestingly the above doesn't happen in just a html comment, but only if also within a script tag.
+
+
+Comment:
+Thanks! Exactly, pretty freaky…
+
+
+Comment:
+Thanks for pointing this out and digging into the test case
+
+
+Comment:
+NP, thanks for fixing it! ;)

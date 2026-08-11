@@ -1,0 +1,96 @@
+Title: Jsoup not retaining &lt in data attributes
+
+Body:
+Jsoup not retaining &lt in data attributes value if there is &lt;
+
+In the example below &amp;lt; is converted to < in the output after parsing. 
+Please let me know how to retain it. 
+Example:
+http://notes.io/Gww
+@uggedal 
+@krystiangor 
+@tc 
+@bbeck 
+
+
+Comment:
+~~Can anyone explain why do we parse html entities within `org.jsoup.parser.TokeniserState.AttributeValue_doubleQuoted`? Shouldn't all quoted values be left unchanged?~~
+
+When `data-params` attribute is parsed, it's internally stored as `{"<p>Content</p>"}` and it seems there's nothing wrong with it. This case probably invokes `toString()` which leads to `org.jsoup.nodes.Attribute.html(StringBuilder, OutputSettings)`:
+`86:             Entities.escape(accum, value, out, true, false, false);`
+and escapes `"` back again to `&quot;` so the final result is: `{&quot;<p>Content</p>&quot;}`
+It happens because when `"` is found within attribute, it's escaped again to `&quot;`
+
+```
+                case '"':
+                    if (inAttribute)
+                        accum.append("&quot;");
+```
+
+but `<` and `>` aren't
+
+```
+                case '<':
+                    if (!inAttribute)
+                        accum.append("&lt;");
+                    else
+                        accum.append(c);
+```
+
+Maybe someone more experienced can explain this behaviour.
+
+@sandev 
+It seems to me that your original value is lost, but you can obtain unescaped value `{"<p>Content</p>"}` directly from Attribute:
+`doc.select("a").first().attributes().asList().get(1).getValue().toString();`
+It's ugly :(
+
+
+Comment:
+@krystiangor 
+
+I think the correct fix should be something like below:
+I am testing it out to see if it is good in all scenarios. Please let me know your opinion.
+
+case '<':
+                    // xhtml and in attribute
+                    if (inAttribute && escapeMode == EscapeMode.xhtml)
+                        accum.append("&lt;");
+                    // NOT in attribute
+                    else if (!inAttribute)
+                        accum.append("&lt;");
+                     // NON XHTML  and In attribute
+                    else
+                        accum.append(c);
+                    break;
+
+
+Comment:
+```
+Running org.jsoup.nodes.DocumentTest
+Tests run: 11, Failures: 3, Errors: 0, Skipped: 1, Time elapsed: 0.107 sec <<< FAILURE!
+testOutputEncoding(org.jsoup.nodes.DocumentTest)  Time elapsed: 0.004 sec  <<< FAILURE!
+org.junit.ComparisonFailure: expected:<...p title="π">π &amp; [&lt;] &gt; </p>> but was:<...p title="π">π &amp; [<] &gt; </p>>
+```
+
+but after a small correction it seems to pass all the tests:
+
+```
+case '<':
+    // xhtml and in attribute
+    if (inAttribute && escapeMode == EscapeMode.xhtml)
+        accum.append("<");
+    // NOT in attribute
+    else if (!inAttribute)
+        accum.append("&lt;");
+    // NON XHTML and In attribute
+    else
+        accum.append(c);
+    break;
+```
+
+
+Comment:
+It took me a while to understand this -- the allowed characters in an XML attribute are different to HTML
+
+HTML: https://html.spec.whatwg.org/multipage/syntax.html#attributes-2
+XML: http://www.w3.org/TR/xml/#NT-AttValue

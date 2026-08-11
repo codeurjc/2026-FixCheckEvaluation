@@ -1,0 +1,27 @@
+Summary: if statement
+
+Description:
+<b>What steps will reproduce the problem?</b>
+INPUT:
+if( es[--esi][ es[esi+1] ] === 1)
+{
+	es[esi] = 0;
+}
+else
+{
+	es[esi] = 1;
+}
+OUTPUT:
+
+es[esi] = 1 === es[--esi][es[esi + 1]] ? 0 : 1;
+
+BUT MUST BE
+es[--esi] = 1 === es[esi][es[esi + 1]] ? 0 : 1;
+
+Im using latest version on windows
+
+Comment:
+Thank you for the report.
+
+Comment:
+This issue was closed by revision 5b9485903b5e.

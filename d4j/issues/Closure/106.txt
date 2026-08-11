@@ -1,0 +1,58 @@
+Summary: Exception thrown from com.google.javascript.jscomp.CollapseProperties.addStubsForUndeclaredProperties
+
+Description:
+The attached javascript file results in a Java exception being thrown when compiling with ADVANCED_OPTIMIZATIONS
+
+[~/Projects/Music Theory/trunk] # java -jar ./ext/closure-compiler/compiler.jar --js /tmp/musictheory.net/v2/js/core.js --compilation_level 
+ADVANCED_OPTIMIZATIONS
+java.lang.RuntimeException: java.lang.IllegalArgumentException
+	at com.google.javascript.jscomp.Compiler.runInCompilerThread(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCompilerRunner.doRun(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCompilerRunner.run(Unknown Source)
+	at com.google.javascript.jscomp.CompilerRunner.main(Unknown Source)
+Caused by: java.lang.IllegalArgumentException
+	at com.google.common.base.Preconditions.checkArgument(Preconditions.java:71)
+	at com.google.javascript.jscomp.CollapseProperties.addStubsForUndeclaredProperties(Unknown Source)
+	at com.google.javascript.jscomp.CollapseProperties.updateObjLitOrFunctionDeclarationAtAssignNode(Unknown Source)
+	at com.google.javascript.jscomp.CollapseProperties.updateObjLitOrFunctionDeclaration(Unknown Source)
+	at com.google.javascript.jscomp.CollapseProperties.collapseDeclarationOfNameAndDescendants(Unknown Source)
+	at com.google.javascript.jscomp.CollapseProperties.collapseDeclarationOfNameAndDescendants(Unknown Source)
+	at com.google.javascript.jscomp.CollapseProperties.collapseDeclarationOfNameAndDescendants(Unknown Source)
+	at com.google.javascript.jscomp.CollapseProperties.collapseDeclarationOfNameAndDescendants(Unknown Source)
+	at com.google.javascript.jscomp.CollapseProperties.process(Unknown Source)
+	at com.google.javascript.jscomp.PhaseOptimizer$PassFactoryDelegate.processInternal(Unknown Source)
+	at com.google.javascript.jscomp.PhaseOptimizer$NamedPass.process(Unknown Source)
+	at com.google.javascript.jscomp.PhaseOptimizer.process(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.optimize(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compileInternal(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.access$000(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$1.call(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$1.call(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$2.run(Unknown Source)
+	at java.lang.Thread.run(Thread.java:637)
+
+I'm guessing that I did something wrong in my script which adds the goog.exportSymbol() calls, but it probably should give me a nice warning or error instead 
+of throwing a Java exception ;)
+
+Comment:
+Workaround:
+
+If I add:
+goog.exportSymbol("muth", muth);
+goog.exportSymbol("muth.core", muth.core);
+goog.exportSymbol("muth.core.dom", muth.core.dom);
+goog.exportSymbol("muth.core.util", muth.core.util);
+
+before the other exportSymbol calls, it works.
+
+Comment:
+Here's a minimal reduction:
+goog.provide("a");a.b = function(){},a.b()
+
+The function call after the comma isn't important, just about any valid expression there 
+will trigger the bug.
+
+Comment:
+thanks for the reduced case! that helps a lot.

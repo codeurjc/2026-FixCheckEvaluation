@@ -1,0 +1,6 @@
+Summary: BZip2CompressorInputStream reads fewer bytes from truncated file than CPython's bz2 implementation
+
+Description:
+Jython includes support for decompressing bz2 files using commons compress and shares regression tests with CPython. The CPython test [test_read_truncated|https://bitbucket.org/jython/jython/src/b2890af7a5e817e30f6ca2325f6dcdb14a59f32b/lib-python/2.7/test/test_bz2.py?at=default#cl-331] in test_bz2.py passes under CPython but fails under Jython.
+
+The BZip2CompressorInputStream is able to read 769 bytes from the truncated data rather than the 770 bytes that the CPython bz2 implementation can read.

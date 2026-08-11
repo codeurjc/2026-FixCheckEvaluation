@@ -1,0 +1,193 @@
+Joda - Time / Bugs / #60 .withHourOfDay() sets hour inconsistantly on DST transition.
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+Joda - Time
+Bugs
+.withHourOfDay() sets hour inconsistantly on DST transition.
+Project moved to GitHub
+Brought to you by:
+broneill
+,
+scolebourne
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Code
+Svn
+Tickets ▾
+Bugs
+Feature Requests
+News
+Discussion
+Donate
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+v1.0_(example)
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#60 .withHourOfDay() sets hour inconsistantly on DST transition.
+Status:
+closed
+Owner:
+Stephen Colebourne
+Labels:
+Joda-Time (76)
+Priority:
+5
+Updated:
+2012-10-08
+Created:
+2008-10-20
+Creator:
+Bryan Madsen
+Private:
+No
+When the hour of day is set to the ambiguous hour on the daylight to
+standard time transition in a given time zone the result is inconsistent for different time zones. Shoul the hour be set to the
+daylight hour or the standard hour for all time zones? I can't find anything
+that documents this behavior.
+My test code below returns different results for different time zones.
+/**
+Verify Joda converts the hour of day the same for regions north and
+south of the equator on the DST
+daylight to standard time transition.
+*/
+@Test
+public void jodaTest ()
+{
+Chronology chronUTC =
+GregorianChronology.getInstance(DateTimeZone.UTC);
+DateTime usCentralStandardInUTC = new DateTime(2008, 11, 2, 7, 0, 0,
+0, chronUTC);
+DateTime usCentralDaylightInUTC = new DateTime(2008, 11, 2, 6, 0, 0,
+0, chronUTC);
+Chronology chronUSCentral =
+GregorianChronology.getInstance(DateTimeZone.forID("US/Central"));
+Assert.assertTrue("Should be standard time",
+chronUSCentral.getZone().isStandardOffset(
+usCentralStandardInUTC.getMillis()));
+Assert.assertFalse("Should be daylight time",
+chronUSCentral.getZone().isStandardOffset(
+usCentralDaylightInUTC.getMillis()));
+DateTime usCentralStandardInUSCentral =
+usCentralStandardInUTC.toDateTime(chronUSCentral);
+DateTime usCentralDaylightInUSCentral =
+usCentralDaylightInUTC.toDateTime(chronUSCentral);
+assertEquals(1, usCentralStandardInUSCentral.getHourOfDay());
+assertEquals(usCentralStandardInUSCentral.getHourOfDay(),
+usCentralDaylightInUSCentral.getHourOfDay());
+Assert.assertTrue(usCentralStandardInUSCentral.getMillis() !=
+usCentralDaylightInUSCentral.getMillis());
+DateTime australiaNSWStandardInUTC = new DateTime(2008, 4, 5, 16, 0,
+0, 0, chronUTC);
+DateTime australiaNSWDaylightInUTC = new DateTime(2008, 4, 5, 15, 0,
+0, 0, chronUTC);
+Chronology chronAusNSW =
+GregorianChronology.getInstance(DateTimeZone.forID("Australia/NSW"));
+Assert.assertTrue("Should be standard time",
+chronAusNSW.getZone().isStandardOffset(
+australiaNSWStandardInUTC.getMillis()));
+Assert.assertFalse("Should be daylight time",
+chronAusNSW.getZone().isStandardOffset(
+australiaNSWDaylightInUTC.getMillis()));
+DateTime australiaNSWStandardInAustraliaNSW =
+australiaNSWStandardInUTC.toDateTime(chronAusNSW);
+DateTime australiaNSWDaylightInAusraliaNSW =
+australiaNSWDaylightInUTC.toDateTime(chronAusNSW);
+assertEquals(2, australiaNSWStandardInAustraliaNSW.getHourOfDay());
+assertEquals(australiaNSWStandardInAustraliaNSW.getHourOfDay(),
+australiaNSWDaylightInAusraliaNSW.getHourOfDay());
+Assert.assertTrue(australiaNSWStandardInAustraliaNSW.getMillis() !=
+australiaNSWDaylightInAusraliaNSW.getMillis());
+// Verify that setting the hour of day on the DST boundary results
+in a daylight time for
+// both time zones.
+assertEquals(usCentralDaylightInUSCentral,
+usCentralStandardInUSCentral.withHourOfDay(1));
+assertEquals(australiaNSWDaylightInAusraliaNSW,
+australiaNSWStandardInAustraliaNSW.withHourOfDay(2));
+}
+The very last assertion fails on the Australia time zone cutover.
+java.lang.AssertionError: expected:<2008-04-06T02:00:00.000+11:00> but
+was:<2008-04-06T02:00:00.000+10:00>
+Discussion
+Stephen Colebourne
+-
+2009-09-24
+I agree that there are issues here. Unfortunately, this is tricky to fix :-(
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Stephen Colebourne
+-
+2010-12-05
+Fixed in svn for v2.0. (Note the fix doesn't pass this test case, as it retains the offset)
+DateTimeZone.convertLocalToUTC
+[3102760,2182444,2553453]
+New method now retains the offset wherever possible during calculations
+This affects higher methods like withHourOfDay/withMinuteOfHour/withSecondOfMinute/withMillisOfSecond which now do not change offset when called within a DST overlap
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

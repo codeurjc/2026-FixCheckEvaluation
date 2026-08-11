@@ -1,0 +1,75 @@
+Title: Please support text node selector
+
+Body:
+Please support some kind of text node selectors. Currently it's not possible to select a sibling text node of an element without coding Java. A possible expression would be:
+ELEM + :text
+
+
+Comment:
+Could you tell me what your use case is? How is this different from the .text() methods in Element and Elements?
+
+(Just trying to dig in and understand the requirement, to get to the right impl)
+
+
+Comment:
+Thanks for the quick reply. The actual requirement is a pure jsoup expression. An appication like the one on try.jsoup.org which only accepts sizzle-like expressions. Currently there is no way to select SALAAM in the following html:
+
+```
+<foo>
+  <div class='someclass'/>
+  SALAAM
+  <bar>something</bar>
+</foo>
+```
+
+Please see http://stackoverflow.com/q/29468319/141438
+
+
+Comment:
+But the signature is Elements els = element.select(query);
+
+I.e. select always returns a list of Element type. What signature are you
+suggesting?
+
+On Wed, Apr 8, 2015 at 2:17 AM, mohsen notifications@github.com wrote:
+
+> Thanks for the quick reply. The actual requirement is a pure jsoup
+> expression. An appication like the one on try.jsoup.org which only
+> accepts sizzle-like expressions. Currently there is no way to select SALAAM
+> in the following html:
+> 
+> <foo>
+>   <div class='someclass'/>
+>   SALAAM
+>   <bar>something</bar>
+> </foo>
+> 
+> Please see http://stackoverflow.com/q/29468319/141438
+> 
+> —
+> Reply to this email directly or view it on GitHub
+> https://github.com/jhy/jsoup/issues/550#issuecomment-90857133.
+
+
+Comment:
+Mmm, how about a pseudo-Element of type text? In this case there may be side effects on pseudo functions such as :eq or :lt though.
+So, how about a selectNodes(query) method which returns `List<Node>`?
+
+
+Comment:
+I added a new pseudo selector `:matchText`.
+
+So you can do this, for example:
+
+```java
+        String html = "<div><p>One<br>Two<br>Three</p></div>";
+        Document doc = Jsoup.parse(html);
+
+        Elements els = doc.select("p:matchText");
+        assertEquals(3, els.size());
+        assertEquals("One", els.get(0).text());
+        assertEquals("Two", els.get(1).text());
+        assertEquals("Three", els.get(2).toString());
+```
+
+And, `p:matchText:first-child` gives "One".

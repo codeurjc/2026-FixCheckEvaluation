@@ -1,0 +1,15 @@
+Summary: constant functions not inlined aggressively enough
+
+Description:
+If you call a function that returns 'false' enough times under certain conditions, it doesn't get inlined.
+
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// ==/ClosureCompiler==
+
+function f() { return false; }
+if (!f()) alert('hi'); // repeat this about 25 times
+
+Comment:
+This issue was closed by revision r1969.

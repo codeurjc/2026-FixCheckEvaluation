@@ -1,0 +1,31 @@
+Title: JsonParserSequence skips a token on a switched Parser.
+
+Body:
+Having 2 parsers concatenated with `JsonParserSequence.createFlattened(parser1, parser2)`.
+
+If the second parser is on a token that is not null and should not be skipped, the JsonParserSequence will still skip it. JsonParserSequence's [nextToken()](https://github.com/FasterXML/jackson-core/blob/master/src/main/java/com/fasterxml/jackson/core/util/JsonParserSequence.java#L102) calls nextToken() on the new delegate which may cause that we miss a token.
+
+For more details : [forum question](http://jackson-users.ning.com/forum/topics/jsonparsersequence-behaviour-seems-misleading)
+
+I'll open a PR for this.
+Thanks.
+
+
+Comment:
+Implemented, added simple test; would be great if you could verify that it works for you before 2.8.0 is released.
+
+
+Comment:
+Hmmh. Actually, trying to change the behavior breaks a few tests in `jackson-databind`.
+Not sure how safe the change is for usage; or whether it actually is even the right thing to do.
+I will have to thing about this, and potentially just revert the change unless I can think of reasonable heuristic. Or perhaps just add different constructor for alternate behavior, defaulting to old behavior with existing construction.
+
+
+Comment:
+The constructor and `createFlattened()` with the boolean in argument sound good to me. I ran the tests you wrote for this and they pass for me so I guess it must be ok. Btw I had opened #297 for this so I guess you can close it...
+
+Thanks.
+
+
+Comment:
+New functionality is now in 2.8.0 -- thank you for working through this, let me know if I mangled something.

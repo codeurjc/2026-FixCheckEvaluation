@@ -1,0 +1,14 @@
+Summary: org.apache.commons.collections.ExtendedProperties#combine don't import string properly
+
+Description:
+When we set property with escaped characters, after combine propertySets we got them unescaped.
+
+Simple Example
+
+ExtendedProperties props = new ExtendedProperties();
+props.setProperty("test", "\\\\\\\\192.168.1.91\\\\test");
+props.getProperty("test"); // => \\192.168.1.91\test
+
+ExtendedProperties props2 = new ExtendedProperties();
+props2.combine(props);
+props.getProperty("test"); // => \192.168.1.91\test -- Wrong!

@@ -1,0 +1,79 @@
+Summary: VarCheck Crash When Using Modules
+
+Description:
+java -jar \users\chad\workspace\closure-compiler\build\compiler.jar --compilation_level ADVANCED_OPTIMIZATIONS --formatting PRETTY_PRINT --debug --module jquery:1 --module core:1:jquery --module_output_path_prefix mod_ --js ..\..\dist\jquery.js --js core.js --externs ..\qunit_externs.js
+
+java.lang.RuntimeException: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+Unexpected variable jQuery$$2
+  Node(NAME jQuery$$2): core.js:100:12
+        equal( jQuery(&quot; &lt;div/&gt; &quot;).length, 1, &quot;Make sure whitespace is trimmed.&quot; );
+  Parent(GETPROP): core.js:100:12
+        equal( jQuery(&quot; &lt;div/&gt; &quot;).length, 1, &quot;Make sure whitespace is trimmed.&quot; );
+
+        at com.google.javascript.jscomp.Compiler.runCallable(Compiler.java:628)
+        at com.google.javascript.jscomp.Compiler.runInCompilerThread(Compiler.java:573)
+        at com.google.javascript.jscomp.Compiler.compile(Compiler.java:555)
+        at com.google.javascript.jscomp.Compiler.compileModules(Compiler.java:546)
+        at com.google.javascript.jscomp.AbstractCommandLineRunner.doRun(AbstractCommandLineRunner.java:709)
+        at com.google.javascript.jscomp.AbstractCommandLineRunner.run(AbstractCommandLineRunner.java:329)
+        at com.google.javascript.jscomp.CommandLineRunner.main(CommandLineRunner.java:825)
+Caused by: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+Unexpected variable jQuery$$2
+  Node(NAME jQuery$$2): core.js:100:12
+        equal( jQuery(&quot; &lt;div/&gt; &quot;).length, 1, &quot;Make sure whitespace is trimmed.&quot; );
+  Parent(GETPROP): core.js:100:12
+        equal( jQuery(&quot; &lt;div/&gt; &quot;).length, 1, &quot;Make sure whitespace is trimmed.&quot; );
+
+        at com.google.javascript.jscomp.VarCheck.visit(VarCheck.java:170)
+        at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:498)
+        at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:491)
+        at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:491)
+        at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:491)
+        at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:491)
+        at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:491)
+        at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:491)
+        at com.google.javascript.jscomp.NodeTraversal.traverseRoots(NodeTraversal.java:304)
+        at com.google.javascript.jscomp.NodeTraversal.traverseRoots(NodeTraversal.java:464)
+        at com.google.javascript.jscomp.VarCheck.process(VarCheck.java:108)
+        at com.google.javascript.jscomp.PhaseOptimizer$PassFactoryDelegate.processInternal(PhaseOptimizer.java:273)
+        at com.google.javascript.jscomp.PhaseOptimizer$NamedPass.process(PhaseOptimizer.java:250)
+        at com.google.javascript.jscomp.PhaseOptimizer.process(PhaseOptimizer.java:168)
+        at com.google.javascript.jscomp.Compiler.optimize(Compiler.java:1636)
+        at com.google.javascript.jscomp.Compiler.compileInternal(Compiler.java:663)
+        at com.google.javascript.jscomp.Compiler.access$1(Compiler.java:634)
+        at com.google.javascript.jscomp.Compiler$2.call(Compiler.java:558)
+        at com.google.javascript.jscomp.Compiler$2.call(Compiler.java:1)
+        at com.google.javascript.jscomp.Compiler$3.run(Compiler.java:600)
+        at java.lang.Thread.run(Unknown Source)
+Caused by: java.lang.IllegalStateException: Unexpected variable jQuery$$2
+        ... 21 more
+
+Comment:
+This is the sanity check VarCheck pass.  This means the definition was removed by an optimization but a reference remains. What version of the compiler is this with?
+
+Comment:
+I just updated to r1605 and got the same behavior.
+
+Comment:
+Any chance you can upload the source files involved?
+
+Comment:
+Of course. Here they are.
+
+And here's the compile command:
+
+java -jar compiler.jar --compilation_level ADVANCED_OPTIMIZATIONS --formatting PRETTY_PRINT --debug --module jquery:1 --module core:1:jquery --module_output_path_prefix mod_ --js jquery.js --js core.js --externs qunit_externs.js
+
+Comment:
+i see the problem. it's pretty embarrassing. It handles escaped variables correctly along one code path (the one that assigns prototype props), but not along another (the one that assigns prototypes to obectlits)
+
+Comment:
+Glad I'm not the only one who does things like that :-)
+
+Comment:
+This issue was closed by revision r1662.
+
+Comment:
+Thanks for taking care of this. I was able to successfully compile the attached code.

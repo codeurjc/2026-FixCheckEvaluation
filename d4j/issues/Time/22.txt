@@ -1,0 +1,210 @@
+Joda - Time / Bugs / #113 Duration.toPeriod with fixed time zones.
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+Joda - Time
+Bugs
+Duration.toPeriod with fixed time zones.
+Project moved to GitHub
+Brought to you by:
+broneill
+,
+scolebourne
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Code
+Svn
+Tickets ▾
+Bugs
+Feature Requests
+News
+Discussion
+Donate
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+v1.0_(example)
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#113 Duration.toPeriod with fixed time zones.
+Status:
+closed
+Owner:
+Stephen Colebourne
+Labels:
+Joda-Time (76)
+Priority:
+5
+Updated:
+2012-10-08
+Created:
+2011-03-31
+Creator:
+Cameron Swanson
+Private:
+No
+I have a question concerning the conversion of a Duration to Period.  I'm not sure if this is a bug, or if there is a different way to do this.
+The basis of the problem, is that using Duration.toPeriod() uses the chronology of the default time zone to do the conversion.  This can cause different results from a timezone with DST and one without.  This can be reproduced easily with this test.
+//set default time zone with this argument -Duser.timezone="GMT"
+public
+void
+testForJodaForum
+()
+{
+System
+.
+out
+.
+println
+(
+"Timezone: "
++
+DateTimeZone
+.
+getDefault
+());
+//Duration of more than 24 hours
+Duration
+aDuration
+=
+new
+Duration
+(
+DateTimeConstants
+.
+MILLIS_PER_HOUR
+*
+30
++
+DateTimeConstants
+.
+MILLIS_PER_MINUTE
+*
+50
++
+DateTimeConstants
+.
+MILLIS_PER_SECOND
+*
+14
+);
+System
+.
+out
+.
+println
+(
+"Duration before: "
++
+aDuration
+);
+Period
+period
+=
+aDuration
+.
+toPeriod
+();
+System
+.
+out
+.
+println
+(
+"Period after: "
++
+period
+);
+}
+A fixed time zone produces this output
+Timezone: Etc/GMT
+Duration before: PT111014S
+Period after: P1DT6H50M14S
+A DST time zone produces this output
+Timezone: America/Chicago
+Duration before: PT111014S
+Period after: PT30H50M14S
+In the joda code, Duration.toPeriod() uses a period constructor that takes the chronology, but null is passed in, so the chronology of the default time zone is used, which leads to this behavior.
+The javadoc of toPeriod() states that only precise fields of hours, minutes, seconds, and millis will be converted.  But for a fixed timezone, days and weeks are also precise, which is stated in the javadoc for toPeriod(Chronology chrono).  In our app, we need consistent behavior regardless of the default time zone, which is to have all the extra hours put into the hours bucket.  Since Duration is supposed to be a 'time zone independent' length of time, I don't think we should have to do any chronology manipulation to get this to work.
+Any help is appreciated.
+Thanks,
+Cameron
+Discussion
+Stephen Colebourne
+-
+2011-03-31
+The current API supports creating a period with fields up to hours:
+toPeriod(ISOChronology.getInstance(LONDON_ZONE))  //or
+toPeriod(PeriodType.time())
+I may fix the method you point to as well, given its clear javadoc.
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Stephen Colebourne
+-
+2011-04-01
+Same problem applied to new Period(long) and new MutablePeriod(long). Fixed (although it wasn't pretty).
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

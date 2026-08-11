@@ -1,0 +1,48 @@
+Summary: Optimisation: convert array.join(",") to array.join()
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+Compile this code:
+
+var variable = confirm(&quot;value from user&quot;);
+var array = [ &quot;constant&quot;, variable ];
+alert( array.join(&quot;,&quot;) );
+
+
+<b>What is the expected output? What do you see instead?</b>
+
+$ java -jar /usr/local/slando/lib/Google/compiler.jar --compilation_level ADVANCED_OPTIMIZATIONS --js foo.js
+var a=[&quot;constant&quot;,confirm(&quot;value from user&quot;)];alert(a.join(&quot;,&quot;));
+
+We could save three bytes here by producing:
+
+var a=[&quot;constant&quot;,confirm(&quot;value from user&quot;)];alert(a.join());
+
+
+<b>What version of the product are you using? On what operating system?</b>
+
+$ java -jar /usr/local/slando/lib/Google/compiler.jar --version
+Closure Compiler (http://code.google.com/closure/compiler)
+Version: 1180
+Built on: 2011/06/15 21:40
+
+Running on Linux 2.6.18
+
+
+<b>Please provide any additional information below.</b>
+
+Here's a common pattern this would be useful in:
+
+var my_jquery_selectors = [];
+// ... append to my_jquery_selectors from various parts of the codebase ...
+$(my_jquery_selectors.join(&quot;,&quot;)).html(&quot;the code is more readable with the comma left in place&quot;);
+
+Comment:
+Simple enough. I was working on some join() and split() optimization for jquery but got side tracked. I'll keep that in mind.
+
+Comment:
+We can handle the literal case '[a,b].join(",")' but the general case 'a.join(",")' requires type information.  We don't currently use type inference to do this kind of optimization.
+
+Comment:
+This issue was closed by revision r1536.

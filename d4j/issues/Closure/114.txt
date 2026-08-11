@@ -1,0 +1,121 @@
+Summary: Crash on the web closure compiler
+
+Description:
+With the web application (http://closure-compiler.appspot.com/home)
+
+Config:
+
+// ==ClosureCompiler==
+// @output_file_name default.js
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// ==/ClosureCompiler==
+
+
+Code:
+
+var g=function(m){return m*Math.random()|0},d=document,h=d.getElementById('h'),c=d.getElementById('c'),l;
+(l=function(){requestAnimationFrame(l);h.style.textShadow=&quot;0 0 1px #000,&quot;+(g(10)-5)+&quot;px &quot;+(g(10)-5)+&quot;px 0 #888,0 0 180px rgb(&quot;+g(255)+&quot;,&quot;+g(255)+&quot;,&quot;+g(255)+&quot;)&quot;})();
+d.addEventListener('mousemove',function(v){c.style.marginTop=(v.pageY/10+15|0)+'px'})
+
+
+Cause:
+
+var l; // Déclare l variable
+
+// Store function in l var and call
+(l = function(){ ... })       ();
+
+
+Crash repport: (long)
+
+23: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+Unexpected variable l
+  Node(NAME l): Input_0:2:36
+(l=function(){requestAnimationFrame(l);h.style.textShadow=&quot;0 0 1px #000,&quot;+(g(10)-5)+&quot;px &quot;+(g(10)-5)+&quot;px 0 #888,0 0 180px rgb(&quot;+g(255)+&quot;,&quot;+g(255)+&quot;,&quot;+g(255)+&quot;)&quot;})();
+  Parent(CALL): Input_0:2:14
+(l=function(){requestAnimationFrame(l);h.style.textShadow=&quot;0 0 1px #000,&quot;+(g(10)-5)+&quot;px &quot;+(g(10)-5)+&quot;px 0 #888,0 0 180px rgb(&quot;+g(255)+&quot;,&quot;+g(255)+&quot;,&quot;+g(255)+&quot;)&quot;})();
+
+	at com.google.javascript.jscomp.VarCheck.visit(VarCheck.java:159)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:544)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:538)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:538)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:538)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:538)
+	at com.google.javascript.jscomp.NodeTraversal.traverseRoots(NodeTraversal.java:318)
+	at com.google.javascript.jscomp.NodeTraversal.traverseRoots(NodeTraversal.java:507)
+	at com.google.javascript.jscomp.VarCheck.process(VarCheck.java:102)
+	at com.google.javascript.jscomp.PhaseOptimizer$NamedPass.process(PhaseOptimizer.java:271)
+	at com.google.javascript.jscomp.PhaseOptimizer.process(PhaseOptimizer.java:215)
+	at com.google.javascript.jscomp.Compiler.optimize(Compiler.java:1918)
+	at com.google.javascript.jscomp.Compiler.compileInternal(Compiler.java:751)
+	at com.google.javascript.jscomp.Compiler.access$000(Compiler.java:85)
+	at com.google.javascript.jscomp.Compiler$2.call(Compiler.java:652)
+	at com.google.javascript.jscomp.Compiler$2.call(Compiler.java:649)
+	at com.google.javascript.jscomp.Compiler.runInCompilerThread(Compiler.java:709)
+	at com.google.javascript.jscomp.Compiler.compile(Compiler.java:649)
+	at com.google.javascript.jscomp.Compiler.compile(Compiler.java:605)
+	at com.google.javascript.jscomp.webservice.backend.CompilerInvokerImpl.compile(CompilerInvokerImpl.java:47)
+	at com.google.javascript.jscomp.webservice.backend.ServerController.executeRequest(ServerController.java:174)
+	at com.google.javascript.jscomp.webservice.backend.CompilationRequestHandler.serviceParsedRequest(CompilationRequestHandler.java:180)
+	at com.google.javascript.jscomp.webservice.backend.CompilationRequestHandler.service(CompilationRequestHandler.java:162)
+	at com.google.javascript.jscomp.webservice.frontend.CompilationServlet.doPost(CompilationServlet.java:83)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:637)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:717)
+	at org.mortbay.jetty.servlet.ServletHolder.handle(ServletHolder.java:511)
+	at org.mortbay.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1166)
+	at com.google.apphosting.utils.servlet.ParseBlobUploadFilter.doFilter(ParseBlobUploadFilter.java:125)
+	at org.mortbay.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1157)
+	at com.google.apphosting.runtime.jetty.SaveSessionFilter.doFilter(SaveSessionFilter.java:35)
+	at org.mortbay.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1157)
+	at com.google.apphosting.utils.servlet.JdbcMySqlConnectionCleanupFilter.doFilter(JdbcMySqlConnectionCleanupFilter.java:60)
+	at org.mortbay.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1157)
+	at com.google.apphosting.utils.servlet.TransactionCleanupFilter.doFilter(TransactionCleanupFilter.java:43)
+	at org.mortbay.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1157)
+	at org.mortbay.jetty.servlet.ServletHandler.handle(ServletHandler.java:388)
+	at org.mortbay.jetty.security.SecurityHandler.handle(SecurityHandler.java:216)
+	at org.mortbay.jetty.servlet.SessionHandler.handle(SessionHandler.java:182)
+	at org.mortbay.jetty.handler.ContextHandler.handle(ContextHandler.java:765)
+	at org.mortbay.jetty.webapp.WebAppContext.handle(WebAppContext.java:418)
+	at com.google.apphosting.runtime.jetty.AppVersionHandlerMap.handle(AppVersionHandlerMap.java:266)
+	at org.mortbay.jetty.handler.HandlerWrapper.handle(HandlerWrapper.java:152)
+	at org.mortbay.jetty.Server.handle(Server.java:326)
+	at org.mortbay.jetty.HttpConnection.handleRequest(HttpConnection.java:542)
+	at org.mortbay.jetty.HttpConnection$RequestHandler.headerComplete(HttpConnection.java:923)
+	at com.google.apphosting.runtime.jetty.RpcRequestParser.parseAvailable(RpcRequestParser.java:76)
+	at org.mortbay.jetty.HttpConnection.handle(HttpConnection.java:404)
+	at com.google.apphosting.runtime.jetty.JettyServletEngineAdapter.serviceRequest(JettyServletEngineAdapter.java:146)
+	at com.google.apphosting.runtime.JavaRuntime$RequestRunnable.run(JavaRuntime.java:439)
+	at com.google.tracing.TraceContext$TraceContextRunnable.runInContext(TraceContext.java:435)
+	at com.google.tracing.TraceContext$TraceContextRunnable$1.run(TraceContext.java:442)
+	at com.google.tracing.CurrentContext.runInContext(CurrentContext.java:186)
+	at com.google.tracing.TraceContext$AbstractTraceContextCallback.runInInheritedContextNoUnref(TraceContext.java:306)
+	at com.google.tracing.TraceContext$AbstractTraceContextCallback.runInInheritedContext(TraceContext.java:298)
+	at com.google.tracing.TraceContext$TraceContextRunnable.run(TraceContext.java:439)
+	at com.google.apphosting.runtime.ThreadGroupPool$PoolEntry.run(ThreadGroupPool.java:251)
+	at java.lang.Thread.run(Thread.java:722)
+Caused by: java.lang.IllegalStateException: Unexpected variable l
+	... 58 more
+
+Original Post Data: 
+output_format=json&amp;output_info=compiled_code&amp;output_info=warnings&amp;output_info=errors&amp;output_info=statistics&amp;compilation_level=ADVANCED_OPTIMIZATIONS&amp;warning_level=verbose&amp;output_file_name=default.js&amp;js_code=var%20g%3Dfunction(m)%7Breturn%20m*Math.random()%7C0%7D%2Cd%3Ddocument%2Ch%3Dd.getElementById('h')%2Cc%3Dd.getElementById('c')%2Cl%3B%0A(l%3Dfunction()%7BrequestAnimationFrame(l)%3Bh.style.textShadow%3D%220%200%201px%20%23000%2C%22%2B(g(10)-5)%2B%22px%20%22%2B(g(10)-5)%2B%22px%200%20%23888%2C0%200%20180px%20rgb(%22%2Bg(255)%2B%22%2C%22%2Bg(255)%2B%22%2C%22%2Bg(255)%2B%22)%22%7D)()%3B%0Ad.addEventListener('mousemove'%2Cfunction(v)%7Bc.style.marginTop%3D(v.pageY%2F10%2B15%7C0)%2B'px'%7D)
+
+Comment:
+Thank you for the repro case.
+
+Comment:
+Looks like a "smart name removal" problem. I think I'm going to rename that pass to "dumb name removal"
+
+Comment:
+I minimized the repro case to this.
+
+var l;
+(l = function(){ l; })();
+
+Thanks for the report, I'll take a look.
+
+Comment:
+This issue was closed by revision 5f03c6817341.
+
+Comment:
+This issue was closed by revision 5f03c6817341.

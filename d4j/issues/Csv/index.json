@@ -1,0 +1,118 @@
+{
+  "project": "Csv",
+  "updated_at": "2026-08-11T14:10:32.450385+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://issues.apache.org/jira/browse/CSV-75",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 522
+    },
+    {
+      "bug_id": "2",
+      "url": "https://issues.apache.org/jira/browse/CSV-96",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 531
+    },
+    {
+      "bug_id": "3",
+      "url": "https://issues.apache.org/jira/browse/CSV-58",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 660
+    },
+    {
+      "bug_id": "4",
+      "url": "https://issues.apache.org/jira/browse/CSV-100",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 782
+    },
+    {
+      "bug_id": "5",
+      "url": "https://issues.apache.org/jira/browse/CSV-106",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 227
+    },
+    {
+      "bug_id": "6",
+      "url": "https://issues.apache.org/jira/browse/CSV-111",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 494
+    },
+    {
+      "bug_id": "7",
+      "url": "https://issues.apache.org/jira/browse/CSV-112",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 802
+    },
+    {
+      "bug_id": "8",
+      "url": "https://issues.apache.org/jira/browse/CSV-114",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 240
+    },
+    {
+      "bug_id": "9",
+      "url": "https://issues.apache.org/jira/browse/CSV-118",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 277
+    },
+    {
+      "bug_id": "10",
+      "url": "https://issues.apache.org/jira/browse/CSV-120",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 671
+    },
+    {
+      "bug_id": "11",
+      "url": "https://issues.apache.org/jira/browse/CSV-122",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 213
+    },
+    {
+      "bug_id": "12",
+      "url": "https://issues.apache.org/jira/browse/CSV-128",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 726
+    },
+    {
+      "bug_id": "13",
+      "url": "https://issues.apache.org/jira/browse/CSV-168",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 769
+    },
+    {
+      "bug_id": "14",
+      "url": "https://issues.apache.org/jira/browse/CSV-171",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 766
+    },
+    {
+      "bug_id": "15",
+      "url": "https://issues.apache.org/jira/browse/CSV-219",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 502
+    },
+    {
+      "bug_id": "16",
+      "url": "https://issues.apache.org/jira/browse/CSV-224",
+      "tracker": "jira",
+      "status": "cached",
+      "chars": 4044
+    }
+  ]
+}

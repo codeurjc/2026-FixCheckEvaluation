@@ -1,0 +1,96 @@
+Summary: Incorrect handling of NUL username and group Tar.gz entries
+
+Description:
+With version 1.8 of commons-compress it's no longer possible to decompress  files from an archive if the archive contains entries having null (or being empty?) set as username and/or usergroup. With version 1.7 this still worked now I get this exception:
+
+{code}
+java.io.IOException: Error detected parsing the header
+	at org.apache.commons.compress.archivers.tar.TarArchiveInputStream.getNextTarEntry(TarArchiveInputStream.java:249)
+	at TestBed.AppTest.extractNoFileOwner(AppTest.java:30)
+Caused by: java.lang.IllegalArgumentException: Invalid byte 32 at offset 7 in '       {NUL}' len=8
+	at org.apache.commons.compress.archivers.tar.TarUtils.parseOctal(TarUtils.java:134)
+	at org.apache.commons.compress.archivers.tar.TarUtils.parseOctalOrBinary(TarUtils.java:173)
+	at org.apache.commons.compress.archivers.tar.TarArchiveEntry.parseTarHeader(TarArchiveEntry.java:953)
+	at org.apache.commons.compress.archivers.tar.TarArchiveEntry.parseTarHeader(TarArchiveEntry.java:940)
+	at org.apache.commons.compress.archivers.tar.TarArchiveEntry.<init>(TarArchiveEntry.java:324)
+	at org.apache.commons.compress.archivers.tar.TarArchiveInputStream.getNextTarEntry(TarArchiveInputStream.java:247)
+	... 27 more
+
+{code}
+This exception leads to my suspision that the regression was introduced with the fix for this ticket COMPRESS-262, which has a nearly identical exception provided.
+
+Some test code you can run to verify it:
+
+{code}
+package TestBed;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.junit.Test;
+
+/**
+ * Unit test for simple App.
+ */
+public class AppTest
+{
+
+    @Test
+    public void extractNoFileOwner()
+    {
+        TarArchiveInputStream tarInputStream = null;
+
+        try
+        {
+            tarInputStream =
+                new TarArchiveInputStream( new GzipCompressorInputStream( new FileInputStream( new File(
+                    "/home/pknobel/redis-dist-2.8.3_1-linux.tar.gz" ) ) ) );
+            TarArchiveEntry entry;
+            while ( ( entry = tarInputStream.getNextTarEntry() ) != null )
+            {
+                System.out.println( entry.getName() );
+                System.out.println(entry.getUserName()+"/"+entry.getGroupName());
+            }
+
+        }
+        catch ( FileNotFoundException e )
+        {
+            e.printStackTrace();
+        }
+        catch ( IOException e )
+        {
+            e.printStackTrace();
+        }
+    }
+
+}
+{code}
+With 1.7 the TestCase outputed this:
+
+{code}
+redis-dist-2.8.3_1/bin/
+/
+redis-dist-2.8.3_1/bin/redis-server
+jenkins/jenkins
+redis-dist-2.8.3_1/bin/redis-cli
+jenkins/jenkins
+{code}
+
+With 1.8 it's failing once it reaches the null valued entry, which is the first. The archive is created using maven assembly plugin, and I tried the same with maven ant task. Both generating an archive with not set username and groups for at least some entries.
+
+You can download the archive from http://heli0s.darktech.org/redis/2.8.3_1/redis-dist-2.8.3_1-linux.tar.gz
+
+If you run a tar -tvzf on the file you see this report:
+
+{code}
+drwxr-xr-x 0/0               0 2014-04-18 09:43 redis-dist-2.8.3_1-SNAPSHOT/bin/
+-rwxr-xr-x pknobel/pknobel 3824588 2014-01-02 14:58 redis-dist-2.8.3_1-SNAPSHOT/bin/redis-cli
+-rwxr-xr-x pknobel/pknobel 5217234 2014-01-02 14:58 redis-dist-2.8.3_1-SNAPSHOT/bin/redis-server
+{code}
+
+The user 0/0 probably indicates that it's not set although it's the root user id. A correctly root user file would show up as root/root

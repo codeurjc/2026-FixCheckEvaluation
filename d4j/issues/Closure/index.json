@@ -1,0 +1,1398 @@
+{
+  "project": "Closure",
+  "updated_at": "2026-08-11T13:50:55.561073+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-253.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3384,
+      "fetched_at": "2026-08-11T13:50:10.288699+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-884.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 6355,
+      "fetched_at": "2026-08-11T13:50:10.513886+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-864.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 935,
+      "fetched_at": "2026-08-11T13:50:10.716611+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-873.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 893,
+      "fetched_at": "2026-08-11T13:50:10.913835+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-851.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 849,
+      "fetched_at": "2026-08-11T13:50:11.161752+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-635.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1105,
+      "fetched_at": "2026-08-11T13:50:11.815620+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-841.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 731,
+      "fetched_at": "2026-08-11T13:50:12.033622+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-820.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 4937,
+      "fetched_at": "2026-08-11T13:50:12.236095+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-824.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1295,
+      "fetched_at": "2026-08-11T13:50:12.467217+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-821.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1083,
+      "fetched_at": "2026-08-11T13:50:13.111539+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-810.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1799,
+      "fetched_at": "2026-08-11T13:50:13.399256+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-794.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1520,
+      "fetched_at": "2026-08-11T13:50:13.640697+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-787.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1490,
+      "fetched_at": "2026-08-11T13:50:13.893415+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-779.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 800,
+      "fetched_at": "2026-08-11T13:50:14.151526+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-773.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1206,
+      "fetched_at": "2026-08-11T13:50:14.392866+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-772.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1797,
+      "fetched_at": "2026-08-11T13:50:14.617835+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-688.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2319,
+      "fetched_at": "2026-08-11T13:50:14.828992+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-768.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1521,
+      "fetched_at": "2026-08-11T13:50:15.093483+00:00"
+    },
+    {
+      "bug_id": "19",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-769.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3281,
+      "fetched_at": "2026-08-11T13:50:15.780373+00:00"
+    },
+    {
+      "bug_id": "20",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-759.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3038,
+      "fetched_at": "2026-08-11T13:50:16.042859+00:00"
+    },
+    {
+      "bug_id": "21",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-753.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1032,
+      "fetched_at": "2026-08-11T13:50:16.278151+00:00"
+    },
+    {
+      "bug_id": "22",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-753.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1032,
+      "fetched_at": "2026-08-11T13:50:16.463696+00:00"
+    },
+    {
+      "bug_id": "23",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-747.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 978,
+      "fetched_at": "2026-08-11T13:50:16.693159+00:00"
+    },
+    {
+      "bug_id": "24",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-737.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 414,
+      "fetched_at": "2026-08-11T13:50:16.900324+00:00"
+    },
+    {
+      "bug_id": "25",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-729.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1110,
+      "fetched_at": "2026-08-11T13:50:17.114990+00:00"
+    },
+    {
+      "bug_id": "26",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-732.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1242,
+      "fetched_at": "2026-08-11T13:50:17.371340+00:00"
+    },
+    {
+      "bug_id": "27",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-727.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 791,
+      "fetched_at": "2026-08-11T13:50:17.664863+00:00"
+    },
+    {
+      "bug_id": "28",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-728.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 449,
+      "fetched_at": "2026-08-11T13:50:17.910716+00:00"
+    },
+    {
+      "bug_id": "29",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-724.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1221,
+      "fetched_at": "2026-08-11T13:50:18.186332+00:00"
+    },
+    {
+      "bug_id": "30",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-698.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 5903,
+      "fetched_at": "2026-08-11T13:50:18.492934+00:00"
+    },
+    {
+      "bug_id": "31",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-703.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 945,
+      "fetched_at": "2026-08-11T13:50:18.679304+00:00"
+    },
+    {
+      "bug_id": "32",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-701.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 542,
+      "fetched_at": "2026-08-11T13:50:19.004595+00:00"
+    },
+    {
+      "bug_id": "33",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-700.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2126,
+      "fetched_at": "2026-08-11T13:50:19.179471+00:00"
+    },
+    {
+      "bug_id": "34",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-691.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 4128,
+      "fetched_at": "2026-08-11T13:50:19.367961+00:00"
+    },
+    {
+      "bug_id": "35",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-669.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1062,
+      "fetched_at": "2026-08-11T13:50:19.629713+00:00"
+    },
+    {
+      "bug_id": "36",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-668.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1404,
+      "fetched_at": "2026-08-11T13:50:20.309177+00:00"
+    },
+    {
+      "bug_id": "37",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-663.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1519,
+      "fetched_at": "2026-08-11T13:50:20.578170+00:00"
+    },
+    {
+      "bug_id": "38",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-657.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 947,
+      "fetched_at": "2026-08-11T13:50:20.791052+00:00"
+    },
+    {
+      "bug_id": "39",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-643.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3071,
+      "fetched_at": "2026-08-11T13:50:21.038672+00:00"
+    },
+    {
+      "bug_id": "40",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-284.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1091,
+      "fetched_at": "2026-08-11T13:50:21.274374+00:00"
+    },
+    {
+      "bug_id": "41",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-368.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3049,
+      "fetched_at": "2026-08-11T13:50:21.485939+00:00"
+    },
+    {
+      "bug_id": "42",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-644.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1164,
+      "fetched_at": "2026-08-11T13:50:21.707101+00:00"
+    },
+    {
+      "bug_id": "43",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-314.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3183,
+      "fetched_at": "2026-08-11T13:50:21.949948+00:00"
+    },
+    {
+      "bug_id": "44",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-620.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 194,
+      "fetched_at": "2026-08-11T13:50:22.173673+00:00"
+    },
+    {
+      "bug_id": "45",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-618.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 754,
+      "fetched_at": "2026-08-11T13:50:22.372633+00:00"
+    },
+    {
+      "bug_id": "46",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-603.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 456,
+      "fetched_at": "2026-08-11T13:50:22.629914+00:00"
+    },
+    {
+      "bug_id": "47",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-575.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 796,
+      "fetched_at": "2026-08-11T13:50:22.810530+00:00"
+    },
+    {
+      "bug_id": "48",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-586.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 530,
+      "fetched_at": "2026-08-11T13:50:23.064602+00:00"
+    },
+    {
+      "bug_id": "49",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-539.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1482,
+      "fetched_at": "2026-08-11T13:50:23.692976+00:00"
+    },
+    {
+      "bug_id": "50",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-558.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1690,
+      "fetched_at": "2026-08-11T13:50:24.014245+00:00"
+    },
+    {
+      "bug_id": "51",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-582.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 228,
+      "fetched_at": "2026-08-11T13:50:24.210603+00:00"
+    },
+    {
+      "bug_id": "52",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-569.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 865,
+      "fetched_at": "2026-08-11T13:50:24.400850+00:00"
+    },
+    {
+      "bug_id": "53",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-545.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1927,
+      "fetched_at": "2026-08-11T13:50:24.574603+00:00"
+    },
+    {
+      "bug_id": "54",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-537.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2604,
+      "fetched_at": "2026-08-11T13:50:24.797659+00:00"
+    },
+    {
+      "bug_id": "55",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-538.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3343,
+      "fetched_at": "2026-08-11T13:50:25.009973+00:00"
+    },
+    {
+      "bug_id": "56",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-511.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3269,
+      "fetched_at": "2026-08-11T13:50:25.228789+00:00"
+    },
+    {
+      "bug_id": "57",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-530.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 730,
+      "fetched_at": "2026-08-11T13:50:25.910733+00:00"
+    },
+    {
+      "bug_id": "58",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-528.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 718,
+      "fetched_at": "2026-08-11T13:50:26.163815+00:00"
+    },
+    {
+      "bug_id": "59",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-521.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 756,
+      "fetched_at": "2026-08-11T13:50:26.379660+00:00"
+    },
+    {
+      "bug_id": "60",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-504.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2340,
+      "fetched_at": "2026-08-11T13:50:26.637398+00:00"
+    },
+    {
+      "bug_id": "61",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-501.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1935,
+      "fetched_at": "2026-08-11T13:50:26.874403+00:00"
+    },
+    {
+      "bug_id": "62",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-487.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1342,
+      "fetched_at": "2026-08-11T13:50:27.084605+00:00"
+    },
+    {
+      "bug_id": "64",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-489.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1197,
+      "fetched_at": "2026-08-11T13:50:27.315635+00:00"
+    },
+    {
+      "bug_id": "65",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-486.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2108,
+      "fetched_at": "2026-08-11T13:50:27.567689+00:00"
+    },
+    {
+      "bug_id": "66",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-482.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1230,
+      "fetched_at": "2026-08-11T13:50:27.818055+00:00"
+    },
+    {
+      "bug_id": "67",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-459.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2146,
+      "fetched_at": "2026-08-11T13:50:28.083695+00:00"
+    },
+    {
+      "bug_id": "68",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-477.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3504,
+      "fetched_at": "2026-08-11T13:50:28.297548+00:00"
+    },
+    {
+      "bug_id": "69",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-440.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1508,
+      "fetched_at": "2026-08-11T13:50:28.495813+00:00"
+    },
+    {
+      "bug_id": "70",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-433.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1157,
+      "fetched_at": "2026-08-11T13:50:28.731825+00:00"
+    },
+    {
+      "bug_id": "71",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-254.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 745,
+      "fetched_at": "2026-08-11T13:50:28.988187+00:00"
+    },
+    {
+      "bug_id": "72",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-435.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 6087,
+      "fetched_at": "2026-08-11T13:50:29.258211+00:00"
+    },
+    {
+      "bug_id": "73",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-416.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1888,
+      "fetched_at": "2026-08-11T13:50:29.522544+00:00"
+    },
+    {
+      "bug_id": "74",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-413.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 542,
+      "fetched_at": "2026-08-11T13:50:29.708691+00:00"
+    },
+    {
+      "bug_id": "75",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-395.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3046,
+      "fetched_at": "2026-08-11T13:50:30.360241+00:00"
+    },
+    {
+      "bug_id": "76",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-384.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1417,
+      "fetched_at": "2026-08-11T13:50:30.614598+00:00"
+    },
+    {
+      "bug_id": "77",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-383.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 802,
+      "fetched_at": "2026-08-11T13:50:30.833221+00:00"
+    },
+    {
+      "bug_id": "78",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-381.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1173,
+      "fetched_at": "2026-08-11T13:50:31.012291+00:00"
+    },
+    {
+      "bug_id": "79",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-367.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 6671,
+      "fetched_at": "2026-08-11T13:50:31.226704+00:00"
+    },
+    {
+      "bug_id": "80",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-364.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3501,
+      "fetched_at": "2026-08-11T13:50:31.481982+00:00"
+    },
+    {
+      "bug_id": "81",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-251.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 331,
+      "fetched_at": "2026-08-11T13:50:31.726552+00:00"
+    },
+    {
+      "bug_id": "82",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-301.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 769,
+      "fetched_at": "2026-08-11T13:50:32.005305+00:00"
+    },
+    {
+      "bug_id": "83",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-319.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1090,
+      "fetched_at": "2026-08-11T13:50:32.222295+00:00"
+    },
+    {
+      "bug_id": "84",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-215.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 480,
+      "fetched_at": "2026-08-11T13:50:32.402941+00:00"
+    },
+    {
+      "bug_id": "85",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-311.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1094,
+      "fetched_at": "2026-08-11T13:50:32.628519+00:00"
+    },
+    {
+      "bug_id": "86",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-303.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 503,
+      "fetched_at": "2026-08-11T13:50:32.828780+00:00"
+    },
+    {
+      "bug_id": "87",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-291.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 6828,
+      "fetched_at": "2026-08-11T13:50:33.067049+00:00"
+    },
+    {
+      "bug_id": "88",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-297.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 617,
+      "fetched_at": "2026-08-11T13:50:33.271501+00:00"
+    },
+    {
+      "bug_id": "89",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-289.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2436,
+      "fetched_at": "2026-08-11T13:50:33.507684+00:00"
+    },
+    {
+      "bug_id": "90",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-274.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1163,
+      "fetched_at": "2026-08-11T13:50:33.714446+00:00"
+    },
+    {
+      "bug_id": "91",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-248.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1554,
+      "fetched_at": "2026-08-11T13:50:33.951930+00:00"
+    },
+    {
+      "bug_id": "92",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-261.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1208,
+      "fetched_at": "2026-08-11T13:50:34.241326+00:00"
+    },
+    {
+      "bug_id": "94",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-255.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 852,
+      "fetched_at": "2026-08-11T13:50:34.506475+00:00"
+    },
+    {
+      "bug_id": "95",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-66.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 6832,
+      "fetched_at": "2026-08-11T13:50:34.748052+00:00"
+    },
+    {
+      "bug_id": "96",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-229.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1115,
+      "fetched_at": "2026-08-11T13:50:35.374578+00:00"
+    },
+    {
+      "bug_id": "97",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-200.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 703,
+      "fetched_at": "2026-08-11T13:50:35.607025+00:00"
+    },
+    {
+      "bug_id": "98",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-174.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 657,
+      "fetched_at": "2026-08-11T13:50:35.793744+00:00"
+    },
+    {
+      "bug_id": "99",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-125.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1154,
+      "fetched_at": "2026-08-11T13:50:36.032831+00:00"
+    },
+    {
+      "bug_id": "100",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-144.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2772,
+      "fetched_at": "2026-08-11T13:50:36.236548+00:00"
+    },
+    {
+      "bug_id": "101",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-130.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 874,
+      "fetched_at": "2026-08-11T13:50:36.491768+00:00"
+    },
+    {
+      "bug_id": "102",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-115.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 598,
+      "fetched_at": "2026-08-11T13:50:36.771404+00:00"
+    },
+    {
+      "bug_id": "103",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-113.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2069,
+      "fetched_at": "2026-08-11T13:50:36.996902+00:00"
+    },
+    {
+      "bug_id": "104",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-114.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 417,
+      "fetched_at": "2026-08-11T13:50:37.214657+00:00"
+    },
+    {
+      "bug_id": "105",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-106.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 767,
+      "fetched_at": "2026-08-11T13:50:37.421626+00:00"
+    },
+    {
+      "bug_id": "106",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-19.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3295,
+      "fetched_at": "2026-08-11T13:50:37.629811+00:00"
+    },
+    {
+      "bug_id": "107",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1135.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1781,
+      "fetched_at": "2026-08-11T13:50:37.865923+00:00"
+    },
+    {
+      "bug_id": "108",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1144.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1212,
+      "fetched_at": "2026-08-11T13:50:38.077663+00:00"
+    },
+    {
+      "bug_id": "109",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1105.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1568,
+      "fetched_at": "2026-08-11T13:50:38.376817+00:00"
+    },
+    {
+      "bug_id": "110",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1111.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 899,
+      "fetched_at": "2026-08-11T13:50:38.615000+00:00"
+    },
+    {
+      "bug_id": "111",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1114.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1055,
+      "fetched_at": "2026-08-11T13:50:38.858309+00:00"
+    },
+    {
+      "bug_id": "112",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1058.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 857,
+      "fetched_at": "2026-08-11T13:50:39.110804+00:00"
+    },
+    {
+      "bug_id": "113",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1079.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1219,
+      "fetched_at": "2026-08-11T13:50:39.453752+00:00"
+    },
+    {
+      "bug_id": "114",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1085.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 7772,
+      "fetched_at": "2026-08-11T13:50:39.701857+00:00"
+    },
+    {
+      "bug_id": "115",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1101.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 4511,
+      "fetched_at": "2026-08-11T13:50:39.934523+00:00"
+    },
+    {
+      "bug_id": "116",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1101.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 4511,
+      "fetched_at": "2026-08-11T13:50:40.128718+00:00"
+    },
+    {
+      "bug_id": "117",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1047.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 589,
+      "fetched_at": "2026-08-11T13:50:40.311000+00:00"
+    },
+    {
+      "bug_id": "118",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1024.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3802,
+      "fetched_at": "2026-08-11T13:50:40.591057+00:00"
+    },
+    {
+      "bug_id": "119",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1070.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3330,
+      "fetched_at": "2026-08-11T13:50:40.825730+00:00"
+    },
+    {
+      "bug_id": "120",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1053.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1361,
+      "fetched_at": "2026-08-11T13:50:41.010034+00:00"
+    },
+    {
+      "bug_id": "121",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1053.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1361,
+      "fetched_at": "2026-08-11T13:50:41.041705+00:00"
+    },
+    {
+      "bug_id": "122",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1037.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2578,
+      "fetched_at": "2026-08-11T13:50:41.297886+00:00"
+    },
+    {
+      "bug_id": "123",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1033.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1207,
+      "fetched_at": "2026-08-11T13:50:41.484228+00:00"
+    },
+    {
+      "bug_id": "124",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1017.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1650,
+      "fetched_at": "2026-08-11T13:50:41.733161+00:00"
+    },
+    {
+      "bug_id": "125",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1002.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 5104,
+      "fetched_at": "2026-08-11T13:50:41.974940+00:00"
+    },
+    {
+      "bug_id": "126",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-936.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 908,
+      "fetched_at": "2026-08-11T13:50:42.206813+00:00"
+    },
+    {
+      "bug_id": "127",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-936.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 908,
+      "fetched_at": "2026-08-11T13:50:42.239397+00:00"
+    },
+    {
+      "bug_id": "128",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-942.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 499,
+      "fetched_at": "2026-08-11T13:50:42.524976+00:00"
+    },
+    {
+      "bug_id": "129",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-937.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1680,
+      "fetched_at": "2026-08-11T13:50:42.828324+00:00"
+    },
+    {
+      "bug_id": "130",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-931.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2836,
+      "fetched_at": "2026-08-11T13:50:43.048016+00:00"
+    },
+    {
+      "bug_id": "131",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-921.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1791,
+      "fetched_at": "2026-08-11T13:50:43.271955+00:00"
+    },
+    {
+      "bug_id": "132",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-925.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 427,
+      "fetched_at": "2026-08-11T13:50:43.925175+00:00"
+    },
+    {
+      "bug_id": "133",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-919.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 298,
+      "fetched_at": "2026-08-11T13:50:44.170916+00:00"
+    },
+    {
+      "bug_id": "134",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-86.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2128,
+      "fetched_at": "2026-08-11T13:50:44.486503+00:00"
+    },
+    {
+      "bug_id": "135",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-59.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1812,
+      "fetched_at": "2026-08-11T13:50:44.736251+00:00"
+    },
+    {
+      "bug_id": "136",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-103.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 4103,
+      "fetched_at": "2026-08-11T13:50:44.979499+00:00"
+    },
+    {
+      "bug_id": "137",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-124.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 747,
+      "fetched_at": "2026-08-11T13:50:45.198312+00:00"
+    },
+    {
+      "bug_id": "138",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-124.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 747,
+      "fetched_at": "2026-08-11T13:50:45.232662+00:00"
+    },
+    {
+      "bug_id": "139",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-33.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1382,
+      "fetched_at": "2026-08-11T13:50:45.438248+00:00"
+    },
+    {
+      "bug_id": "140",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-126.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 399,
+      "fetched_at": "2026-08-11T13:50:45.705553+00:00"
+    },
+    {
+      "bug_id": "141",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-116.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3692,
+      "fetched_at": "2026-08-11T13:50:45.925816+00:00"
+    },
+    {
+      "bug_id": "142",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-58.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3731,
+      "fetched_at": "2026-08-11T13:50:46.197201+00:00"
+    },
+    {
+      "bug_id": "143",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-139.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1521,
+      "fetched_at": "2026-08-11T13:50:46.893101+00:00"
+    },
+    {
+      "bug_id": "144",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-143.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 159,
+      "fetched_at": "2026-08-11T13:50:47.110044+00:00"
+    },
+    {
+      "bug_id": "145",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-190.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 986,
+      "fetched_at": "2026-08-11T13:50:47.288274+00:00"
+    },
+    {
+      "bug_id": "146",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-172.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 865,
+      "fetched_at": "2026-08-11T13:50:47.547627+00:00"
+    },
+    {
+      "bug_id": "147",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-182.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1337,
+      "fetched_at": "2026-08-11T13:50:47.850426+00:00"
+    },
+    {
+      "bug_id": "148",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-196.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 997,
+      "fetched_at": "2026-08-11T13:50:48.096086+00:00"
+    },
+    {
+      "bug_id": "149",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-205.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 5033,
+      "fetched_at": "2026-08-11T13:50:48.449820+00:00"
+    },
+    {
+      "bug_id": "150",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-61.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1992,
+      "fetched_at": "2026-08-11T13:50:48.794703+00:00"
+    },
+    {
+      "bug_id": "151",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-74.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1255,
+      "fetched_at": "2026-08-11T13:50:49.066212+00:00"
+    },
+    {
+      "bug_id": "152",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-268.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 6146,
+      "fetched_at": "2026-08-11T13:50:49.299076+00:00"
+    },
+    {
+      "bug_id": "153",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-290.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 941,
+      "fetched_at": "2026-08-11T13:50:49.533877+00:00"
+    },
+    {
+      "bug_id": "154",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-204.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 615,
+      "fetched_at": "2026-08-11T13:50:49.936174+00:00"
+    },
+    {
+      "bug_id": "155",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-378.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1529,
+      "fetched_at": "2026-08-11T13:50:50.250117+00:00"
+    },
+    {
+      "bug_id": "156",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-389.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 10858,
+      "fetched_at": "2026-08-11T13:50:50.526355+00:00"
+    },
+    {
+      "bug_id": "157",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-347.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 456,
+      "fetched_at": "2026-08-11T13:50:50.738773+00:00"
+    },
+    {
+      "bug_id": "158",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-407.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 367,
+      "fetched_at": "2026-08-11T13:50:50.965374+00:00"
+    },
+    {
+      "bug_id": "159",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-423.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3077,
+      "fetched_at": "2026-08-11T13:50:51.225199+00:00"
+    },
+    {
+      "bug_id": "160",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-467.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1411,
+      "fetched_at": "2026-08-11T13:50:51.485494+00:00"
+    },
+    {
+      "bug_id": "161",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-522.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 849,
+      "fetched_at": "2026-08-11T13:50:51.702945+00:00"
+    },
+    {
+      "bug_id": "162",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-548.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1102,
+      "fetched_at": "2026-08-11T13:50:51.921378+00:00"
+    },
+    {
+      "bug_id": "163",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-600.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 4798,
+      "fetched_at": "2026-08-11T13:50:52.153132+00:00"
+    },
+    {
+      "bug_id": "164",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-634.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 692,
+      "fetched_at": "2026-08-11T13:50:52.324269+00:00"
+    },
+    {
+      "bug_id": "165",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-725.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1017,
+      "fetched_at": "2026-08-11T13:50:52.620849+00:00"
+    },
+    {
+      "bug_id": "166",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-785.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 874,
+      "fetched_at": "2026-08-11T13:50:52.839977+00:00"
+    },
+    {
+      "bug_id": "167",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-783.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1423,
+      "fetched_at": "2026-08-11T13:50:53.122534+00:00"
+    },
+    {
+      "bug_id": "168",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-726.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 2660,
+      "fetched_at": "2026-08-11T13:50:53.347644+00:00"
+    },
+    {
+      "bug_id": "169",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-791.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 1035,
+      "fetched_at": "2026-08-11T13:50:53.603054+00:00"
+    },
+    {
+      "bug_id": "170",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-965.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 650,
+      "fetched_at": "2026-08-11T13:50:53.787897+00:00"
+    },
+    {
+      "bug_id": "171",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1023.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 868,
+      "fetched_at": "2026-08-11T13:50:54.036717+00:00"
+    },
+    {
+      "bug_id": "172",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1042.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 954,
+      "fetched_at": "2026-08-11T13:50:54.253686+00:00"
+    },
+    {
+      "bug_id": "173",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1062.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 944,
+      "fetched_at": "2026-08-11T13:50:54.517992+00:00"
+    },
+    {
+      "bug_id": "174",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1103.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 462,
+      "fetched_at": "2026-08-11T13:50:54.748625+00:00"
+    },
+    {
+      "bug_id": "175",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1101.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 4511,
+      "fetched_at": "2026-08-11T13:50:54.894725+00:00"
+    },
+    {
+      "bug_id": "176",
+      "url": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/closure-compiler/issues/issue-1056.json",
+      "tracker": "googlecode-json",
+      "status": "ok",
+      "chars": 3171,
+      "fetched_at": "2026-08-11T13:50:55.561027+00:00"
+    }
+  ]
+}

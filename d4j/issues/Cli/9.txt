@@ -1,0 +1,31 @@
+Summary: MissingOptionException.getMessage() changed from CLI 1.0 > 1.1
+
+Description:
+The MissingOptionException.getMessage() string changed from CLI 1.0 > 1.1. 
+
+CLI 1.0 was poorly formatted but readable:
+Missing required options: -format-source-properties
+
+CLI 1.1 is almost unreadable:
+Missing required options: formatsourceproperties
+
+In CLI 1.0 Options.addOption(Option) prefixed the stored options with a "-" and in CLI 1.1 it doesn't.
+
+I would suggest changing Parser.checkRequiredOptions() to add the options to the error message with a prefix of " -":
+
+OLD: 
+            // loop through the required options
+            while (iter.hasNext())
+            {
+                buff.append(iter.next());
+            }
+
+NEW: 
+            // loop through the required options
+            while (iter.hasNext())
+            {
+                buff.append(" -" + iter.next());
+            }
+
+Resulting in:
+Missing required options: -format -source -properties

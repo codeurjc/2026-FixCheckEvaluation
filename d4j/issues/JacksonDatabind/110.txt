@@ -1,0 +1,66 @@
+Title: Inconsistent handling of Collections$UnmodifiableList VS Collections$UnmodifiableRandomAccessList
+
+Body:
+I'm sorry to bring that one up again, but I'm under the impression that the issue about unmodifiable collections (https://github.com/FasterXML/jackson-databind/issues/1880) is still not solved completely.
+
+In fact, the way the `CLASS_UNMODIFIABLE_LIST` is retrieved [here](https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/deser/impl/JavaUtilCollectionsDeserializers.java#L52) yields `Collections$UnmodifiableRandomAccessList`, and therefore only this type is currently supported by Jackson 2.9.8.
+
+However, using `Collections.unmodifiableList()` on a `List` implementation that doesn't implement `RandomAccess` will yield a `Collections$UnmodifiableList` instead, which is not deserialized properly and fails with:
+```
+com.fasterxml.jackson.databind.exc.InvalidDefinitionException: Cannot construct instance of `java.util.Collections$UnmodifiableList` (no Creators, like default constructor, exist): no default no-arguments constructor found
+```
+
+This can be reproduced by adding the following test case in `TestDefaultForUtilCollections1868`:
+```java
+public void testUnmodifiableNonRandomAccessList() throws Exception {
+   _verifyCollection(Collections.unmodifiableList(new LinkedList<>(Arrays.asList("first", "second"))));
+}
+```
+
+Or more generally for outside the project:
+```java
+public void testUnmodifiableNonRandomAccessList() throws Exception {
+    Collection<?> exp = Collections.unmodifiableList(new LinkedList<>(Arrays.asList("first", "second")));
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.enableDefaultTyping(DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY);
+    String json = mapper.writeValueAsString(exp);
+    Collection<?> act = mapper.readValue(json, Collection.class);
+
+    assertEquals(exp, act);
+    assertEquals(exp.getClass(), act.getClass());
+}
+```
+
+Currently `java.util.Collections.unmodifiableList()` can only return these 2 types of unmodifiable lists, so I believe it is safe for now to just hardcode yet another special case for this class.
+
+This can currently be solved on user side by adding a mixin, but since `Collections$UnmodifiableRandomAccessList` is supported, I would find it natural to also support the non-random access variant.
+
+Comment:
+Ok. What would help here is the reproduction of the problem, so I can consider what, if anything to do.
+I feel that soon the main mechanism to use is to remove any indication of immutability if all it leads to is trouble. Since it is not detectable via public JDK api it, it only causes problems with polymorphic handling, and there it probably should not be supported either.
+
+
+
+Comment:
+> Ok. What would help here is the reproduction of the problem, so I can consider what, if anything to do.
+
+What do you mean? There is a test case to reproduce the issue in the description, is there something else that you need?
+
+> I feel that soon the main mechanism to use is to remove any indication of immutability if all it leads to is trouble. Since it is not detectable via public JDK api it, it only causes problems with polymorphic handling, and there it probably should not be supported either.
+
+I agree that, because it is not public API, it is not really clean for Jackson to add special cases like that. But pragmatically, it is quite useful to have this little help from Jackson for such common types. I believe it was not a mistake to include handling for these types in the first place, even if it is not recommended in general to rely on private APIs.
+
+Comment:
+@joffrey-bion I think I skimmed the description too fast, and missed the meat, 2-line test method. Sorry about that, and thank you for providing all the information.
+
+I hope to look into this soon; added it on:
+
+    https://github.com/FasterXML/jackson-future-ideas/wiki/Jackson-Work-in-Progress
+
+where I track short-term work items.
+
+Comment:
+@joffrey-bion Thank you for reporting this issue -- I fixed this in `2.9` for 2.9.9 (and thereby 2.10.0 / 3.0.0) when released.
+
+Comment:
+@cowtowncoder Thanks a lot for looking into this and quickly fixing the issue! 

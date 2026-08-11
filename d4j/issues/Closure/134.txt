@@ -1,0 +1,114 @@
+Summary: @inheritDoc doesn't play well with interfaces
+
+Description:
+If I use interface inheritance with @inheritDoc, the compiler doesn't 
+know about the types used in the method signature.
+
+Sample code:
+
+/**
+ * Interface
+ * @interface
+ */
+A = function() {};
+
+/**
+ * @param {string} a
+ */
+A.prototype.foo = function(a) {};
+
+/**
+ * @constructor
+ * @implements {A}
+ */
+B = function() {};
+
+/**
+ * @inheritDoc
+ */
+B.prototype.foo = function(a) {
+  alert(a.substring(0));   //  ERROR - could not determine the type of 
+this expression
+};
+
+Comment:
+I should add, this only shows up with --report_unknown_types turned on.
+
+Comment:
+should be fixed at head
+
+Comment:
+Are you sure this is fixed? I just tried this on http://closure-compiler.appspot.com/ and it didn't produce any warnings
+
+
+/** @interface */
+A = function() {};
+
+/** @param {string} a */
+A.prototype.foo = function( a) {};
+
+/**
+* @constructor
+* @implements {A}
+*/
+B = function() {};
+
+/** @inheritDoc */
+B.prototype.foo = function( a) {
+alert(a.substring(0));
+};
+
+var inst = new B();
+inst.foo(1);
+
+
+But this _does_ produce warnings
+
+/** @interface */
+A = function() {};
+
+/** @param {string} a */
+A.prototype.foo = function( a) {};
+
+/**
+* @constructor
+* @implements {A}
+*/
+B = function() {};
+
+/** @param {string} a */
+B.prototype.foo = function( a) {
+alert(a.substring(0));
+};
+
+var inst = new B();
+inst.foo(1);
+
+Comment:
+This is not fixed. Nicolas, could you reopen the bug?
+
+Comment:
+If you think this is not fixed, please re-open a bug on github with a repro case. The example here works if you declare A and B rather than leave them as global variables. (You can try it on appspot.)
+
+/** @interface */
+var A = function() {};
+
+/** @param {string} a */
+A.prototype.foo = function( a) {};
+
+/**
+* @constructor
+* @implements {A}
+*/
+var B = function() {};
+
+/** @inheritDoc */
+B.prototype.foo = function( a) {
+alert(a.substring(0));
+};
+
+var inst = new B();
+inst.foo(1);
+
+
+The varcheck pass of the compiler, which runs before type checking, warns about global variables in the code.

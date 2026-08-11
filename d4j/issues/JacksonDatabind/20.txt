@@ -1,0 +1,47 @@
+Title: Presence of PropertyNamingStrategy Makes Deserialization Fail
+
+Body:
+I originally came across this issue using Dropwizard - https://github.com/dropwizard/dropwizard/issues/1095.  But it looks like this is a Jackson issue.  Here's the rerproducer:
+
+``` java
+public class TestPropertyNamingStrategyIssue {
+  public static class ClassWithObjectNodeField {
+    public String id;
+    public ObjectNode json;
+  }
+
+  @Test
+  public void reproducer() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.setPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CASE);
+    ClassWithObjectNodeField deserialized =
+        mapper.readValue(
+            "{ \"id\": \"1\", \"json\": { \"foo\": \"bar\", \"baz\": \"bing\" } }",
+            ClassWithObjectNodeField.class);
+  }
+}
+```
+
+Looks like the presence of any PropertyNamingStrategy make deserialization to ObjectNode fail.  This works fine if I remove the property naming strategy.
+
+
+Comment:
+Sounds like a problem. Which version of Jackson are you using? If possible, can you try it with 2.5.3, if not yet using that (DW baseline is 2.5.1 or so I think). There have been some fixes related to handling of JsonNode deserialization, although I don't recall issues with naming strategy.
+
+
+Comment:
+We're using Jackson 2.5.3 (newer than the DW baseline) and the issue still exists.
+
+
+Comment:
+Ok thank you for confirming this.
+
+
+Comment:
+Interesting. Yes, it's bit tricky. I can patch 2.5.x by adding an annotation, but there is the bigger problem (to be tackled for 2.6) with reporting potential problems before they would be actual problem. We have observed this in some other cases already. But fix for that is bit more invasive, hence will do that for master.
+
+
+Comment:
+The only open question is why does the naming convention trigger this problem. Oh well, mystery for another day. :)
+
+Fix will be in 2.5.4.

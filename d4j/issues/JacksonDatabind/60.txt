@@ -1,0 +1,90 @@
+Title: Polymorphic type lost when using `@JsonValue`
+
+Body:
+When suppressing all getters but one with @JsonIgnore and choosing to use a byte array for serialization (marking its getter with @JsonValue), the typing of the object is changed to "[B", which is deserialized to a byte array. I would have expected verbose typing and usage of the constructor  marked with @JsonCreator that accepts the byte array to construct the object on deserialization. The behavior is as expected when choosing more fields for serialization, which is redundant data in this case.
+
+Running  jackson-databind 2.7.4 on Java 1.8.0_91.
+
+Configuration of the ObjectMapper:
+
+```
+private final ObjectMapper mapper;
+public JsonFilter() {
+    this.mapper = new ObjectMapper();
+    mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+    mapper.enableDefaultTyping();
+}
+```
+
+Serialization: `mapper.writeValueAsString(message)`
+Deserialization: `mapper.readValue(json, RemoteCall.class)`
+
+Getter and field:
+
+```
+/** @serial */
+private byte[] apdu;
+
+@JsonValue
+public byte[] getBytes() {
+    return apdu.clone();
+}
+```
+
+Constructor:
+
+```
+@JsonCreator
+public CommandAPDU(@JsonProperty(value = "bytes") byte[] apdu) {
+    this.apdu = apdu.clone();
+    parse();
+    LOG.v("com.ubitricity.devices.common.pal.CommandAPDU creator (1)");
+}
+```
+
+Serializes to `"args":[["[B","AKQEAAnw8fLz9AAAAgA="],["net.sf.lipermi.call.RemoteInstance",{"instanceId":"b0e15098-f49e-4328-b072-fc5df42799bd","className":"com.ubitricity.devices.common.tasks.ResponseReceiver"}]]` where "args" is an Object array field of the enclosing object.
+
+
+Comment:
+First things first: `[B` actually seems like proper class signature from JVM perspective (primitives have single letter type as there is no JDK visible external class; and `[` is array indicator). So that part may be fine in itself.
+
+But bigger question is whether polymorphic typing can work with `@JsonValue`. The problem is that type information during serialization should refer to `CommandAPDU`, which is the logical type, even if physical serialization is as `byte[]`. In that sense class included seems wrong.
+
+I'll see if I can reproduce with given information.
+
+
+Comment:
+Hmmh. Ok, I do see the underlying problem with delegation. Type id must be written for original type; but serialize to use (and value) should be return value of `@JsonValue` annotated method. This almost certainly requires some (internal, I hope) API changes, which means 2.9; not backportable fix.
+
+
+Comment:
+Ok, one minor change to code: it should be:
+
+``` java
+@JsonCreator
+public CommandAPDU(byte[] apdu) {
+    this.apdu = apdu.clone();
+    parse();
+    LOG.v("com.ubitricity.devices.common.pal.CommandAPDU creator (1)");
+}
+```
+
+that is, ensure it's delegating Creator, NOT property-one.
+
+That's not the main problem, but once serialization works, this is what would prevent deser.
+
+It also looks like I can actually fix this for 2.8, and no new API is needed.
+
+
+Comment:
+Thanks for looking into it! Greatly appreciated!
+
+
+Comment:
+Hi,
+
+Either fix [#1385](https://github.com/FasterXML/jackson-databind/issues/1385) or [#466](https://github.com/FasterXML/jackson-databind/issues/466) causes problem in [CAMEL-11308](https://issues.apache.org/jira/browse/CAMEL-11308)
+
+Downgrade  of jackson2 dependency to 2.8.3 resolves the issue.
+
+Could you check this cross reference? 

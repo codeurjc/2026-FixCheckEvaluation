@@ -1,0 +1,265 @@
+Title: Mockito 1.10.x timeout verification needs JUnit classes (VerifyError, NoClassDefFoundError)
+
+Body:
+If JUnit is not on the classpath and mockito is version 1.10.x (as of now 1.10.1 up to 1.10.19) and the code is using the timeout verification which is not supposed to be related to JUnit, then the JVM may fail with a `VerifyError` or a `NoClassDefFoundError`.
+
+This issue has been reported on the [mailing list](https://groups.google.com/forum/#!topic/mockito/A6D7myKiD5k) and on [StackOverflow](http://stackoverflow.com/questions/27721621/java-lang-verifyerror-with-mockito-1-10-17)
+
+A simple test like that with **TestNG** (and no JUnit in the class path of course) exposes the issue:
+
+```
+import org.testng.annotations.Test;
+import java.util.Observable;
+import static org.mockito.Mockito.*;
+
+public class VerifyErrorOnVerificationWithTimeoutTest {
+    @Test public void should_not_throw_VerifyError() {
+        verify(mock(Observable.class), timeout(500)).countObservers();
+    }
+}
+```
+
+With TestNG 5.13.1, the stack trace is :
+
+```
+java.lang.VerifyError: (class: org/mockito/internal/verification/VerificationOverTimeImpl, method: verify signature: (Lorg/mockito/internal/verification/api/VerificationData;)V) Incompatible argument to function
+    at org.mockito.verification.Timeout.<init>(Timeout.java:32)
+    at org.mockito.verification.Timeout.<init>(Timeout.java:25)
+    at org.mockito.Mockito.timeout(Mockito.java:2103)
+    at com.example.UserServiceImplTest.test(UserServiceImplTest.java:26)
+```
+
+TestNG includes a dependency on JUnit 3.8.1, which has the `junit.framework.ComparisonFailure`, but the JVM cannot perform the linking at runtime (`VerifyError` extends `LinkageError`), probably because for the JVM there's some incompatible changes in this class between version 3.x and 4.x.
+Note that Mockito is compiled against JUnit 4.x. This also reveal that Mockito is not anymore compatible with JUnit 3.x.
+
+With TestNG 6.8.13, the stack trace is :
+
+```
+java.lang.NoClassDefFoundError: junit/framework/ComparisonFailure
+    at java.lang.ClassLoader.defineClass1(Native Method)
+    at java.lang.ClassLoader.defineClassCond(ClassLoader.java:637)
+    at java.lang.ClassLoader.defineClass(ClassLoader.java:621)
+    at java.security.SecureClassLoader.defineClass(SecureClassLoader.java:141)
+    at java.net.URLClassLoader.defineClass(URLClassLoader.java:283)
+    at java.net.URLClassLoader.access$000(URLClassLoader.java:58)
+    at java.net.URLClassLoader$1.run(URLClassLoader.java:197)
+    at java.security.AccessController.doPrivileged(Native Method)
+    at java.net.URLClassLoader.findClass(URLClassLoader.java:190)
+    at java.lang.ClassLoader.loadClass(ClassLoader.java:306)
+    at sun.misc.Launcher$AppClassLoader.loadClass(Launcher.java:301)
+    at java.lang.ClassLoader.loadClass(ClassLoader.java:247)
+    at org.mockito.verification.Timeout.<init>(Timeout.java:32)
+    at org.mockito.verification.Timeout.<init>(Timeout.java:25)
+    at org.mockito.Mockito.timeout(Mockito.java:2103)
+    at com.example.UserServiceImplTest.test(UserServiceImplTest.java:26)
+Caused by: java.lang.ClassNotFoundException: junit.framework.ComparisonFailure
+    at java.net.URLClassLoader$1.run(URLClassLoader.java:202)
+    at java.security.AccessController.doPrivileged(Native Method)
+    at java.net.URLClassLoader.findClass(URLClassLoader.java:190)
+    at java.lang.ClassLoader.loadClass(ClassLoader.java:306)
+    at sun.misc.Launcher$AppClassLoader.loadClass(Launcher.java:301)
+    at java.lang.ClassLoader.loadClass(ClassLoader.java:247)
+    ... 49 more
+```
+
+Indeed JUnit is not anymore a dependency of TestNG.
+
+In this specific case the issue is that the `Timeout` class wraps a `VerficationOverTimeImpl` that uses in try/catch block the exception `org.mockito.exceptions.verification.junit.ArgumentsAreDifferent` which extends `junit.framework.ComparisonFailure`.
+
+At this time it seems to be the only place where JUnit is needed, this affect the following public API : 
+
+``` java
+Mockito.timeout(...)
+Mockito.after(...)
+```
+
+
+Comment:
+Let's change the code so that JUnit is not needed. ComparisonFailure should
+only be used if JUnit is on classpath. That was the original idea but a but
+slipped in :)
+
+On Fri, Jan 2, 2015 at 2:02 PM, Brice Dutheil notifications@github.com
+wrote:
+
+> If JUnit is not on the classpath and mockito is version 1.10.x (as of now
+> 1.10.1 up to 1.10.19) and the code is using the timeout verification which
+> is not supposed to be related to JUnit, then the JVM may fail with a
+> VerifyError or a NoClassDefFoundError.
+> 
+> This issue has been reported on the mailing list
+> https://groups.google.com/forum/#!topic/mockito/A6D7myKiD5k and on
+> StackOverflow
+> http://stackoverflow.com/questions/27721621/java-lang-verifyerror-with-mockito-1-10-17
+> 
+> A simple test like that with _TestNG_ (and no JUnit in the class path of
+> course) exposes the issue:
+> 
+> import org.testng.annotations.Test;
+> import java.util.Observable;
+> import static org.mockito.Mockito.*;
+> 
+> public class VerifyErrorOnVerificationWithTimeoutTest {
+>     @Test public void should_not_throw_VerifyError() {
+>         verify(mock(Observable.class), timeout(500)).countObservers();
+>     }
+> }
+> 
+> With TestNG 5.13.1, the stack trace is :
+> 
+> java.lang.VerifyError: (class: org/mockito/internal/verification/VerificationOverTimeImpl, method: verify signature: (Lorg/mockito/internal/verification/api/VerificationData;)V) Incompatible argument to function
+>     at org.mockito.verification.Timeout.<init>(Timeout.java:32)
+>     at org.mockito.verification.Timeout.<init>(Timeout.java:25)
+>     at org.mockito.Mockito.timeout(Mockito.java:2103)
+>     at com.example.UserServiceImplTest.test(UserServiceImplTest.java:26)
+> 
+> With TestNG 6.8.13, the stack trace is :
+> 
+> java.lang.NoClassDefFoundError: junit/framework/ComparisonFailure
+>     at java.lang.ClassLoader.defineClass1(Native Method)
+>     at java.lang.ClassLoader.defineClassCond(ClassLoader.java:637)
+>     at java.lang.ClassLoader.defineClass(ClassLoader.java:621)
+>     at java.security.SecureClassLoader.defineClass(SecureClassLoader.java:141)
+>     at java.net.URLClassLoader.defineClass(URLClassLoader.java:283)
+>     at java.net.URLClassLoader.access$000(URLClassLoader.java:58)
+>     at java.net.URLClassLoader$1.run(URLClassLoader.java:197)
+>     at java.security.AccessController.doPrivileged(Native Method)
+>     at java.net.URLClassLoader.findClass(URLClassLoader.java:190)
+>     at java.lang.ClassLoader.loadClass(ClassLoader.java:306)
+>     at sun.misc.Launcher$AppClassLoader.loadClass(Launcher.java:301)
+>     at java.lang.ClassLoader.loadClass(ClassLoader.java:247)
+>     at org.mockito.verification.Timeout.<init>(Timeout.java:32)
+>     at org.mockito.verification.Timeout.<init>(Timeout.java:25)
+>     at org.mockito.Mockito.timeout(Mockito.java:2103)
+>     at com.example.UserServiceImplTest.test(UserServiceImplTest.java:26)
+> Caused by: java.lang.ClassNotFoundException: junit.framework.ComparisonFailure
+>     at java.net.URLClassLoader$1.run(URLClassLoader.java:202)
+>     at java.security.AccessController.doPrivileged(Native Method)
+>     at java.net.URLClassLoader.findClass(URLClassLoader.java:190)
+>     at java.lang.ClassLoader.loadClass(ClassLoader.java:306)
+>     at sun.misc.Launcher$AppClassLoader.loadClass(Launcher.java:301)
+>     at java.lang.ClassLoader.loadClass(ClassLoader.java:247)
+>     ... 49 more
+> 
+> In this specific case the issue is that the Timeout class wraps a
+> VerficationOverTimeImpl that uses in try/catch block the exception
+> org.mockito.exceptions.verification.junit.ArgumentsAreDifferent which
+> extends junit.framework.ComparisonFailure.
+> 
+> At this time it seems to be the only place where JUnit is needed, this
+> affect the following public API :
+> 
+> Mockito.timeout(...)Mockito.after(...)
+> 
+> ## 
+> 
+> Reply to this email directly or view it on GitHub
+> https://github.com/mockito/mockito/issues/152.
+
+## 
+
+Szczepan Faber
+Core dev@gradle; Founder@mockito
+
+
+Comment:
+The issue exists since PR #46 in commit 4a3f2df6afa3cc58db73f29c587ee1c5a4216c32
+
+
+Comment:
+Thanks for digging into it.
+
+On Fri, Jan 2, 2015 at 3:22 PM, Brice Dutheil notifications@github.com
+wrote:
+
+> The issue exists since PR #46 https://github.com/mockito/mockito/pull/46
+> in commit 4a3f2df
+> https://github.com/mockito/mockito/commit/4a3f2df6afa3cc58db73f29c587ee1c5a4216c32
+> 
+> ## 
+> 
+> Reply to this email directly or view it on GitHub
+> https://github.com/mockito/mockito/issues/152#issuecomment-68529359.
+
+## 
+
+Szczepan Faber
+Core dev@gradle; Founder@mockito
+
+
+Comment:
+We need to understand the change before removing it :)
+
+
+Comment:
+> This also reveal that Mockito is not anymore compatible with JUnit 3.x.
+
+Should JUnit 3 still be supported? If yes, the "silent" support of JUnit exceptions (handled by the `JUnitTool`) becomes more complicated due to the different class hierarchy of JUnit's `ComparisonFailure`. More precisely, it would not be possible anymore to work with `java.lang.AssertionError`. For example, `VerificationOverTimeImpl` would have to work with `java.lang.Error` or some common error interface if JUnit 3 was supported.
+
+Another question: Is the class `org.mockito.exceptions.verification.junit.ArgumentsAreDifferent` intended to be used by clients of the Mockito library? If not I suggest to move it right next to the `JUnitTool` and reduce it's visibility to default. If Mockito should not have a dependency to JUnit, this class must not be used anywhere directly.
+
+
+Comment:
+@ferstl You are correct, the assignment is the issue here for the JUnit 3.x compatibility. Yet I wonder if we even care about JUnit 3 nowaday, especially with the upcoming Mockito 2.x.x were API incompatibility is to be somehow expected.
+
+Anyway I implemented a test that ensure that pure mockito API don't have JUnit dependency. The good news is that only `VerificationOverTimeImpl` is affected. I started a fix branch yesterday for this issue where I was thinking about the same kind of tricks to avoid future mess up.
+
+
+Comment:
+Do we want to fix it for 1.x?
+
+I'm contemplating improving the infrastructure so that we can continuously
+deliver 1.x and 2.x. It would not be needed when 2.0 final is out.
+
+Cheers!
+
+On Sat, Jan 3, 2015 at 3:38 PM, Brice Dutheil notifications@github.com
+wrote:
+
+> @ferstl https://github.com/ferstl You are correct, the assignment is
+> the issue here for the JUnit 3.x compatibility. Yet I wonder if we even
+> care about JUnit 3 nowaday, especially with the upcoming Mockito 2.x.x were
+> API incompatibility is to be somehow expected.
+> 
+> Anyway I implemented a test that ensure that pure mockito API don't have
+> JUnit dependency. The good news is that only VerificationOverTimeImpl is
+> affected. I started a fix branch yesterday for this issue where I was
+> thinking about the same kind of tricks to avoid future mess up.
+> 
+> ## 
+> 
+> Reply to this email directly or view it on GitHub
+> https://github.com/mockito/mockito/issues/152#issuecomment-68596789.
+
+## 
+
+Szczepan Faber
+Core dev@gradle; Founder@mockito
+
+
+Comment:
+I don't think it's required, if there's a need people will report it.
+At the moment the workaround is to have JUnit 4.x in the classpath, not a deal breaker in my opinion.
+
+
+Comment:
+With:
+```
+\--- org.springframework.boot:spring-boot-starter-test: -> 1.4.4.RELEASE
+     +--- junit:junit:4.12
+     +--- org.mockito:mockito-core:1.10.19
+```
+
+I'm getting:
+```
+java.lang.VerifyError: (class: org/mockito/internal/verification/VerificationOverTimeImpl, method: verify signature: (Lorg/mockito/internal/verification/api/VerificationData;)V) Incompatible argument to function
+
+	at org.mockito.verification.Timeout.<init>(Timeout.java:32)
+	at org.mockito.verification.Timeout.<init>(Timeout.java:25)
+	at org.mockito.Mockito.timeout(Mockito.java:2164)
+```
+
+At:
+```
+    verify(object, timeout(100)).method(params));
+```

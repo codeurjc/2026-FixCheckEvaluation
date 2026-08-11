@@ -1,0 +1,80 @@
+Summary: The side effects of function1||function2 are not calculated
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile (Math.sin||Math.cos)(0)
+
+<b>What is the expected output? What do you see instead?</b>
+Empty output.
+
+<b>What version of the product are you using? On what operating system?</b>
+The closure-compiler web service at r114.
+
+<b>Please provide any additional information below.</b>
+As a result of this issue goog.now() is considered to have side effects.
+
+Comment:
+We can hard code this idiom and recognize it, however, in general side effect propagation is a bit harder.
+
+Nick: I wonder if we can incorporate sideeffect into the type system? Have side 
+effectfx free function be a subclass of function, then we can type Math.sin||Math.cos 
+to be side effect free.
+
+Comment:
+So this is where it helps to have a copy of the dragon book at your desk! ;)
+
+This is a classic of a synthesized attribute. It's a simple matter of figuring out 
+the rules of the attribute grammar, and coding it up.
+
+The type inference engine visits CFG nodes in this way: most of TypeInference.java is 
+just synthesizing type attributes from child nodes. We'd need a similar (albeit 
+simpler) inference engine for side effects.
+
+I don't think we'd actually want to make this part of the type system, though. The 
+type lattice doesn't follow the same rules as the side-effect lattice. In particular,  
+a side-effect-causing function may be a subtype of a non-side-effect-causing 
+function, and vice-versa. It gets even messier when your try to take least common 
+supertype of a side-effect function and a non-side-effect function.
+
+Comment:
+Synthesized attribute gets us this case but I am thinking of value propagation  like: var f = Math.sin||Math.cos; var g = f || foo.noSideEffectFunc; g();
+
+I think the Cartesian product of a sub lattice (all functions) and another lattice 
+(side effects classification) should form another a lattice as well... But you are 
+right that is messy.
+
+I feel we are not fully utilizing the power of our type inference system. It can give 
+us a lot more solution besides JSDOC types. Instead of mixing new types in the JSDoc 
+types, I wonder if we can extend it so it can take in custom type systems. Like the 
+function side effect type system lattice.
+
+Thoughts?
+
+Comment:
+Andrew ran into this problem when he was writing type tightening. Specifically, you 
+want to do an analysis very similar to type inference, but you want to do it over a 
+different type lattice. I think he just gave up on trying to parameterize TypeInference 
+and wrote a one-off inference engine in TightenTypes. It would be helpful to ask him 
+why, and whether it's a good idea to write a separate type inference engine for 
+attributes like this. Let's take that discussion off the bug entry and onto the public 
+mailing list.
+
+Comment:
+I think there are two bugs:
+  1.  (Math.sin || Math.cos) in the call above is not a name or getprop expression.
+  2.  The definition finder doesn't handle aliases (which is what makes it unable to
+find the definition of goog.now which is an alias to Date.now in addition to a
+reference to an anonymous function)
+
+The first is fairly easy to fix:  when we encounter a call and what we are calling is
+an "or" or "hook" expression, consider the side effects of the left and right
+function names.
+
+The second requires keeping track of aliases and expanding them to compute the set of
+possible functions.
+
+I'll take a stab at the first issue soon, the later will have to wait until I have
+more time unless someone else wants to pick it up.
+
+Comment:
+This issue was closed by revision r154.

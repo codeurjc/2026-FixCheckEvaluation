@@ -1,0 +1,36 @@
+Title: Newline after pre and textarea not handled properly
+
+Body:
+The WHATWG spec for HTML syntax indicates that if there is a newline directly after an opening `<pre>` or `<textarea>`, it should be removed.
+
+https://html.spec.whatwg.org/multipage/syntax.html#element-restrictions
+
+jsoup currently does not do this:
+
+```
+Jsoup.parse("<pre>\nabc  def</pre>").select("pre").get(0).childNodes().get(0).text();
+// Outputs  " abc def"
+// Expected "abc def"
+```
+
+Arguably, jsoup is also wrong for the value of `getWholeText()`, although I guess this depends on one's interpretation of what `getWholeText()` is supposed to do. I am hoping that it intends to correspond to the value of [Node.nodeValue](https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeValue), in which case:
+
+```
+Jsoup.parse("<pre>\nabc  def</pre>").select("pre").get(0).childNodes().get(0).getWholeText();
+// Outputs  "\nabc  def"
+// Expected "abc  def" 
+
+Jsoup.parse("<pre>\n\nabc  def</pre>").select("pre").get(0).childNodes().get(0).getWholeText();
+// Outputs  "\n\nabc  def"
+// Expected "\nabc  def"
+```
+
+Comment:
+Thanks, done.
+
+Comment:
+The spec listed above also says that the first newline is **not** optional if the contents itself starts with a new line:
+
+> The otherwise optional newline must be included if the element's contents themselves start with a newline (because otherwise the leading newline in the contents would be treated like the optional newline, and ignored)."
+
+Currently, several roundtrips through jsoup decoding/encoding will eliminate all leading newlines from `<pre>` which is probably not the correct behavior.

@@ -1,0 +1,44 @@
+Title: Error desirialization of ConcurrentNavigableMap 
+
+Body:
+```
+What steps will reproduce the problem?
+1. Create POJO with filled ConcurrentNavigableMap field
+2. Sirialize to json string
+3. Desirialize from json string
+
+What is the expected output? What do you see instead?
+Original state is expected. IllegalArgumentException is thrown
+
+What version of the product are you using? On what operating system?
+Gson 2.3.1, java 8, windows 7
+
+Please provide any additional information below.
+Gson works only with class type field such as ConcurrentSkipListMap.
+Good programming style is using interface type such as ConcurrentNavigableMap. 
+See attach for log and unit-test
+
+```
+
+Original issue reported on code.google.com by `dkhomya...@gmail.com` on 29 Jan 2015 at 8:34
+
+Attachments:
+- [gsonErrLog.TXT](https://storage.googleapis.com/google-code-attachments/google-gson/issue-624/comment-0/gsonErrLog.TXT)
+- [JsonUtilsTest.java](https://storage.googleapis.com/google-code-attachments/google-gson/issue-624/comment-0/JsonUtilsTest.java)
+
+
+Comment:
+ConcurrentNavigableMap was introduced in JDK 1.6.
+@swankjesse @JakeWharton @joel-leitch  Shall we abandon support for JDK 1.5?
+
+
+Comment:
+I'm in favor. JVM users on Java 5 aren't likely going to be updating their Gson instances at any frequent pace. The stronger realization of this change is that it eliminates Android 2.2 and older. This accounts for 0.2% of the 1.some billion devices that talk to Google Play in the last 2 weeks. As far as I know, Google has stopped officially supporting it with their apps, and this was well behind others who have long since moved on from this far outdated platform.
+
+
+Comment:
+Yeah, those users can continue to use earlier releases.
+
+
+Comment:
+Ok. Agreed. Let's switch to Java 6 as the minimum version once we introduce support for ConcurrentNavigableMap and other Java 6 standard classes.

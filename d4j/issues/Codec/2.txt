@@ -1,0 +1,4 @@
+Summary: Base64 bug with empty input (new byte[0])
+
+Description:
+Base64.encode(new byte[0]) doesn't return an empty byte array back!  It returns CRLF.

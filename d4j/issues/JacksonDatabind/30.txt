@@ -1,0 +1,99 @@
+Title: BigDecimal values via @JsonTypeInfo/@JsonSubTypes get rounded
+
+Body:
+When using an `ObjectMapper` to serialize/deserialize a class with an `Object` field annotated with a `@JsonSubTypes.Type` that indicate `BigDecimal`, it looks like the value is getting rounded to a double.
+
+I tried configuring `DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS`, but that didn't seem to help.
+
+What I think is a valid repro is below, but let me know if I'm actually doing something wrong here.
+
+Thanks!
+
+``` java
+import org.junit.Test;
+import org.junit.Assert;
+
+import java.math.BigDecimal;
+
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class JacksonTest {
+
+    enum Type { BIG_DECIMAL }
+
+    static class Wrapper {
+
+        @JsonIgnore
+        Type typeEnum;
+
+        @JsonIgnore
+        Object value;
+
+        Wrapper() { }
+
+        @JsonGetter(value = "type")
+        String getTypeString() {
+            return typeEnum.name();
+        }
+
+        @JsonSetter(value = "type")
+        void setTypeString(String type) {
+            this.typeEnum = Type.valueOf(type);
+        }
+
+        @JsonGetter(value = "objectValue") 
+        Object getValue() {
+            return value;
+        }
+
+        @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "type")
+        @JsonSubTypes({ @JsonSubTypes.Type(name = "BIG_DECIMAL", value = BigDecimal.class) })
+        @JsonSetter(value = "objectValue") 
+        private void setValue(Object value) {
+            this.value = value;
+        }
+    }
+
+    @Test
+    public void test() throws Exception {
+
+        ObjectMapper m = new ObjectMapper();
+        m.configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
+
+        Wrapper w = new Wrapper();
+        w.typeEnum = Type.BIG_DECIMAL;
+        w.value = new BigDecimal("-10000000000.0000000001");
+
+        String json = m.writeValueAsString(w);
+        Wrapper w2 = m.readValue(json, Wrapper.class);
+
+        Assert.assertEquals(w.typeEnum, w2.typeEnum);
+        Assert.assertTrue(String.format("Expected %s = %s; got back %s = %s",
+            w.value.getClass().getSimpleName(), w.value.toString(), w2.value.getClass().getSimpleName(), w2.value.toString()),
+            w.value.equals(w2.value));
+    }
+}
+```
+
+
+Comment:
+I do not see anything immediately wrong about your handling so I assume you are observing a real bug, although can not say for sure why it occurs. 
+
+However, I can speculate as to why `USE_BIG_DECIMAL_FOR_FLOATS` does not help.
+In all likelihood, some part of code expects `double` for some reason, and so calls and accessor to get data as `double`, which results in coercion. And then only at a later point "real" type is recognized, resulting on value being brought back to `BigDecimal`.
+
+Thank you for report -- I hope it is easy to fix.
+
+
+Comment:
+Ah. One thing likely to cause an issue: due to use of polymorphic type id of `EXTERNAL_PROPERTY`, values need to be buffered in `TokenBuffer`. And perhaps that's where number gets coerced unintentionally.
+
+
+Comment:
+Ok yes. This becomes much trickier, as the underlying parser has no way of knowing whether a given floating-point number would require decimal representation for full accuracy. Because of this, `TokenBuffer` copies it using "natural" type, reported such as `double`. `USE_BIG_DECIMAL_FOR_FLOATS` on the other hand is not accessible setting for `TokenBuffer` as it is at low level. I'll try to see if there's a way to get relevant setting(s) passed from buffering deserializer, however.
+
+
+Comment:
+Thanks for quick fix!  We have a workaround until 2.6.3 is released.

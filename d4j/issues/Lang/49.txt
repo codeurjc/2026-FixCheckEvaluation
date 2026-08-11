@@ -1,0 +1,4 @@
+Summary: infinite loop in Fraction.reduce when numerator == 0
+
+Description:
+Summary pretty much says it all.

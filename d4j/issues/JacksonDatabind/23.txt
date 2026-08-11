@@ -1,0 +1,453 @@
+Title: Possible problem with `NON_EMPTY` exclusion, `int`s, `Strings`
+
+Body:
+(from https://github.com/FasterXML/jackson-module-afterburner/issues/55)
+
+It appears like default handling might not work as expected with 2.5.4, whereas Afterburner does seem to handle things better. Need to investigate, and also see if 2.6.0-rc3 works better.
+
+
+Comment:
+Yes, looks like empty checking does work for Strings, but not for numbers.
+
+
+Comment:
+Although this is a closed issue I comment here to provide the context.
+
+Can you please motivate why Zero as a number is considered empty? This just caused a production bug at our side after an update to 2.6.2. Zero can be a perfectly valid value in a business context. But because of this change it got filtered out. 
+
+We now changed the JsonInclude option to ALWAYS. This fixes the issue but does not feel like a proper solution. Are there any alternatives to handle a situation where Zero is valid but I want to filter out other empty values like an empty string?
+
+
+Comment:
+@JoergM First of all, apologies for breakage: we did not anticipate this to lead to issues, since in absence of value, such default values should be used anyway: for numbers, `0` is the default value for `int` for example.
+
+The original intent of `NON_EMPTY` definition includes empty Collections, Strings, and primitives with default values (numbers as `boolean` value of `false`, but not all serializers implemented these rules as originally intended.
+Note too that there is nothing invalid in "empty"; empty Collections may be perfectly valid as well: the main use for `NON_EMPTY` is to reduce size of JSON Objects by removing what are thought to be unnecessary entries (ones for which default value: for Objects, `null`, for primitives Java default -- `Collections` and `arrays` are sort of outliers actually)
+
+As a work-around, note that you can annotate both classes (to give default inclusion for its properties) and individual properties (as overrides). This may make most sense on short term.
+
+For longer term there is a plan to also allow use of custom inclusion definition, since it is impossible to come up with a short list of criteria that would work for all of users.
+
+
+Comment:
+I will hold off on updating our pom WRT jackson until the longer term solution is available.
+
+
+Comment:
+I just got hit by this as well. It also seems counter-intuitive to me to treat zero valued ints and doubles as "empty". Furthermore based on my tests a zero valued Double (_object not primitive_) is also treated as empty which is very perplexing since **Double doesn't have a default value** (other than null).
+
+So if you serialize a Double whose value is 0.0 using JsonInclude.Include.NON_EMPTY the value will disappear entirely in serialized form, and then when you attempt to deserialize the output, the deserialized value will be null.
+
+Also consider a corner case where the field is a string, but the getter returns a double. 
+
+``` java
+private String riskScore;
+
+public double getRiskScore(){
+    return Double.parseDouble(riskScore);
+}
+```
+
+Using the default serialization (or a pre-2.6 version of jackson) a string value of "0.0" would be serialized to a Json Number (0.0) and then deserialized back to the original string without issue. However now the 0.0 double is thrown away during serialization and then after serialization you end up with a null string.
+
+I am all for making things more flexible with a custom inclusion definition, but these new defaults of discarding ints and doubles definitely don't seem intuitive to me. I feel like it could lead to a lot of head scratching and trigger bugs that don't show up right away.
+
+
+Comment:
+At this point I think the best course for 2.7 would be to see if it is possible to make `NON_DEFAULT` work so that it would take on current behavior of empty (with wide applicability), and revert `NON_EMPTY` to only include `null` (like `NON_NULL`), empty `String` (length 0), `Map` (size 0), Collection (size 0) and arrays (length 0).
+
+While I understand that the change is non-intuitive to many, due to missing handling in earlier versions, behavior is what it is for 2.6.x and I do not want to risk further confusion by variation within patch levels.
+
+I will file a new issue (with reference to this one), since this issue is for original fix for missing handling, and partial revert needs to be a separate change (as it also contains related change to `NON_DEFAULT`, as per above).
+
+
+Comment:
+As per above, created #952 to track work for 2.7.
+
+
+Comment:
+Hi @cowtowncoder - I think this issue has to be considered a critical bug.  Ideally a version  2.6.x would come out with a fix, reverting to the previous behaviour of NON_EMPTY.  I think the fundemental concept of NON_EMPTY has been misunderstood. NON_EMTPY is just not a concept that applies to real primitives, they always have a default value.  So with auto-unboxing it is imperitive to not apply NON_EMPTY to the boxed versions.  Version prior to 2.6.0 cope with this correctly.
+
+Below is a fully runnable example, hopefully illustrating the seriousness of this change.  I've also included some additional fields, that show why simply removing the NON_EMPTY serialisation option is not the solution - as you can't keep the same payload structure between version 2.5.4 and 2.6.
+
+``` java
+package com.testcomp;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class PrimitiveHandlingIssue {
+
+    public static class IntegerIssue {      
+
+        public IntegerIssue(){}
+
+        private List<String> shouldntSerialise;
+        private String alsoShouldntSerialise;
+
+        private Integer mustSerialise;
+
+        public Integer getMustSerialise() {
+            return mustSerialise;
+        }
+
+        public void setMustSerialise(Integer mustSerialise) {
+            this.mustSerialise = mustSerialise;
+        }
+
+        public List<String> getShouldntSerialise() {
+            return shouldntSerialise;
+        }
+
+        public void setShouldntSerialise(List<String> shouldntSerialise) {
+            this.shouldntSerialise = shouldntSerialise;
+        }
+
+        public String getAlsoShouldntSerialise() {
+            return alsoShouldntSerialise;
+        }
+
+        public void setAlsoShouldntSerialise(String alsoShouldntSerialise) {
+            this.alsoShouldntSerialise = alsoShouldntSerialise;
+        }
+
+    }   
+
+    /**
+     * Run this test on both version 2.5.4 and 2.6.0 to see the behaviour difference.
+     * @param args
+     * @throws Exception
+     */
+    public static void main(String[] args) throws Exception {
+
+        ObjectMapper mapper = new ObjectMapper();
+        //Comment the line below to see the behaviour of this field across version 2.5.4 and 2.6.0.
+        //see how it behaves correctly in 2.5.4.  In 2.6.0 a fundemental error has been made.
+        //NON_EMPTY is not a concept that can apply to real primitives, as they always have a default, and you can't tell whether they where set to the default or not.
+        mapper.setSerializationInclusion(Include.NON_EMPTY);
+
+        PrimitiveHandlingIssue.IntegerIssue phiBefore = new PrimitiveHandlingIssue.IntegerIssue();
+        phiBefore.setMustSerialise(0);
+
+        phiBefore.setShouldntSerialise(new ArrayList<String>());
+
+
+        String js = mapper.writeValueAsString(phiBefore);
+        System.out.println(js);
+
+        PrimitiveHandlingIssue.IntegerIssue phiAfter = mapper.readValue(js, PrimitiveHandlingIssue.IntegerIssue.class);
+        //Here is the now unavoidable NULL POINTER caused by this bug.
+        System.out.println(phiAfter.getMustSerialise() * 2);
+    }
+
+}
+```
+
+Currently I'm struggle to upgrade from version 2.4.1 to 2.6.+ - as I can't find a version that doesn't have some form of bug/odd feature.  I'm trying to upgrade to get the JsonTypeInfo.As.EXISTING_PROPERTY but have so far hit 2 major reasons not to use 2.6.+.  Unfortunately version 2.5+ are also unusable as they do not allow multiple named types refering to the same subclass (something fixed in version 2.6).
+
+Would it be possible to have a 2.6.x patch for this issues (too many other issues/major changes with 2.7 at the moment to conisder making that leap).
+
+
+Comment:
+@knightweb Unfortunately that is the behavior for 2.6 and will not be changed at this point. There are multiple 2.6.x patch versions, and at this point there would be more confusion here than seems worth.
+
+One potential possibility would be a patch for 2.5, if anyone has time to backport fix for allowing multiple named types; I could release 2.5.5-1 micro-patch for that. I don't have time to investigate that myself.
+
+
+Comment:
+Yes perhaps backporting that JsonTypeInfo fix would be the best solution as there are other blockers to a 2.6 upgrade for me.  I'll take a look at the code, if small enough I could perhaps apply it as an aspect. (i'm guessing I couldn't contribute just now).
+
+I see version 2.7 has a fix for this issue but no longer supports Java 1.6 when deserializing.  I assume this is intentional and a move to JDK1.7 will be mandatory for anyone upgrading to jackson-core 2.7?
+
+
+Comment:
+@knightweb Thank you for your help here -- and sorry for the combination of blockers. It is unfortunate that your use case happens to touch these disparate items, making upgrade much more difficult than it should be.
+
+As to 2.7, it is sort of half-way version. 2 core components -- `jackson-annotations` and `jackson-core` should still only require Java 6, whereas others will require Java 7. But even with that:
+1. Java 7 should only be needed to build Jackson 2.7 components (other than annotations, streaming)
+2. Java 6 runtime should be enough to use `jackson-databind`, and most other modules; exceptions are modules for datatypes not included in Java 6 (like Java 8 datetime (jsr-310)) or that require Java 7 (HPPC)
+3. No Java 7 language constructs are yet used (they will be used in 2.8)
+4. Java 7 datatypes supported by `jackson-databind` are all dynamically loaded, and should downgrade gracefully (there is just 1 new value type, and 2 annotation types)
+
+So... it's bit unclean from Maven perspective, but the intent is for 2.7 to still run on Java 6, but include Java 7 support dynamically.
+
+
+Comment:
+I have updated my Jackson dependency to 2.6.5 and still have an issue with the serialization of zero values when using the JsonInclude.Include.NON_EMPTY config property.
+Could you please notify here from which version of Jackson the behavior of version 2.5.x has been restored ?
+Thanks !
+
+
+Comment:
+@crumbpicker See #952 for full discussion.
+
+For short explanation: this is the expected behavior for 2.6 and will not be changed in patch releases; it has been reverted back in 2.7.0.
+
+
+Comment:
+@cowtowncoder - I forgot all about this :-) once I got past my issue.  I took your advice and backported the feature I needed into version 2.5.4.  I've listed the modified class below incase that helps anyone else (less likely as its quite a niche issue) - its simply a merge of that class with the 2.6 version.
+
+``` java
+package com.fasterxml.jackson.databind.jsontype.impl;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+
+import com.fasterxml.jackson.databind.AnnotationIntrospector;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.cfg.MapperConfig;
+import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
+import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
+import com.fasterxml.jackson.databind.jsontype.NamedType;
+import com.fasterxml.jackson.databind.jsontype.SubtypeResolver;
+
+public class StdSubtypeResolver
+    extends SubtypeResolver
+    implements java.io.Serializable
+{
+    private static final long serialVersionUID = 1L;
+
+    protected LinkedHashSet<NamedType> _registeredSubtypes;
+
+    public StdSubtypeResolver() { }
+
+    /*
+    /**********************************************************
+
+    /* Subtype registration
+    /**********************************************************
+     */
+
+    @Override    
+    public void registerSubtypes(NamedType... types) {
+        if (_registeredSubtypes == null) {
+            _registeredSubtypes = new LinkedHashSet<NamedType>();
+        }
+        for (NamedType type : types) {
+            _registeredSubtypes.add(type);
+        }
+    }
+
+    @Override
+    public void registerSubtypes(Class<?>... classes) {
+        NamedType[] types = new NamedType[classes.length];
+        for (int i = 0, len = classes.length; i < len; ++i) {
+            types[i] = new NamedType(classes[i]);
+        }
+        registerSubtypes(types);
+    }
+
+    /*
+    /**********************************************************
+    /* Resolution by class (deserialization)
+    /**********************************************************
+     */
+    private Collection<NamedType> collectAndResolveSubtypesByTypeId(MapperConfig<?> config, 
+            AnnotatedMember property, JavaType baseType)
+    {
+        final AnnotationIntrospector ai = config.getAnnotationIntrospector();
+        Class<?> rawBase = (baseType == null) ? property.getRawType() : baseType.getRawClass();
+
+        // Need to keep track of classes that have been handled already 
+        Set<Class<?>> typesHandled = new HashSet<Class<?>>();
+        Map<String,NamedType> byName = new LinkedHashMap<String,NamedType>();
+
+        // start with lowest-precedence, which is from type hierarchy
+        NamedType rootType = new NamedType(rawBase, null);
+        AnnotatedClass ac = AnnotatedClass.constructWithoutSuperTypes(rawBase, ai, config);
+        _collectAndResolveByTypeId(ac, rootType, config, typesHandled, byName);
+
+        // then with definitions from property
+        Collection<NamedType> st = ai.findSubtypes(property);
+        if (st != null) {
+            for (NamedType nt : st) {
+                ac = AnnotatedClass.constructWithoutSuperTypes(nt.getType(), ai, config);
+                _collectAndResolveByTypeId(ac, nt, config, typesHandled, byName);
+            }            
+        }
+
+        // and finally explicit type registrations (highest precedence)
+        if (_registeredSubtypes != null) {
+            for (NamedType subtype : _registeredSubtypes) {
+                // is it a subtype of root type?
+                if (rawBase.isAssignableFrom(subtype.getType())) { // yes
+                    AnnotatedClass curr = AnnotatedClass.constructWithoutSuperTypes(subtype.getType(), ai, config);
+                    _collectAndResolveByTypeId(curr, subtype, config, typesHandled, byName);
+                }
+            }
+        }
+        return _combineNamedAndUnnamed(typesHandled, byName);
+    }
+
+    private Collection<NamedType> collectAndResolveSubtypesByTypeId(MapperConfig<?> config,
+            AnnotatedClass type)
+    {
+        Set<Class<?>> typesHandled = new HashSet<Class<?>>();
+        Map<String,NamedType> byName = new LinkedHashMap<String,NamedType>();
+
+        NamedType rootType = new NamedType(type.getRawType(), null);
+        _collectAndResolveByTypeId(type, rootType, config, typesHandled, byName);
+
+        if (_registeredSubtypes != null) {
+            Class<?> rawBase = type.getRawType();
+            for (NamedType subtype : _registeredSubtypes) {
+                // is it a subtype of root type?
+                if (rawBase.isAssignableFrom(subtype.getType())) { // yes
+                    final AnnotationIntrospector ai = config.getAnnotationIntrospector();
+                    AnnotatedClass curr = AnnotatedClass.constructWithoutSuperTypes(subtype.getType(), ai, config);
+                    _collectAndResolveByTypeId(curr, subtype, config, typesHandled, byName);
+                }
+            }
+        }
+        return _combineNamedAndUnnamed(typesHandled, byName);
+    }
+
+    /*
+    /**********************************************************
+    /* Deprecated method overrides
+    /**********************************************************
+     */
+
+    @Override
+    public Collection<NamedType> collectAndResolveSubtypes(AnnotatedMember property,
+        MapperConfig<?> config, AnnotationIntrospector ai, JavaType baseType)
+    {
+        return collectAndResolveSubtypesByTypeId(config, property, baseType );
+    }
+
+    @Override
+    public Collection<NamedType> collectAndResolveSubtypes(AnnotatedClass type,
+            MapperConfig<?> config, AnnotationIntrospector ai)
+    {
+        return collectAndResolveSubtypesByTypeId(config, type);
+    }
+
+    /*
+    /**********************************************************
+    /* Internal methods
+    /**********************************************************
+     */
+
+
+    /**
+     * Method called to find subtypes for a specific type (class), using
+     * type (class) as the unique key (in case of conflicts).
+     */
+    protected void _collectAndResolve(AnnotatedClass annotatedType, NamedType namedType,
+            MapperConfig<?> config, AnnotationIntrospector ai,
+            HashMap<NamedType, NamedType> collectedSubtypes)
+    {
+        if (!namedType.hasName()) {
+            String name = ai.findTypeName(annotatedType);
+            if (name != null) {
+                namedType = new NamedType(namedType.getType(), name);
+            }
+        }
+
+        // First things first: is base type itself included?
+        if (collectedSubtypes.containsKey(namedType)) {
+            // if so, no recursion; however, may need to update name?
+            if (namedType.hasName()) {
+                NamedType prev = collectedSubtypes.get(namedType);
+                if (!prev.hasName()) {
+                    collectedSubtypes.put(namedType, namedType);
+                }
+            }
+            return;
+        }
+        // if it wasn't, add and check subtypes recursively
+        collectedSubtypes.put(namedType, namedType);
+        Collection<NamedType> st = ai.findSubtypes(annotatedType);
+        if (st != null && !st.isEmpty()) {
+            for (NamedType subtype : st) {
+                AnnotatedClass subtypeClass = AnnotatedClass.constructWithoutSuperTypes(subtype.getType(), ai, config);
+
+
+
+
+                _collectAndResolve(subtypeClass, subtype, config, ai, collectedSubtypes);
+            }
+        }
+    }
+
+    /**
+     * Method called to find subtypes for a specific type (class), using
+     * type id as the unique key (in case of conflicts).
+     */
+    protected void _collectAndResolveByTypeId(AnnotatedClass annotatedType, NamedType namedType,
+            MapperConfig<?> config,
+            Set<Class<?>> typesHandled, Map<String,NamedType> byName)
+    {
+        final AnnotationIntrospector ai = config.getAnnotationIntrospector();
+        if (!namedType.hasName()) {
+            String name = ai.findTypeName(annotatedType);
+            if (name != null) {
+                namedType = new NamedType(namedType.getType(), name);
+            }
+        }
+        if (namedType.hasName()) {
+            byName.put(namedType.getName(), namedType);
+        }
+
+        // only check subtypes if this type hadn't yet been handled
+        if (typesHandled.add(namedType.getType())) {
+            Collection<NamedType> st = ai.findSubtypes(annotatedType);
+            if (st != null && !st.isEmpty()) {
+                for (NamedType subtype : st) {
+                    AnnotatedClass subtypeClass = AnnotatedClass.constructWithoutSuperTypes(subtype.getType(), ai, config);
+                    _collectAndResolveByTypeId(subtypeClass, subtype, config, typesHandled, byName);
+                }
+            }
+        }
+    }
+
+    /**
+     * Helper method used for merging explicitly named types and handled classes
+     * without explicit names.
+     */
+    protected Collection<NamedType> _combineNamedAndUnnamed(Set<Class<?>> typesHandled,
+            Map<String,NamedType> byName)
+    {
+        ArrayList<NamedType> result = new ArrayList<NamedType>(byName.values());
+
+        // Ok, so... we will figure out which classes have no explicitly assigned name,
+        // by removing Classes from Set. And for remaining classes, add an anonymous
+        // marker
+        for (NamedType t : byName.values()) {
+            typesHandled.remove(t.getType());
+        }
+        for (Class<?> cls : typesHandled) {
+            result.add(new NamedType(cls));
+        }
+        return result;
+    }
+}
+```
+
+
+Comment:
+@knightweb -- In other words, jackson 2.6 is considered harmful and should be avoided at all costs. jackson 2.6 should be seen as instantly and currently deprecated. Unfortunately, some big publishers are ingesting 2.6, such as the latest releases of the Facebook API. Upgrading these 3rd party libs can accidentally upgrade you, so we need to communicate to all our dependencies that they should avoid jackson 2.6 entirely.
+
+@cowtowncoder -- To avoid tarnishing the perceptions and trustworthiness of your project as being run by codejockies, you should pressure 3rd parties to adopt jackson 2.7 ASAP so you can kill off 2.6. This is a serious blunder that you need to correct in short order. Given compile-time language dependencies imposed by 2.7, you'd almost be well-served to fix the issue in 2.6.high-minor-release-number-here, and running the 2.6.99+ and 2.7 releases concurrently.
+
+
+Comment:
+@derekm I'd agree 2.6 is a bad damaging experience, to be avoided.  Version 2.7 forces use of Java7+ and for many projects that is not a trivial upgrade, for mine its just not possible.  
+
+
+Comment:
+@derekm you are entitled to your misguided and stupid opinion. I have no plans on marking it as deprecated. Feel free to fuck off.
+
+
+Comment:
+Does it a good idea to use `Integer` instead of `int` for our objects and then use `Non_null` for making our JSON ?
+because `Integer` can get null and `int` just take 0 if get null.

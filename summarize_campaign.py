@@ -22,7 +22,7 @@ import json
 import os
 import sys
 
-from defects4j_bugs import PROJECT_BUG_COUNTS, PROJECTS
+from d4j.defects4j_bugs import PROJECT_BUG_COUNTS, PROJECTS
 
 
 def _read_json(path):

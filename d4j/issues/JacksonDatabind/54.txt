@@ -1,0 +1,70 @@
+Title: `Optional.empty()` not excluded if property declared with type `Object`
+
+Body:
+Jackson version is 2.6.6
+**Here is the code:**
+
+```
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_ABSENT);
+        mapper.registerModule(new Jdk8Module());
+
+        JsonResult result = new JsonResult();
+        result.setA(Optional.empty());
+        result.setB(Optional.empty());
+        System.out.println(mapper.writeValueAsString(result));
+```
+
+```
+@Data
+public class JsonResult {
+    private Object a;
+    private Optional<Object> b;
+}
+```
+
+**Then I got the output: {"a":null}**
+
+**The real value of both is the same, why the results are different?**
+
+**How can I avoid null in such case?**
+
+By the way, I tried 'NON_EMPTY'. It can work, but it also ignores zero and empty array. I want to keep them.
+
+
+Comment:
+Please use mailing list for usage question; issue tracker is for reporting bugs.
+
+
+Comment:
+As to the question however: perhaps this is a bug; I can't say for sure without having a closer look.
+What it almost certainly comes down to is with the different declared type: use of `Object` lacks enough information to know that value is of referential type, during serialization construction.
+Whether it can be made to work or not is a different question.
+
+Reopening assuming there is something to fix here. Thank you for the report!
+
+
+Comment:
+Ok, this is working as designed: declared type MUST give indication that the value would be reference type (like `Optional`), and as such property declared as `Object` will not be filtered if it happens to contain a referential type.
+
+In future we hope to support custom inclusion criteria which would allow construction of more advanced inclusion filters: for now, declared type has to be such that it allows determination of concept of absent.
+
+I will keep this issue open, however, to think whether there is a possibility that this could be improved upon in future.
+
+Also: I noticed that use of `@JsonSerialize(as=Optional.class)` does not work as expected; will file a separate bug.
+
+
+Comment:
+Ok: so, fix here is two-fold. First, declared type MUST indicate it's a reference type (`Optional`), so declaration has to be something like:
+
+```
+public class JsonResult {
+  @JsonSerialize(as=Optional.class) // important!
+  private Object a;
+  private Optional<Object> b;
+}
+```
+
+The other part of the fix is to make sure Jackson actually uses type modified by annotation; this was not done but fix will be in 2.8.1. This combination will make tests pass.
+
+One thing I do not understand, however, is why `NON_EMPTY` would not work here; it should work without additional type information. But I could not reproduce that issue; test actually works for me if `NON_EMPTY` is used.

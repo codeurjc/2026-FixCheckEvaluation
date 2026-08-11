@@ -1,0 +1,76 @@
+Summary: initial type of variable wrong when initialize in a "var" statement with type declaration.
+
+Description:
+The following code doesn't give any warning even though it is an obvious bug:
+
+-------------===============================---------
+/**
+ * @constructor
+ */
+function MyClass() {
+  this.value = 1;
+}
+
+MyClass.prototype.show = function() {
+  window.console.log(this.value)
+}
+
+/**
+ * @type {MyClass}
+ */
+var x = null;
+x.show();
+-------------===============================---------
+
+However, if you remove the @type from the var declaration, then closure realizes the problem and warns about x being null rather than an Object.
+
+In any case, since x &quot;can be null&quot;, closure should warn about a potential null pointer error, and suggest to guard against the null value, like it does if we try to pass x as an argument where a non-null type is expected. That could be an optional behavior protected behind a flag, but it would definitely help catch lots of errors and write safer code.
+
+I am using the latest closure version available to date, on Ubuntu 13.04, on an amd64 machine.
+
+Comment:
+We don't plan to warn about potential null pointers wherever there is a nullable object type because it will give numerous spurious warnings.
+
+In your example, the reason there is no warning is because when the type of the variable is declared, the compiler always treats it as having that type, even if it can have a subtype. (We may revisit this decision in the future, but there is no specific plan at the moment.)
+
+Comment:
+This isn't quite right.
+1) x isn't always consider "MyClass|null", while assignments are restricted to subtypes of MyClass or null, the actual value type in the flow are known.
+
+2) While it is true that in general we don't want to warn about potential null values (there are too many false positives), we can and do warn about values that can only be null:
+
+/** @type {Object} */
+var x;
+x = null;
+x.call();
+
+produces:
+
+JSC_TYPE_MISMATCH: No properties on this expression
+found   : null
+required: Object at line 7 character 0
+x.call();
+
+As has been brought up before, initial type of x in the example is currently wrong, it should be declared to be "MyClass|null" but its initial value at declaration should be "null" in the flow.
+
+Comment:
+I think the reason we did it this way is because there's a more general problem. For any expression
+
+/** @type {T} */
+var x = getT();
+
+There are values of T where it makes sense to trust the type annotation, and there are values of T where it makes sense to trust the return type of getT. A classic example is where T is Array.<Element> and getT is Array.<?>
+
+I can probably suggest a fix for this that will get most of the obvious cases, but I don't know how many new warnings it will raise.
+
+Comment:
+I posted a fix here:
+https://codereview.appspot.com/21440043/
+
+There are some comments in there about why this is tricky. There's a dumb fix that will catch the most egregious problems, and a commented-out idealistic fix.
+
+Comment:
+This issue was closed by revision aeed47f424d9.
+
+Comment:
+This issue was closed by revision aeed47f424d9.

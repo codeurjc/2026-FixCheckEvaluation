@@ -1,0 +1,11 @@
+Summary: the field name not used to identify @Spy objects 
+
+Description:
+spy objects created with @Spy annotation are note named against the field name, as mocks created with @Mock.
+I'd like to have this feature to use @InjectMocks with two spy objects of the same type.
+
+Comment:
+well spotted, I'll fix it. Thanks for reporting!
+
+Comment:
+This issue was closed by revision r2110.

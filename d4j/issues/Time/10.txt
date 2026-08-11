@@ -1,0 +1,93 @@
+Title: Days#daysBetween throw exception for MonthDay with 29 February
+
+Body:
+final LocalDate january12012 = new LocalDate(2012, 1,1);
+final LocalDate february292012 = new LocalDate(2012, 2, 29);
+// OK
+assertEquals(59, Days.daysBetween(january12012, february292012).getDays());
+
+final MonthDay january1 = new MonthDay(1,1);
+final MonthDay february29 = new MonthDay(2, 29);
+// FAIL
+assertEquals(59, Days.daysBetween(january1, february29).getDays());
+
+org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
+    at org.joda.time.field.FieldUtils.verifyValueBounds(FieldUtils.java:217)
+    at org.joda.time.field.PreciseDurationDateTimeField.set(PreciseDurationDateTimeField.java:78)
+    at org.joda.time.chrono.BaseChronology.set(BaseChronology.java:240)
+    at org.joda.time.base.BaseSingleFieldPeriod.between(BaseSingleFieldPeriod.java:103)
+    at org.joda.time.Days.daysBetween(Days.java:141)
+
+Is there a way to avoid this happening? I understand fiddling around with the leap year, you're bound to get issues.
+
+Thanks! 
+
+
+Comment:
+In the code I see that when there is no year specified in MonthDay, it assigns the year as 1970. 
+Since 1970 is not a leap year, it calculates the max number of days in February 1970 as 28. 
+
+This is what leads to the exception.
+
+
+Comment:
+Hi,
+thanks for the response, but, reading in the class description, http://joda-time.sourceforge.net/apidocs/org/joda/time/MonthDay.html one of the uses for this class is to store birthdays.
+
+That's the usage we also do in our code: I understand your point about defaulting to 1970, but for a class that is called MonthDay, surely the year shouldn't be mandatory to perform calculation.
+
+Also, I've tested another case:
+
+new MonthDay(new LocalDateTime(2013, 03, 01, 15, 00)).minusDays(200);
+
+this fails as well with:
+org.joda.time.IllegalFieldValueException: Value 29 for dayOfMonth must be in the range [1,28]
+    at org.joda.time.field.FieldUtils.verifyValueBounds(FieldUtils.java:217)
+    at org.joda.time.field.PreciseDurationDateTimeField.set(PreciseDurationDateTimeField.java:78)
+    at org.joda.time.chrono.BasicMonthOfYearDateTimeField.add(BasicMonthOfYearDateTimeField.java:212)
+    at org.joda.time.field.BaseDateTimeField.add(BaseDateTimeField.java:344)
+    at org.joda.time.MonthDay.withFieldAdded(MonthDay.java:519)
+    at org.joda.time.MonthDay.minusDays(MonthDay.java:672)
+
+although I'm not 100% as, if I do: 
+new MonthDay(new LocalDateTime(2013, 03, 01, 15, 00)).minusDays(1);
+
+the test passes.
+
+What I guess I'm trying to say is that, I approached MonthDay to perform calculations for birthdays related problem, but it seems that is somewhat buggy on the fringes with this problem for leap year or not.
+
+Thanks!
+
+
+Comment:
+Yes this is a bug. Although I don't have much time to investigate further.
+
+
+Comment:
+Hi guys,
+
+I think you have info@cleverbug Ccd by accident here.
+
+Thanks,
+
+Maria.
+
+On Wed, Jun 5, 2013 at 11:17 AM, Stephen Colebourne <
+notifications@github.com> wrote:
+
+> Yes this is a bug. Although I don't have much time to investigate further.
+> 
+> —
+> Reply to this email directly or view it on GitHubhttps://github.com/JodaOrg/joda-time/issues/22#issuecomment-18966953
+> .
+
+## 
+
+Maria Mc Cabe
+Supply Chain Manager &
+Head of Customer Services
+Cleverbug Cardshttps://itunes.apple.com/app/cleverbug-cards-personalized/id573523591?mt=8
+
++353 (0)87 771 5834
+maria@cleverbug.com
+www.cleverbug.com

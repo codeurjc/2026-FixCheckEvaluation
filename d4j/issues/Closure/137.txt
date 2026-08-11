@@ -1,0 +1,37 @@
+Summary: Invalid JSC_DETERMINISTIC_TEST
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+1. Compile following code:
+
+// ==ClosureCompiler==
+// @output_file_name default.js
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// ==/ClosureCompiler==
+
+var t = null;
+
+window.test = function()
+{
+    if (t != null)
+    {
+       t = null;
+    }
+
+    t = 1;
+};
+
+<b>What is the expected output? What do you see instead?</b>
+
+Code should be compiled without warnings, but I see 
+&quot;JSC_DETERMINISTIC_TEST: condition always evaluates to false&quot;.
+
+Comment:
+thanks for the report.
+
+the immediate work around is to have a @type {?number} annotation on the global 
+variable.
+
+Comment:
+This issue was closed by revision r142.

@@ -1,0 +1,290 @@
+Summary: Deep mock fails for generic classes
+
+Description:
+Consider the following sample:
+
+    static interface ListSet extends List&lt;Set&gt; {}
+    @Test
+    public void testDeepMockWithClass() {
+        final ListSet mock = Mockito.mock(ListSet.class, Mockito.RETURNS_DEEP_STUBS);
+        final Set mock2 = mock.get(0);
+    }
+
+I get an exception on the last line since mock.get(0) is not of type Set.
+I would expect Mockito to make the deep mock of the correct type instead of just Object.
+
+Comment:
+After a closer look, it doesn't happen to be a bug in the mockito code, but a limitation in Java.
+
+The fact is that the interface created doesn't really redeclare the method with the new type, hence when mockito will detect the return type of get, Java will look
+* first in ListSet, it won't see the get(int) method,
+* there it will look in superinterfaces, in List, Java will find this Object get(int)
+
+Note however the behaviour can be different when you are actually implementing the methods of a typed interface. In this case you are actually writing code with your wanted type.
+
+Using your exemple you find the following assertions to be false !
+
+final ListSet mock = Mockito.mock(ListSet.class, Mockito.RETURNS_DEEP_STUBS);
+
+assertEquals(Set.class, ListSet.class.getMethod("next").getReturnType()); // fail
+assertEquals(Set.class, mock.getClass().getMethod("next").getReturnType()); // fail
+
+Comment:
+I agree it's a limitation in Java, but it's a limitation that can be overcome. You can use a class such as the TypeLiteral in google guice http://google-guice.googlecode.com/svn/trunk/javadoc/com/google/inject/TypeLiteral.html to get the actual generic parameters.
+
+I have implemented this in another (much less mature) mocking framework, and it would be great to see it implemented in Mockito as well.
+
+Here are the relevant test cases:
+http://code.google.com/p/mockachino/source/browse/trunk/test/blackbox/se/mockachino/TypeLiteralTest.java
+
+I hope you reconsider calling this invalid.
+
+Comment:
+Hmmm... I think we could implement it :)
+
+How about we use TypeLiteral internally for now so that we don't have to change the api. This way the example with ListSet should work. Brice, you want to do it or I should take it?
+
+Thanks Kris for the example!
+
+Comment:
+I'am actually ok with the TypeLiteral feature as Kristopher described, the issue 137 seems more relevant on this matter.
+
+However the case in this issue is a bit more specific, I really don't see how an internal TypeLiteral would be of use in this situation. As ListSet is already a compiled type, I don't see yet how it is possible to identify which method are actually parameterized. We could do some special treatment for know JDK classes like List or Set (and I don't really like this way), but for other paramterized classes, we might have no clue to which method should return what.
+
+Nevertheless it might be interesting to investigate further to seek a window of opportunity.
+
+Comment:
+An internal TypeLiteral is probably the easiest way to find out the type information. Since ListSet is a compiled type, you can in fact identify the parameterized methods.
+This is completely general code, there is no need for special treatment of any classes.
+
+The example code I described is fully functional code so it is possible to do.
+
+Here is the small patch I wrote to implement it. It's probably only mildly helpful since it's for a completely different code base but it might give you some idea of one approach to implement it.
+http://code.google.com/p/mockachino/source/detail?r=103
+
+The most relevant class here is DeepMockHandler which uses the typeliteral information stored for each mock to figure out the correct type for the new deep mock.
+
+Comment:
+Ok, thx Kristopher for pointing this code out.
+
+> Since ListSet is a compiled type, you can in fact identify the parameterized methods.
+Yes I know the type information is present in the binary code, however the parameterized method resolution is not that trivial.
+
+After looking at the code of TypeLiteral, the most interesting code for us is actually located in this class. And as expected the parameterized type resolution of a method is intricate.
+
+Comment:
+bear in mind that we want to avoid extra dependency to guice :)
+
+Comment:
+Yes, adding that dependency isn't really lightweight. It would be nice to get TypeLiteral and its dependencies into a library of its own, since it is useful in its own right. Maybe I should add an issue on the guice project page.
+
+The next best solution I guess is to try to extract that specific part of guice, which requires a bit of manual effort.
+
+Comment:
+Comment deleted
+
+Comment:
+Yes Szczepan, precisely, Guice has nothing to do in mockito.
+
+By the way TypeLiteral in Guice uses some dependencies of Guice like the Types class.
+
+Comment:
+Fortunately, infering type from the TypeLiteral does not seem like a big deal. It should be little code anyway. We can inspire on Guice...
+
+Comment:
+It appears that this library contains the same functionality we need, but much simpler:
+http://code.google.com/p/gentyref/
+
+Comment:
+Hmm thank you Kristopher.
+This library is interesting, I learned a few things.
+
+Comment:
+Good catch! I'll have a look and see how it works.
+
+Comment:
+Issue 251 has been merged into this issue.
+
+Comment:
+Issue 337 has been merged into this issue.
+
+Comment:
+Hi, 
+
+Just to let you know, I have made very good progress on this issue. The code is still incubating in a dedicated branch issue230
+
+For example with a class such as this one : 
+interface GenericsNest<K extends Comparable<K> & Cloneable> extends Map<K, Set<Number>> {
+    Set<Number> remove(Object key); // override with fixed ParameterizedType
+    K returningK();
+    <O extends K> List<O> paramTypeWithTypeParams();
+    <S extends Appendable, T extends S> T twoTypeParams(S s);
+    <O extends K> O typeVarWithTypeParams();
+}
+
+It is now possible to have deep stubs such as :
+@Test
+public void returning_deep_stubs_1() throws Exception {
+    GenericsNest<?> mock = mock(GenericsNest.class, RETURNS_DEEP_STUBS);
+
+    Set<? extends Map.Entry<? extends Cloneable, Set<Number>>> entries = mock.entrySet();
+    Iterator<? extends Map.Entry<? extends Cloneable,Set<Number>>> entriesIterator = mock.entrySet().iterator();
+    Map.Entry<? extends Cloneable, Set<Number>> nextEntry = mock.entrySet().iterator().next();
+
+    Cloneable cloneableKey = mock.entrySet().iterator().next().getKey();
+    Comparable<?> comparableKey = mock.entrySet().iterator().next().getKey();
+
+    Set<Number> value = mock.entrySet().iterator().next().getValue();
+    Iterator<Number> numbersIterator = mock.entrySet().iterator().next().getValue().iterator();
+    Number number = mock.entrySet().iterator().next().getValue().iterator().next();
+}
+
+@Test
+public void returning_deep_stubs_2() throws Exception {
+    GenericsNest<?> mock = mock(GenericsNest.class, RETURNS_DEEP_STUBS);
+
+    Cloneable cloneable1 = mock.paramTypeWithTypeParams().get(0);
+    Comparable<?> comparable1 = mock.paramTypeWithTypeParams().get(0);
+    Cloneable cloneable2 = mock.returningK();
+    Comparable<?> comparable2 = mock.returningK();
+    Cloneable cloneable3 = (Cloneable) mock.typeVarWithTypeParams();
+}
+
+To test the code just checkout the branch issue230 and write some mocks.
+
+A few comments :
+ - Right now Wildcard stuff is missing.
+
+ - The code needs some ironing in some areas. But generics are inherently tricky!
+
+ - This might come in a new issue, but the new code might allow to retrieve fairly easily paramterized info on fields (read @mock fields).
+
+ - Of course in some situation the actual code might not work, beacause I missed something, because the current implementation might be too naive, or for some other reason. I'm not sure I would like to go much further in Generics reverse engineering, but help or remarks are always welcome :)
+
+ - Plus I'm pondering if I should keep the actual behavior in the current deep stub answer, and expose the generic behaviour via an experimental generic deep stub answer / a specific deep stub answer constructor / or another configuration way.
+
+Depending on that decision, this issue might or might not be integrated in the comming version 1.9.5.
+
+
+So, how's everyone feeling about it?
+Brice
+
+Comment:
+Hi, 
+
+Just to let you know, I have made very good progress on this issue. The code is still incubating in a dedicated branch issue230
+
+For example with a class such as this one : 
+interface GenericsNest<K extends Comparable<K> & Cloneable> extends Map<K, Set<Number>> {
+    Set<Number> remove(Object key); // override with fixed ParameterizedType
+    K returningK();
+    <O extends K> List<O> paramTypeWithTypeParams();
+    <S extends Appendable, T extends S> T twoTypeParams(S s);
+    <O extends K> O typeVarWithTypeParams();
+}
+
+It is now possible to have deep stubs such as :
+@Test
+public void returning_deep_stubs_1() throws Exception {
+    GenericsNest<?> mock = mock(GenericsNest.class, RETURNS_DEEP_STUBS);
+
+    Set<? extends Map.Entry<? extends Cloneable, Set<Number>>> entries = mock.entrySet();
+    Iterator<? extends Map.Entry<? extends Cloneable,Set<Number>>> entriesIterator = mock.entrySet().iterator();
+    Map.Entry<? extends Cloneable, Set<Number>> nextEntry = mock.entrySet().iterator().next();
+
+    Cloneable cloneableKey = mock.entrySet().iterator().next().getKey();
+    Comparable<?> comparableKey = mock.entrySet().iterator().next().getKey();
+
+    Set<Number> value = mock.entrySet().iterator().next().getValue();
+    Iterator<Number> numbersIterator = mock.entrySet().iterator().next().getValue().iterator();
+    Number number = mock.entrySet().iterator().next().getValue().iterator().next();
+}
+
+@Test
+public void returning_deep_stubs_2() throws Exception {
+    GenericsNest<?> mock = mock(GenericsNest.class, RETURNS_DEEP_STUBS);
+
+    Cloneable cloneable1 = mock.paramTypeWithTypeParams().get(0);
+    Comparable<?> comparable1 = mock.paramTypeWithTypeParams().get(0);
+    Cloneable cloneable2 = mock.returningK();
+    Comparable<?> comparable2 = mock.returningK();
+    Cloneable cloneable3 = (Cloneable) mock.typeVarWithTypeParams();
+}
+
+To test the code just checkout the branch issue230 and write some mocks.
+
+A few comments :
+ - Right now Wildcard stuff is missing.
+
+ - The code needs some ironing in some areas. But generics are inherently tricky!
+
+ - This might come in a new issue, but the new code might allow to retrieve fairly easily paramterized info on fields (read @mock fields).
+
+ - Of course in some situation the actual code might not work, beacause I missed something, because the current implementation might be too naive, or for some other reason. I'm not sure I would like to go much further in Generics reverse engineering, but help or remarks are always welcome :)
+
+ - Plus I'm pondering if I should keep the actual behavior in the current deep stub answer, and expose the generic behaviour via an experimental generic deep stub answer / a specific deep stub answer constructor / or another configuration way.
+
+Depending on that decision, this issue might or might not be integrated in the comming version 1.9.5.
+
+
+So, how's everyone feeling about it?
+Brice
+
+Comment:
+Erratum, I didn't pushed it on google code but on my personnal clone on bitbucket https://bitbucket.org/bric3/mockito/compare/issue230..default
+
+This repository might disappear in the future.
+
+Comment:
+Hi,
+
+ - I've updated the code to support some wildcard stuff
+ - I've cleaned up a few things, still there is more to do, especially on the MockSettings front.
+ - I created another answer ReturnsGenericDeepStubs, that works the same as ReturnsDeepStubs but with generic deep stubs. This answer is marked as Incubating for now.
+
+Note that generic deep stubs consumes more memory than ReturnsDeepStubs, as it needs to discover generic types and store them in a contextual type map.
+
+
+You can check the differences with the trunk here : https://bitbucket.org/bric3/mockito/compare/issue230..default
+
+Cheers,
+Brice
+
+Comment:
+I can confirm ReturnsGenericDeepStubs, as a drop-in replacement for ReturnsDeepStubs, resolved the following exception in our tests:
+java.lang.ClassCastException: org.mockito.internal.creation.jmock.ClassImposterizer$ClassWithSuperclassToWorkAroundCglibBug$$EnhancerByMockitoWithCGLIB$$fee36e9e cannot be cast to x.y.z.MyClass
+
+I can see the argument for a new Answer but my view is that issue 230 is a clear failing in expectation; ReturnsDeepStubs should just "work" end-to-end. Documenting that the user may see ClassCastException if they use Generics (this is quite a lot n'est pas?) and should switch to the newer Answer isn't nice. Perhaps ReturnsDeepStubs could be deprecated at the same time?
+If no to all of the above, why not catch said ClassCastExpection and wrap it with a helpful message about what to (probably) do.
+
+That said, I'm mostly just keen to see this progress back to the main repo!
+
+Comment:
+Hi,
+
+Yes this is unfinished work, that is why it still resides in its own branch. A thorough internal review is still necessary. ReturnsGenericDeepStub might be just a temporary name to identify the feature.
+
+Wrapping the ClassCastException is impossible as that is the JVM that throws this exception from the call site, i.e. in the production code on which we have no control.
+
+As you have tested it, how did it fare regarding the generics signatures only ?
+I believe I went through most possible cases, though I can't be sure.
+
+Anyway thanks for the feedback.
+
+Comment:
+I wouldn't claim to have "tested" it. All I can say is it worked for our case:
+interface TemporalData<X> { X get( Date d ); }
+when( fluent.data().accessor().cars().get(date).getEngineCC() ).thenReturn(2000);
+
+Comment:
+I just ran into this while trying to mock a javax.inject.Provider. Is this still being worked on?
+
+Comment:
+Try for yourself ;)
+The code has been merged in master for a while now on github. (I'm changing the status to fixed now)
+https://github.com/mockito/mockito/blob/master/src/org/mockito/internal/stubbing/defaultanswers/ReturnsDeepStubs.java
+
+Although bear in mind this code need generic information compiled in the class. If it's not present then we cannot do anything on the mockito side. Also this code could change location as I consider it a bit experimental, ie I don't want to introduce any side regression.
+
+Comment:
+thanks!

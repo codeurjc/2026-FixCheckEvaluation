@@ -1,0 +1,20 @@
+Summary: MockUtil.resetMock() doesn't create InvocationNotifierHandler when recreating a filter
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. create a mock with verbose logging
+2. reset a mock
+
+<b>What is the expected output? What do you see instead?</b>
+Verbose logging doesn't work after reseting a mock.
+
+<b>What version of the product are you using? On what operating system?</b>
+1.9.0-rc1
+
+Patch attached.
+
+Comment:
+Cool, thx for the test and the patch.
+
+Comment:
+Fixed in revision b2390bbba786

@@ -1,0 +1,55 @@
+Title: ArrayIndexOutOfBoundsException on impossible non-static inner class constructor
+
+Body:
+Minimal repro:
+
+```java
+public class Something {
+    public InnerSomething a;
+
+    @JsonCreator
+    public Something(@JsonProperty("a") InnerSomething a) {}
+
+    class InnerSomething {
+        @JsonCreator
+        public InnerSomething() {}
+    }
+
+}
+```
+
+```java
+        ObjectMapper mapper = new ObjectMapper();
+        String ser = mapper.writeValueAsString(new Something(null));
+        mapper.readValue(ser, Something.class);
+```
+
+Fails like this:
+
+```
+java.lang.ArrayIndexOutOfBoundsException: -1
+
+	at com.fasterxml.jackson.databind.deser.impl.PropertyValueBuffer.assignParameter(PropertyValueBuffer.java:210)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer._deserializeUsingPropertyBased(BeanDeserializer.java:380)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.deserializeFromObjectUsingNonDefault(BeanDeserializerBase.java:1123)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserializeFromObject(BeanDeserializer.java:298)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:133)
+	at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3807)
+	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2797)
+```
+
+Validation is missing for this impossible constructor. Works as expected when `InnerSomething` is static.
+
+Comment:
+Definitely feels like this is related to #1502 too, errors seem to vary slightly based on minor differences.
+
+
+Comment:
+Interesting: fails on 2.7, 2.8 branches, but on `master`.
+
+Comment:
+And the reason for failure was that of not delegating various methods from `InnerClassProperty` to underlying `CreatorProperty`; something that was actually fixed for `master` (by creating a "delegating" base class for such properties).
+I suspect this will resolve #1502 and/or #1503 but will check them separately.
+
+Comment:
+One additional note: actual test case will not actually pass due to complications of trying to pass inner class as creator parameter (it would, however, work as "regular" property). This may or may not be fixable, but at least exception message is more descriptive.

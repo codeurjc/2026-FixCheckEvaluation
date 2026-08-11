@@ -1,0 +1,57 @@
+Title: `TypeFactory.constructFromCanonical()` throws NPE for Unparameterized generic canonical strings
+
+Body:
+When `TypeFactory.constructFromCanonical(returnType)` is used in `2.6.1`, the `returnType` string for generic types is not expected to have parameterized type information. For example, the following code runs fine on 2.6.1:
+
+```java
+returnType = "java.util.List";
+objectMapper.getTypeFactory().constructFromCanonical(returnType);
+```
+
+But in version `2.8.7`, the same code gives a `NullPointerException` with the stack trace:
+
+```
+java.rmi.RemoteException: java.lang.NullPointerException:null. 
+    at com.fasterxml.jackson.databind.type.TypeFactory._fromVariable(TypeFactory.java:1421)
+    at com.fasterxml.jackson.databind.type.TypeFactory._fromAny(TypeFactory.java:1182)
+    at com.fasterxml.jackson.databind.type.TypeFactory._fromParamType(TypeFactory.java:1404)
+    at com.fasterxml.jackson.databind.type.TypeFactory._fromAny(TypeFactory.java:1172)
+    at com.fasterxml.jackson.databind.type.TypeFactory._resolveSuperInterfaces(TypeFactory.java:1318)
+    at com.fasterxml.jackson.databind.type.TypeFactory._fromClass(TypeFactory.java:1261)
+    at com.fasterxml.jackson.databind.type.TypeParser.parseType(TypeParser.java:60)
+    at com.fasterxml.jackson.databind.type.TypeParser.parse(TypeParser.java:33)
+    at com.fasterxml.jackson.databind.type.TypeFactory.constructFromCanonical(TypeFactory.java:544)
+    at foo.company.package.serialize.Serializer.deserialize(Serializer.java:355)
+```
+
+But if the `returnType` string is passed with the generic type information, even if it is passed as `Object`, ie, `returnType = "java.util.List<java.lang.Object>";`, it works fine.
+
+I have 2 questions, is there a way to make this change backward compatible? If not, how can I work around this? PS: The workaround given by Tatu in the mailing list is not clear to *me*, if someone can give me an example, it'd be great help. Thanks!
+
+[Link to google groups thread.](https://groups.google.com/forum/#!topic/jackson-user/Ik1oEkUC1E8)
+
+Comment:
+I figured out the workaround you were suggesting. I'll just leave the code here if someone stumbles on this issue: 
+
+```java
+private static String addGenericTypeInformation(String returnType) {
+	// Already has type information so no need to add.
+	if(returnType.contains("<")) {
+		return returnType;
+	}
+	try {
+		int numTypeParameters = Class.forName(returnType).getTypeParameters().length;
+		if(numTypeParameters > 0) {
+			returnType += "<" + String.join(",", Collections.nCopies(numTypeParameters, "java.lang.Object")) + ">";
+		}
+	} catch(ClassNotFoundException e) {
+		// Don't do anything, returnType will be returned as it is.
+	}
+	return returnType;
+}
+```
+
+Comment:
+Ah. That works -- what I was thinking was rather that before trying to call this method you'll see if call is even needed. Thing is that unless generic type parameters exist in String you really do not need it: you can just use `Class.forName(typeString)`; and then resolve that `Class`, not canonical name.
+
+I hope to fix the issue itself too however.

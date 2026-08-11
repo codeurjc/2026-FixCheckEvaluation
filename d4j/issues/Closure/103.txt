@@ -1,0 +1,71 @@
+Summary: Compiler gives false error with respect to unreachable code
+
+Description:
+Try compiling the following in the Closure Compiler UI:
+
+// ==ClosureCompiler==
+// @compilation_level SIMPLE_OPTIMIZATIONS
+// @output_file_name default.js
+// ==/ClosureCompiler==
+
+function instanceOf(value, type) {
+  try {
+    // first try built-in test -- if it succeeds, we're golden.
+    if (value instanceof type) {
+      return true;
+    }
+  } catch (exception) {
+    if (exception instanceof TypeError) {
+      throw exception; // indicates that &quot;type&quot; is not a type
+    }
+    // Otherwise, assume the exception was caused by 
+    // the Firefox 1.0.3 bug.  Work around it.
+    return (type === Object);
+  }
+}
+
+The Compiler issues the following warning:
+
+JSC_UNREACHABLE_CODE: unreachable code at line 7 character 0
+  } catch (exception) {
+
+This code is from a Firefox extension (Chickenfoot) where (at least
+historically) calling instanceof in this manner could throw a security
+exception (or something else, I forget what -- Chickenfoot has been around
+since Firefox 1.0) which is why the catch blocks is there and is indeed
+reachable.
+
+Comment:
+If anyone is in a similar situation, I was able to do the following as a workaround:
+
+// ==ClosureCompiler==
+// @compilation_level SIMPLE_OPTIMIZATIONS
+// @output_file_name default.js
+// ==/ClosureCompiler==
+
+function instanceOf(value, type) {
+  var result;
+  try {
+    // first try built-in test -- if it succeeds, we're golden.
+    result = value instanceof type;
+  } catch (exception) {
+    if (exception instanceof TypeError) {
+      throw exception; // indicates that "type" is not a type
+    }
+    // Otherwise, assume the exception was caused by 
+    // the Firefox 1.0.3 bug.  Work around it.
+    return (type === Object);
+  }
+  return result;
+}
+
+Comment:
+Alan, you should be able to fix this pretty easily. Mind taking a look?
+
+Comment:
+Fixed and checked in.
+
+The fix should be available in the next release.
+
+Comment:
+This issue was closed by revision r114.

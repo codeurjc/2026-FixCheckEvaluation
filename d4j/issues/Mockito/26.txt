@@ -1,0 +1,70 @@
+Summary: Mockito-mocked methods returning primitive types other than "int" throw ClassCastException: java.lang.Integer
+
+Description:
+Mockito is returning a boxed Integer when it should be returning a boxed Long. Similarly for other types. I'm preparing a fix and will have a pull request very soon. It would be great to get this fixed before 1.9.5 final is cut.
+
+See dexmaker issue 10
+http://code.google.com/p/dexmaker/issues/detail?id=10
+
+Comment:
+Fix attached. I couldn't get hg to work the way I wanted it to so I'm doing this the lame manual way.
+
+Comment:
+Cool, I will integrate the patch.
+Thx
+
+Comment:
+Thanks!
+
+Does Mockito assume that MockHandler instances have to return the correct boxed type or not? It looks like cglib's proxy class bytecode adjusts the type if necessary. Thus, this issue is not visible on cglib. See http://code.google.com/p/dexmaker/issues/detail?id=10 for context (especially comments #11 and #16.
+
+Comment:
+Yes, the previous code assumed MockHandler should return the correct boxed type.
+Though since the MockMacker is now plugable, I don't think this be assumed anymore, I don't know how Szczepan feels about that.
+
+I'm not sure at this hour, it 1am here in paris, but there might be some code of our own involved like MethodInfo, Primitives as well.
+
+I'll take a look tomorrow anyway.
+
+Comment:
+Thanks! No rush.
+
+To me it seems that not requiring MockMaker to return the correct boxed types is not ideal. Firstly, all clients of MockHandler need to handle the various conversion cases -- lots of duplication. Secondly, some of the conversions lose precision (e.g.,  Long to Integer, Integer to Byte, Double to Float) and can cause hard to find bugs -- it's probably best to prohibit these types of conversions.
+
+However, if the existing clients of MockMaker rely on the above conversions, then fixing the situation might be harder, especially if higher layers of Mockito or lots of Mockito users implicitly rely on this feature.
+
+In the end, please take my opinions with a pinch of salt -- I don't know much about the inner workings of Mockito.
+
+Comment:
+I suspect it is only dexmaker that'll be impacted.
+
+Comment:
+Hi,
+
+I took a deeper look at the situation here, it seems that the code that Jesse patched was indeed incorrect, ReturnsEmptyValues returned an int (then autoboxed as an Integer). It slipped through because CGLIB's magic I suspect. I don't know where yet, probably in the code generation area.
+
+Anyway it worked fine because we only had CGLIB bytecode engine. Now as said I think Mockito's code should really return correct boxed types. I think the issue you mention on conversions is related to answer implementation, and ReturnsEmptyValues was incorrect on that matter.
+
+For custom answers, it might be worth checking at runtime the type returned by these answers.
+
+Anyway I integrated the patch, though I made some changes to use Primitives instead. It'll return the correct boxed types, let me know if you have issues with this code.
+
+Cheers,
+Brice
+
+Comment:
+Thanks for the fast turnaround!
+
+Comment:
+You're welcome :)
+
+Anyway this is interesting stuff, as I forked myself CGLIB but I'm kind of a newbie on this really low level stuff, I need to work more on it.
+
+Cheers,
+Brice
+
+Comment:
+Thank you very much!
+
+Comment:
+Issue 374 has been merged into this issue.

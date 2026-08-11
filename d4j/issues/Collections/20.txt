@@ -1,0 +1,8 @@
+Summary: TreeListIterator can return incorrect results after remove() is called
+
+Description:
+{{TreeList.TreeListIterator}} can get in a bad state when {{remove()}} is called, causing it to subsequently return incorrect results. This is because {{TreeListIterator}} caches an {{AVLNode}} reference in its field {{next}}, and this node reference may become stale when {{remove()}} is called (it may contain a reference to a node that no longer exists in the tree).
+
+I will attach two patches: {{testcase.patch}} will contain a test case illustrating the bug, and {{fix.patch}} will contain a fix. (To fix the bug, I simply clear the cached {{next}} value in {{TreeListIterator.remove}}.)
+
+This was originally reported in a comment to COLLECTIONS-433; I am creating a separate issue for this at Thomas Neidhart's suggestion.

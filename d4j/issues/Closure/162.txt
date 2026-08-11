@@ -1,0 +1,44 @@
+Summary: Type aliases cannot be used in type annotations before their definitions
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile the following with full warnings:
+
+goog.provide('foo.Foo');
+goog.provide('foo.Foo.Bar');
+
+goog.scope(function() {
+  /**
+   * @param {Foo.Bar} bar
+   * @constructor
+   */
+  foo.Foo = function(bar) {
+    this.bar = bar;
+  };
+  var Foo = foo.Foo;
+
+  /** @type {Foo.Bar} */
+  Foo.prototype.bar = null;
+
+  /** @constructor */
+  Foo.Bar = function() {};
+});
+
+
+<b>What is the expected output? What do you see instead?</b>
+This should work, but instead I get an error:
+
+ERROR - Bad type annotation. Unknown type Foo.Bar
+   * @param {Foo.Bar} bar
+                    ^
+
+This can be worked around by writing explicitly foo.Foo.Bar, but this leads to strange inconsistencies in the code before vs. after the alias definition.
+
+
+<b>What version of the product are you using? On what operating system?</b>
+r1346 in Linux
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+This issue was closed by revision r1412.

@@ -1,0 +1,147 @@
+JFreeChart / Bugs / #868 JCommon 1.0.12 ShapeUtilities.equal(path1,path2)
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+JFreeChart
+Bugs
+JCommon 1.0.12 ShapeUtilities.equal(path1,path2)
+Brought to you by:
+mungady
+,
+taqua
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Mailing Lists
+Tickets ▾
+Patches
+Bugs
+Feature Requests
+News
+Code
+Cvs
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+1.0.x
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#868 JCommon 1.0.12 ShapeUtilities.equal(path1,path2)
+Status:
+closed-fixed
+Owner:
+David Gilbert
+Labels:
+jcommon (9)
+Priority:
+5
+Updated:
+2008-06-02
+Created:
+2008-05-29
+Creator:
+Peter Kolb
+Private:
+No
+The comparison of two GeneralPath objects uses the same PathIterator for both objects. equal(GeneralPath path1, GeneralPath path2) will thus return true for any pair of non-null GeneralPath instances having the same windingRule.
+Discussion
+David Gilbert
+-
+2008-06-01
+assigned_to
+: nobody --> mungady
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-06-01
+Logged In: YES
+user_id=112975
+Originator: NO
+Thanks for the report.  I fixed the bug, which then (when rerunning the JUnit tests) uncovered a bug in the serialization for GeneralPath.  I'll commit the fixes to CVS shortly.
+Regards,
+Dave Gilbert
+JFreeChart Project Leader
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-06-02
+Logged In: YES
+user_id=112975
+Originator: NO
+Fixed in CVS for the upcoming 1.0.13 release.
+Regards,
+Dave Gilbert
+JFreeChart Project Leader
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-06-02
+labels
+:  --> jcommon
+status
+: open --> closed-fixed
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

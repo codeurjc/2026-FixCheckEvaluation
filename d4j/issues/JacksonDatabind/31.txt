@@ -1,0 +1,48 @@
+Title: JsonStreamContexts are not build the same way for write.. and convert methods
+
+Body:
+HI
+I got an issue reported in my jackson-antpathfilter project that the filtering is not working correctly when it is used together with Jackson's convert feature: https://github.com/Antibrumm/jackson-antpathfilter/issues/2
+
+During the investigation i found out that the cause is that the writeContext is created differently and I am wondering if this is the desired behavior or if that's a bug for you.
+
+In this comment (https://github.com/Antibrumm/jackson-antpathfilter/issues/2#issuecomment-145211847) I print out what is found in the writeContext and I have created a TestCase to reproduce the error. 
+
+Please let me know what you think.
+
+
+Comment:
+Ideally contexts would work identically, but implementations do differ. Convert uses `TokenBuffer` for storing intermediate values, and handling may differ due to implementation details.
+So it sounds like a flaw in implementation.
+
+
+Comment:
+Yes, I think I can reproduce this with 2.6.3.
+
+
+Comment:
+Turns out `TokenBuffer`s `writeNumber()` (and other scalar methods) were not properly indicating value is being written, and that resulted (not sure how) field name not getting updated.
+I created a unit test to reproduce issue, fix it -- however, it's not the exactly same as what you have, so verification would be useful, in case there could be other uncovered (so far) issues.
+But for now I assume this resolves your problem as well.
+
+
+Comment:
+You are too fast for me :) i planned to provide you with a test. I will now try it against your snapshot. 
+Thanks a lot.
+
+
+Comment:
+I did a quick test now and this fixes the issue. Thanks :+1: 
+(I did not yet implement an assert test)
+
+```
+mapper.writeValueAsString(judgements);
+    [{"id":1,"judgementNo":"1","judgementDate":1446124992511,"courthouse":{"name":"Courthouse 1"}},{"id":2,"judgementNo":"2","judgementDate":1446124992511,"courthouse":{"name":"Courthouse 2"}}]
+
+mapper.convertValue(judgements, mapper.getTypeFactory().constructCollectionType(List.class, Object.class););
+    [{id=1, judgementNo=1, judgementDate=1446124992511, courthouse={name=Courthouse 1}}, {id=2, judgementNo=2, judgementDate=1446124992511, courthouse={name=Courthouse 2}}]
+```
+
+
+Comment:
+Ok good. At least it's not something that's obviously not fixed by my change. :)

@@ -1,0 +1,35 @@
+Title: Fixed DefaultDateTypeAdapter nullability issue and JSON primitives contract
+
+Body:
+Regression in:
+
+* b8f616c939c652b8540c95fa2b377b8c628ef3ff - Migrate DefaultDateTypeAdapter to streaming adapter (#1070)
+
+Bug reports:
+
+* #1096 - 2.8.1 can't serialize and deserialize date null (2.8.0 works fine)
+* #1098 - Gson 2.8.1 DefaultDateTypeAdapter is not null safe.
+* #1095 - serialize date sometimes TreeTypeAdapter, sometimes DefaultDateTypeAdapter?
+
+Comment:
+What about writing null values?
+
+As I alluded to earlier, I'd be tempted to say use `TypeAdapter.nullSafe()`, but, like you said, the other internal TypeAdapters do the null check themselves. So, it's probably worth being consistent.
+ 👍 
+
+Comment:
+@NightlyNexus  Thanks for spotting another issue! Pushed 435cc9f05ad2cd159be22b17ba160a7d2851cdac.
+
+Comment:
+#1095
+
+Comment:
+#1145
+
+Comment:
+🤦‍♂️  ^ forgive my gaffe above.
+
+Is this something that can be merged soon?
+
+Comment:
+👍 

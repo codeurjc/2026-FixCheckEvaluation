@@ -1,0 +1,8 @@
+Title: Problem serializing `ObjectReader` (and possibly `ObjectMapper`) in 2.6
+
+Body:
+Looks like serializability is missing for one of new (2.6) helper classes, `CompactStringObjectMap`, leading to problems with systems like Apache Spark that may need to serialize handlers like `ObjectReader` and/or `ObjectWriter`.
+
+
+Comment:
+Looks like there were a few issues in trying to serialize `ObjectMapper` or `ObjectWriter` if (but only if) `JsonSerializer`(s) was being pre-fetched. Improved testing and implementation to make formerly failing cases work. While not (fully) 2.6 problem (was occurring in some form in 2.5), fix is only in 2.6 to try to reduce likelihood of regression for 2.5 maintenance branch.

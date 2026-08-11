@@ -1,0 +1,41 @@
+Title: Fails to serialize/deserialize a class where a super-class has a type parameter
+
+Body:
+```
+Unfortunately, shortly after the Gson 1.2 release, I found a bug in the
+TypeVariable support.  Basically, the following class can not be serialized
+or deserialized using Gson:
+
+public class Foo<T> {
+  private final T someField;
+
+  public Foo(T value) {
+    this.someField = value;
+  }
+
+  public boolean equals(Object o) {
+    if (!(o instanceof Foo)) {
+      return false;
+    } else {
+        return someField.equals(((Foo)o).someField);
+    }
+  }
+}
+
+public class Bar extends Foo<Integer> {
+  public Bar(Integer i) {
+    super(i);
+  }
+}
+
+Gson gson = new Gson();
+Bar bar1 = new Bar(1);
+String json = gson.toJson(bar1);   // Fails
+Bar bar2 = gson.fromJson("{\"someField\":1", Bar.class);    // Fails
+
+assertEquals(bar1, bar2);
+
+```
+
+Original issue reported on code.google.com by `joel.leitch@gmail.com` on 29 Aug 2008 at 11:53
+- Merged into: #168

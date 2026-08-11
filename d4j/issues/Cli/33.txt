@@ -1,0 +1,19 @@
+Summary: HelpFormatter strips leading whitespaces in the footer
+
+Description:
+I discovered a bug in Commons CLI while using it through Groovy's CliBuilder. See the following issue:
+
+http://jira.codehaus.org/browse/GROOVY-4313?page=com.atlassian.jira.plugin.system.issuetabpanels:all-tabpanel
+
+Copied:
+The following code:
+
+def cli = new CliBuilder(footer: "line1:\n line2:\n")
+cli.usage()
+
+Produces the following output:
+
+line1
+line2
+
+Note that there are no whitespaces before "line2". Replacing them with "\t" doesn't solve the problem either.

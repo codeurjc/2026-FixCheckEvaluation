@@ -1,0 +1,23 @@
+Summary: ExtendedProperties.convertProperties loses non-String values
+
+Description:
+A Properties object normally has Strings as its values. But it does partially support non-String-typed values via the raw put and get methods inherited from Hashtable. And other Properties methods are aware that the value might not be a String; see documentation for methods propertyNames() and stringPropertyNames() for example.
+
+ExtendedProperties.convertProperties does this:
+{code}
+for (Enumeration e = props.propertyNames(); e.hasMoreElements();) {
+      String s = (String) e.nextElement();
+      c.setProperty(s, props.getProperty(s));
+}
+{code}
+
+Properties.propertyNames() returns the names of all keys in the set, regardless of the associated value's type. But Properties.getProperty(key) returns null if the value type is not a String. The call to c.setProperty invokes setPropertyInternal, which can pass this null value to Hashtable.put, which then throws a NullPointerException.
+
+It's rather puzzling to have a valid (string-key, non-string-value) entry in the Properties object and get a NullPointerException.
+
+Perhaps the call
+  props.getProperty(s)
+can be changed to
+  props.get(s)
+
+Alternately, at least documenting that this method does not support non-string values in the input Properties object would be useful.

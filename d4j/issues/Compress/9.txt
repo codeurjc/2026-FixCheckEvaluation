@@ -1,0 +1,82 @@
+Summary: TarArchiveOutputStream.getBytesWritten() returns invalid value
+
+Description:
+It appears the TarArchiveOutputStream.getBytesWritten()returns zero or invalid value when queried.
+In the code sample below, it returns zero, even after an sizeable file was processed.
+I've printed it twice, once before closing the output stream, and once after, just for the reference.
+It is also demonstrable on multiple processed files.
+
+Within the TarArchiveOutputStream.getBytesWritten() implementation, it appears the call for count(numToWrite) is made after the numToWrite is depleted in the process of actual byte writing. When call for count(numToWrite); is moved up, the returned values for TarArchiveOutputStream.getBytesWritten() are getting equal to the sum of the sizes of processed files. This is much closer to expected value ("Returns the current number of bytes written to this stream.") but still not correct, for that number should include the tar header sizes as well.
+
+At any rate, please find the proposed patch below, merely moving count(numToWrite); up a few lines. This makes TarArchiveOutputStream.getBytesWritten() closer to true value.
+
+
+Test code:
+{code}
+@Test
+	public void tartest() throws Exception {
+		
+		FileOutputStream myOutputStream = new FileOutputStream("C:/temp/tartest.tar");
+		
+		ArchiveOutputStream sTarOut = new ArchiveStreamFactory().createArchiveOutputStream(ArchiveStreamFactory.TAR, myOutputStream);
+		
+		File sSource = new File("C:/share/od_l.txt");
+		TarArchiveEntry sEntry = new TarArchiveEntry(sSource);
+		sTarOut.putArchiveEntry(sEntry);
+		
+		FileInputStream sInput = new FileInputStream(sSource);
+		byte[] cpRead = new byte[8192];
+		
+		int iRead = 0;
+		while ((iRead = sInput.read(cpRead)) > 0) {
+			sTarOut.write(cpRead, 0, iRead);
+		}
+		
+		sLog.info("Processed: "+sTarOut.getBytesWritten()+" bytes. File Len: "+sSource.length());
+		
+		sInput.close();
+		sTarOut.closeArchiveEntry();
+		sTarOut.close();
+
+		sLog.info("Processed: "+sTarOut.getBytesWritten()+" bytes. File Len: "+sSource.length());
+
+		
+		return;
+			
+	}
+{code}
+
+Test Output:
+{code}
+Oct 21, 2011 9:09:28 AM com.cronsult.jndmpd.test.Backup tartest
+INFO: Processed: 0 bytes. File Len: 186974208
+Oct 21, 2011 9:09:28 AM com.cronsult.jndmpd.test.Backup tartest
+INFO: Processed: 0 bytes. File Len: 186974208
+{code}
+
+Proposed Patch:
+{code}
+Index: src/main/java/org/apache/commons/compress/archivers/tar/TarArchiveOutputStream.java
+===================================================================
+--- src/main/java/org/apache/commons/compress/archivers/tar/TarArchiveOutputStream.java	(revision 1187150)
++++ src/main/java/org/apache/commons/compress/archivers/tar/TarArchiveOutputStream.java	(working copy)
+@@ -276,6 +276,8 @@
+             // eliminate some of the buffer copying.
+             //
+         }
++        
++        count(numToWrite);
+ 
+         if (assemLen > 0) {
+             if ((assemLen + numToWrite) >= recordBuf.length) {
+@@ -325,7 +327,7 @@
+             wOffset += num;
+         }
+         
+-        count(numToWrite);
++        
+     }
+ 
+     /**
+
+{code}

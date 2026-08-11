@@ -1,0 +1,126 @@
+Title: W3CDom Helper fails to convert whenever some namespace declarations are missing
+
+Body:
+Hello
+
+I've been running into an issue where if I convert my Jsoup parsed document into a org.w3c.dom.Document with the W3CDom helper and that document happens to be missing namespace declarations we get the following exception:
+
+```
+NAMESPACE_ERR: An attempt is made to create or change an object in a way which is incorrect with regard to namespaces.
+```
+
+I've looked into this a bit and first thing I tried was using a locally forked version of the W3CDom helper that simply turned this flag off:
+
+```
+factory.setNamespaceAware(false);
+```
+
+However the issue continued, so instead I simply hacked the code to completely ignore namespaces
+
+```
+// (csueiras): We purposely remove any namespace because we get malformed HTML that might not be
+// declaring all of it's namespaces!
+Element el = doc.createElementNS("", sourceEl.tagName());
+```
+
+I am not completely sure if this will have any side effects, but it resolved the issues with the document I'm interacting with. I would be glad to provide a pull request if I have some guidance regarding how to properly handle this issue if it can be handled by Jsoup.
+
+The document I'm having issues is simply making use of the Facebook like buttons using tags like this:
+
+```
+<fb:like ...
+```
+
+But there's no namespace declaration for "fb".
+
+Comment:
+The spec says:
+> The DOM, the HTML syntax, and the XML syntax cannot all represent the same content. For example, namespaces cannot be represented using the HTML syntax, but they are supported in the DOM and in the XML syntax.
+
+It also contains this note:
+> In the HTML syntax, namespace prefixes and namespace declarations do not have the same effect as in XML. For instance, the colon has no special meaning in HTML element names.
+
+So HTML doesn't support namespaces. The `fb:` is part of the "local name".
+
+I guess the problem is that Jsoup's `Element` isn't properly namespace aware. The `W3CDom` class treats everything before the first `:` of the tag name as namespace prefix. That's wrong for elements created by the HTML parser.
+
+Comment:
+I see, do you have any recommendations on how this should be handled? My modification is working just fine for my current problem, but I'm not sure if this has unintended consequences.
+
+Comment:
+I believe the right approach is to make jsoup's `Element` namespace/prefix aware. The DOM [`Element`](https://dom.spec.whatwg.org/#interface-element) type for example has the attributes `namespaceURI`, `prefix`, and `localName`.
+
+Using a similar approach the jsoup parsers could correctly populate the `prefix` field (HTML -> always `null`, XML -> populate with namespace prefix) and `W3CDom` could use that field instead of trying to extract the namespace prefix from the tag name.
+
+But I have to note that I have neither read all of jsoup's code nor the complete HTML specification. So I don't know what wider implications a change like this could have.
+
+If you only use the HTML parser and never explicitly create an element with a namespace I think your change to `W3CDom` is fine.
+
+Comment:
+Mmm I don't think it's really helpful to go to the effort / complexity of making the HTML parser and Element namespace aware. I think we could probably just update the W3CDom convertor to check to see if there is a namespace defined, and if not, set the namespace to empty on creation.
+
+Comment:
+I encountered the same issue parsing `<fb:whatever>` markups and I'm interested in solving this annoying issue, is there any ongoing PR to fix this use case ?
+
+Comment:
+Thanks, fixed
+
+Comment:
+Have the same issue. Using Jsoup version 1.11.3.
+Parsing existing HTML that I am unable to modify.
+
+StackTrace
+NAMESPACE_ERR: An attempt is made to create or change an object in a way which is incorrect with regard to namespaces.
+org.w3c.dom.DOMException
+	at com.sun.org.apache.xerces.internal.dom.ElementNSImpl.setName(ElementNSImpl.java:153)
+	at com.sun.org.apache.xerces.internal.dom.ElementNSImpl.<init>(ElementNSImpl.java:84)
+	at com.sun.org.apache.xerces.internal.dom.CoreDocumentImpl.createElementNS(CoreDocumentImpl.java:2121)
+	at org.jsoup.helper.W3CDom$W3CBuilder.head(W3CDom.java:90)
+	at org.jsoup.select.NodeTraversor.traverse(NodeTraversor.java:45)
+	at org.jsoup.helper.W3CDom.convert(W3CDom.java:63)
+	at org.jsoup.helper.W3CDom.fromJsoup(W3CDom.java:44)
+	at edu.usc.irds.sparkler.plugin.AmpConverterParser.parseMetadata(AmpConverterParser.java:45)
+	at edu.usc.irds.sparkler.plugin.AmpConverterParserTest.testAdd(AmpConverterParserTest.java:29)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:50)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:47)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:325)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:78)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:57)
+	at org.junit.runners.ParentRunner$3.run(ParentRunner.java:290)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:71)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:288)
+	at org.junit.runners.ParentRunner.access$000(ParentRunner.java:58)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:268)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:363)
+	at org.apache.maven.surefire.junit4.JUnit4TestSet.execute(JUnit4TestSet.java:53)
+	at org.apache.maven.surefire.junit4.JUnit4Provider.executeTestSet(JUnit4Provider.java:123)
+	at org.apache.maven.surefire.junit4.JUnit4Provider.invoke(JUnit4Provider.java:104)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at org.apache.maven.surefire.util.ReflectionUtils.invokeMethodWithArray(ReflectionUtils.java:164)
+	at org.apache.maven.surefire.booter.ProviderFactory$ProviderProxy.invoke(ProviderFactory.java:110)
+	at org.apache.maven.surefire.booter.SurefireStarter.invokeProvider(SurefireStarter.java:175)
+	at org.apache.maven.surefire.booter.SurefireStarter.runSuitesInProcessWhenForked(SurefireStarter.java:107)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:68)
+
+
+
+Comment:
+@micheladennis the fix seems to be shipped with version 1.12.1 and higher. Can you please update and retry ?
+
+Comment:
+MavenRepository seems to only have up to 1.11.3. 
+
+Comment:
+@Freezystem I'm encountering the same issue but were unable to found the `1.12.1` release, is it really deployed?
+
+Comment:
+Actually I'm also stuck with this issue and there's no `1.12.1` version yet, but there's a [milestone](https://github.com/jhy/jsoup/milestone/15) for it. Don't know when this version will be released but I hope it will be as soon as possible.

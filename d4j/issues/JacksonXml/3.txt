@@ -1,0 +1,53 @@
+Title: FromXMLParser nextTextValue() incorrect for attributes
+
+Body:
+As of #129 the Method nextTextValue of FromXMLParser will no longer return a value for attributes. As the _currToken is JsonToken.VALUE_STRING in this case I think it is wrong to return null and it should return _currText.
+
+
+Comment:
+Quite possible. Do you have a simple reproduction to show the problem, and to make sure fix would resolve the problem.
+
+
+Comment:
+Modified test from XmlParserTest:
+
+```
+public void testXmlAttributesWithNextTextValue() throws Exception
+    {
+        final String XML = "<data max=\"7\" offset=\"9\"/>";
+
+        FromXmlParser xp = (FromXmlParser) _xmlFactory.createParser(new StringReader(XML));
+
+        // First: verify handling without forcing array handling:
+        assertToken(JsonToken.START_OBJECT, xp.nextToken()); // <data>
+        assertToken(JsonToken.FIELD_NAME, xp.nextToken()); // <max>
+        assertEquals("max", xp.getCurrentName());
+        assertEquals("7", xp.nextTextValue());
+
+        assertToken(JsonToken.FIELD_NAME, xp.nextToken()); // <offset>
+        assertEquals("offset", xp.getCurrentName());
+
+        StringWriter w = new StringWriter();
+        assertEquals(6, xp.getText(w));
+        assertEquals("offset", w.toString());
+
+        assertEquals("9", xp.nextTextValue());
+
+        w = new StringWriter();
+        assertEquals(1, xp.getText(w));
+        assertEquals("9", w.toString());
+
+        assertToken(JsonToken.END_OBJECT, xp.nextToken()); // </data>
+        xp.close();
+    }
+```
+
+
+Comment:
+@frederikz  Forgot to ask which versions this is with?
+
+
+Comment:
+Was occurring at least with 2.7 and 2.8; and since earlier branches not maintained any more bit of a moot point. Fix will be in 2.7.7 / 2.8.2; was a simple case of not actually returning the text...
+
+Thank you for reporting this!

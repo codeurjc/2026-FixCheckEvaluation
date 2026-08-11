@@ -1,0 +1,854 @@
+{
+  "project": "Math",
+  "updated_at": "2026-08-11T13:55:25.612185+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://issues.apache.org/jira/browse/MATH-996",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 388,
+      "fetched_at": "2026-08-11T13:55:10.684640+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://issues.apache.org/jira/browse/MATH-1021",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1240,
+      "fetched_at": "2026-08-11T13:55:10.827584+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://issues.apache.org/jira/browse/MATH-1005",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 374,
+      "fetched_at": "2026-08-11T13:55:10.969725+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://issues.apache.org/jira/browse/MATH-988",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 356,
+      "fetched_at": "2026-08-11T13:55:11.109578+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://issues.apache.org/jira/browse/MATH-934",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 277,
+      "fetched_at": "2026-08-11T13:55:11.247996+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://issues.apache.org/jira/browse/MATH-949",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1786,
+      "fetched_at": "2026-08-11T13:55:11.390591+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://issues.apache.org/jira/browse/MATH-950",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 953,
+      "fetched_at": "2026-08-11T13:55:11.533387+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://issues.apache.org/jira/browse/MATH-942",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 754,
+      "fetched_at": "2026-08-11T13:55:11.675755+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://issues.apache.org/jira/browse/MATH-938",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 344,
+      "fetched_at": "2026-08-11T13:55:11.818767+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://issues.apache.org/jira/browse/MATH-935",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 250,
+      "fetched_at": "2026-08-11T13:55:11.960294+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://issues.apache.org/jira/browse/MATH-929",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 291,
+      "fetched_at": "2026-08-11T13:55:12.099619+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://issues.apache.org/jira/browse/MATH-927",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 668,
+      "fetched_at": "2026-08-11T13:55:12.241147+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://issues.apache.org/jira/browse/MATH-924",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 562,
+      "fetched_at": "2026-08-11T13:55:12.382735+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://issues.apache.org/jira/browse/MATH-924",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 562,
+      "fetched_at": "2026-08-11T13:55:12.524298+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://issues.apache.org/jira/browse/MATH-904",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 527,
+      "fetched_at": "2026-08-11T13:55:12.664880+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://issues.apache.org/jira/browse/MATH-905",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 708,
+      "fetched_at": "2026-08-11T13:55:12.807777+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://issues.apache.org/jira/browse/MATH-778",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 372,
+      "fetched_at": "2026-08-11T13:55:12.949518+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://issues.apache.org/jira/browse/MATH-867",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 601,
+      "fetched_at": "2026-08-11T13:55:13.090504+00:00"
+    },
+    {
+      "bug_id": "19",
+      "url": "https://issues.apache.org/jira/browse/MATH-865",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 531,
+      "fetched_at": "2026-08-11T13:55:13.233606+00:00"
+    },
+    {
+      "bug_id": "20",
+      "url": "https://issues.apache.org/jira/browse/MATH-864",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 613,
+      "fetched_at": "2026-08-11T13:55:13.376564+00:00"
+    },
+    {
+      "bug_id": "21",
+      "url": "https://issues.apache.org/jira/browse/MATH-789",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3583,
+      "fetched_at": "2026-08-11T13:55:13.518778+00:00"
+    },
+    {
+      "bug_id": "22",
+      "url": "https://issues.apache.org/jira/browse/MATH-859",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 640,
+      "fetched_at": "2026-08-11T13:55:13.660194+00:00"
+    },
+    {
+      "bug_id": "23",
+      "url": "https://issues.apache.org/jira/browse/MATH-855",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 316,
+      "fetched_at": "2026-08-11T13:55:13.803243+00:00"
+    },
+    {
+      "bug_id": "24",
+      "url": "https://issues.apache.org/jira/browse/MATH-855",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 316,
+      "fetched_at": "2026-08-11T13:55:13.944410+00:00"
+    },
+    {
+      "bug_id": "25",
+      "url": "https://issues.apache.org/jira/browse/MATH-844",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 258,
+      "fetched_at": "2026-08-11T13:55:14.085867+00:00"
+    },
+    {
+      "bug_id": "26",
+      "url": "https://issues.apache.org/jira/browse/MATH-836",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2319,
+      "fetched_at": "2026-08-11T13:55:14.228279+00:00"
+    },
+    {
+      "bug_id": "27",
+      "url": "https://issues.apache.org/jira/browse/MATH-835",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 581,
+      "fetched_at": "2026-08-11T13:55:14.369345+00:00"
+    },
+    {
+      "bug_id": "28",
+      "url": "https://issues.apache.org/jira/browse/MATH-828",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1180,
+      "fetched_at": "2026-08-11T13:55:14.512435+00:00"
+    },
+    {
+      "bug_id": "29",
+      "url": "https://issues.apache.org/jira/browse/MATH-803",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1101,
+      "fetched_at": "2026-08-11T13:55:14.654774+00:00"
+    },
+    {
+      "bug_id": "30",
+      "url": "https://issues.apache.org/jira/browse/MATH-790",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 453,
+      "fetched_at": "2026-08-11T13:55:14.797900+00:00"
+    },
+    {
+      "bug_id": "31",
+      "url": "https://issues.apache.org/jira/browse/MATH-718",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 630,
+      "fetched_at": "2026-08-11T13:55:14.938383+00:00"
+    },
+    {
+      "bug_id": "32",
+      "url": "https://issues.apache.org/jira/browse/MATH-780",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 641,
+      "fetched_at": "2026-08-11T13:55:15.082019+00:00"
+    },
+    {
+      "bug_id": "33",
+      "url": "https://issues.apache.org/jira/browse/MATH-781",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 193,
+      "fetched_at": "2026-08-11T13:55:15.224922+00:00"
+    },
+    {
+      "bug_id": "34",
+      "url": "https://issues.apache.org/jira/browse/MATH-779",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 273,
+      "fetched_at": "2026-08-11T13:55:15.367554+00:00"
+    },
+    {
+      "bug_id": "35",
+      "url": "https://issues.apache.org/jira/browse/MATH-776",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 231,
+      "fetched_at": "2026-08-11T13:55:15.509687+00:00"
+    },
+    {
+      "bug_id": "36",
+      "url": "https://issues.apache.org/jira/browse/MATH-744",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 518,
+      "fetched_at": "2026-08-11T13:55:15.652373+00:00"
+    },
+    {
+      "bug_id": "37",
+      "url": "https://issues.apache.org/jira/browse/MATH-722",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 630,
+      "fetched_at": "2026-08-11T13:55:15.795278+00:00"
+    },
+    {
+      "bug_id": "38",
+      "url": "https://issues.apache.org/jira/browse/MATH-728",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1632,
+      "fetched_at": "2026-08-11T13:55:15.937121+00:00"
+    },
+    {
+      "bug_id": "39",
+      "url": "https://issues.apache.org/jira/browse/MATH-727",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 576,
+      "fetched_at": "2026-08-11T13:55:16.077615+00:00"
+    },
+    {
+      "bug_id": "40",
+      "url": "https://issues.apache.org/jira/browse/MATH-716",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 833,
+      "fetched_at": "2026-08-11T13:55:16.218174+00:00"
+    },
+    {
+      "bug_id": "41",
+      "url": "https://issues.apache.org/jira/browse/MATH-704",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 539,
+      "fetched_at": "2026-08-11T13:55:16.360129+00:00"
+    },
+    {
+      "bug_id": "42",
+      "url": "https://issues.apache.org/jira/browse/MATH-713",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 518,
+      "fetched_at": "2026-08-11T13:55:16.502554+00:00"
+    },
+    {
+      "bug_id": "43",
+      "url": "https://issues.apache.org/jira/browse/MATH-691",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 631,
+      "fetched_at": "2026-08-11T13:55:16.642788+00:00"
+    },
+    {
+      "bug_id": "44",
+      "url": "https://issues.apache.org/jira/browse/MATH-695",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 426,
+      "fetched_at": "2026-08-11T13:55:16.780959+00:00"
+    },
+    {
+      "bug_id": "45",
+      "url": "https://issues.apache.org/jira/browse/MATH-679",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 472,
+      "fetched_at": "2026-08-11T13:55:16.922838+00:00"
+    },
+    {
+      "bug_id": "46",
+      "url": "https://issues.apache.org/jira/browse/MATH-657",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 293,
+      "fetched_at": "2026-08-11T13:55:17.066337+00:00"
+    },
+    {
+      "bug_id": "47",
+      "url": "https://issues.apache.org/jira/browse/MATH-657",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 293,
+      "fetched_at": "2026-08-11T13:55:17.209288+00:00"
+    },
+    {
+      "bug_id": "48",
+      "url": "https://issues.apache.org/jira/browse/MATH-631",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 605,
+      "fetched_at": "2026-08-11T13:55:17.352218+00:00"
+    },
+    {
+      "bug_id": "49",
+      "url": "https://issues.apache.org/jira/browse/MATH-645",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1418,
+      "fetched_at": "2026-08-11T13:55:17.494045+00:00"
+    },
+    {
+      "bug_id": "50",
+      "url": "https://issues.apache.org/jira/browse/MATH-631",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 605,
+      "fetched_at": "2026-08-11T13:55:17.636968+00:00"
+    },
+    {
+      "bug_id": "51",
+      "url": "https://issues.apache.org/jira/browse/MATH-631",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 605,
+      "fetched_at": "2026-08-11T13:55:17.778875+00:00"
+    },
+    {
+      "bug_id": "52",
+      "url": "https://issues.apache.org/jira/browse/MATH-639",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1623,
+      "fetched_at": "2026-08-11T13:55:17.919717+00:00"
+    },
+    {
+      "bug_id": "53",
+      "url": "https://issues.apache.org/jira/browse/MATH-618",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 701,
+      "fetched_at": "2026-08-11T13:55:18.062717+00:00"
+    },
+    {
+      "bug_id": "54",
+      "url": "https://issues.apache.org/jira/browse/MATH-567",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1004,
+      "fetched_at": "2026-08-11T13:55:18.205795+00:00"
+    },
+    {
+      "bug_id": "55",
+      "url": "https://issues.apache.org/jira/browse/MATH-554",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 510,
+      "fetched_at": "2026-08-11T13:55:18.348573+00:00"
+    },
+    {
+      "bug_id": "56",
+      "url": "https://issues.apache.org/jira/browse/MATH-552",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 413,
+      "fetched_at": "2026-08-11T13:55:18.493740+00:00"
+    },
+    {
+      "bug_id": "57",
+      "url": "https://issues.apache.org/jira/browse/MATH-546",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 599,
+      "fetched_at": "2026-08-11T13:55:18.634340+00:00"
+    },
+    {
+      "bug_id": "58",
+      "url": "https://issues.apache.org/jira/browse/MATH-519",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1636,
+      "fetched_at": "2026-08-11T13:55:18.776551+00:00"
+    },
+    {
+      "bug_id": "59",
+      "url": "https://issues.apache.org/jira/browse/MATH-482",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 306,
+      "fetched_at": "2026-08-11T13:55:18.924724+00:00"
+    },
+    {
+      "bug_id": "60",
+      "url": "https://issues.apache.org/jira/browse/MATH-414",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 871,
+      "fetched_at": "2026-08-11T13:55:19.079878+00:00"
+    },
+    {
+      "bug_id": "61",
+      "url": "https://issues.apache.org/jira/browse/MATH-349",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 938,
+      "fetched_at": "2026-08-11T13:55:19.222490+00:00"
+    },
+    {
+      "bug_id": "62",
+      "url": "https://issues.apache.org/jira/browse/MATH-413",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3974,
+      "fetched_at": "2026-08-11T13:55:19.364686+00:00"
+    },
+    {
+      "bug_id": "63",
+      "url": "https://issues.apache.org/jira/browse/MATH-370",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 236,
+      "fetched_at": "2026-08-11T13:55:19.506356+00:00"
+    },
+    {
+      "bug_id": "64",
+      "url": "https://issues.apache.org/jira/browse/MATH-405",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 365,
+      "fetched_at": "2026-08-11T13:55:19.648367+00:00"
+    },
+    {
+      "bug_id": "65",
+      "url": "https://issues.apache.org/jira/browse/MATH-377",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 544,
+      "fetched_at": "2026-08-11T13:55:19.793937+00:00"
+    },
+    {
+      "bug_id": "66",
+      "url": "https://issues.apache.org/jira/browse/MATH-395",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 624,
+      "fetched_at": "2026-08-11T13:55:19.936487+00:00"
+    },
+    {
+      "bug_id": "67",
+      "url": "https://issues.apache.org/jira/browse/MATH-393",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 621,
+      "fetched_at": "2026-08-11T13:55:20.078939+00:00"
+    },
+    {
+      "bug_id": "68",
+      "url": "https://issues.apache.org/jira/browse/MATH-362",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 279,
+      "fetched_at": "2026-08-11T13:55:20.219840+00:00"
+    },
+    {
+      "bug_id": "69",
+      "url": "https://issues.apache.org/jira/browse/MATH-371",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1217,
+      "fetched_at": "2026-08-11T13:55:20.362656+00:00"
+    },
+    {
+      "bug_id": "70",
+      "url": "https://issues.apache.org/jira/browse/MATH-369",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 685,
+      "fetched_at": "2026-08-11T13:55:20.505371+00:00"
+    },
+    {
+      "bug_id": "71",
+      "url": "https://issues.apache.org/jira/browse/MATH-358",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1380,
+      "fetched_at": "2026-08-11T13:55:20.644594+00:00"
+    },
+    {
+      "bug_id": "72",
+      "url": "https://issues.apache.org/jira/browse/MATH-344",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 299,
+      "fetched_at": "2026-08-11T13:55:20.787317+00:00"
+    },
+    {
+      "bug_id": "73",
+      "url": "https://issues.apache.org/jira/browse/MATH-343",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 388,
+      "fetched_at": "2026-08-11T13:55:20.928426+00:00"
+    },
+    {
+      "bug_id": "74",
+      "url": "https://issues.apache.org/jira/browse/MATH-338",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2221,
+      "fetched_at": "2026-08-11T13:55:21.071353+00:00"
+    },
+    {
+      "bug_id": "75",
+      "url": "https://issues.apache.org/jira/browse/MATH-329",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 494,
+      "fetched_at": "2026-08-11T13:55:21.212788+00:00"
+    },
+    {
+      "bug_id": "76",
+      "url": "https://issues.apache.org/jira/browse/MATH-320",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 805,
+      "fetched_at": "2026-08-11T13:55:21.355130+00:00"
+    },
+    {
+      "bug_id": "77",
+      "url": "https://issues.apache.org/jira/browse/MATH-326",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1465,
+      "fetched_at": "2026-08-11T13:55:21.498210+00:00"
+    },
+    {
+      "bug_id": "78",
+      "url": "https://issues.apache.org/jira/browse/MATH-322",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1209,
+      "fetched_at": "2026-08-11T13:55:21.638644+00:00"
+    },
+    {
+      "bug_id": "79",
+      "url": "https://issues.apache.org/jira/browse/MATH-305",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1416,
+      "fetched_at": "2026-08-11T13:55:21.781135+00:00"
+    },
+    {
+      "bug_id": "80",
+      "url": "https://issues.apache.org/jira/browse/MATH-318",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3043,
+      "fetched_at": "2026-08-11T13:55:21.924296+00:00"
+    },
+    {
+      "bug_id": "81",
+      "url": "https://issues.apache.org/jira/browse/MATH-308",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3458,
+      "fetched_at": "2026-08-11T13:55:22.065714+00:00"
+    },
+    {
+      "bug_id": "82",
+      "url": "https://issues.apache.org/jira/browse/MATH-288",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1615,
+      "fetched_at": "2026-08-11T13:55:22.208789+00:00"
+    },
+    {
+      "bug_id": "83",
+      "url": "https://issues.apache.org/jira/browse/MATH-286",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1555,
+      "fetched_at": "2026-08-11T13:55:22.351280+00:00"
+    },
+    {
+      "bug_id": "84",
+      "url": "https://issues.apache.org/jira/browse/MATH-283",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 270,
+      "fetched_at": "2026-08-11T13:55:22.493339+00:00"
+    },
+    {
+      "bug_id": "85",
+      "url": "https://issues.apache.org/jira/browse/MATH-280",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1758,
+      "fetched_at": "2026-08-11T13:55:22.635613+00:00"
+    },
+    {
+      "bug_id": "86",
+      "url": "https://issues.apache.org/jira/browse/MATH-274",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1289,
+      "fetched_at": "2026-08-11T13:55:22.777712+00:00"
+    },
+    {
+      "bug_id": "87",
+      "url": "https://issues.apache.org/jira/browse/MATH-273",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 427,
+      "fetched_at": "2026-08-11T13:55:22.918596+00:00"
+    },
+    {
+      "bug_id": "88",
+      "url": "https://issues.apache.org/jira/browse/MATH-272",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 158,
+      "fetched_at": "2026-08-11T13:55:23.061115+00:00"
+    },
+    {
+      "bug_id": "89",
+      "url": "https://issues.apache.org/jira/browse/MATH-259",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1867,
+      "fetched_at": "2026-08-11T13:55:23.201598+00:00"
+    },
+    {
+      "bug_id": "90",
+      "url": "https://issues.apache.org/jira/browse/MATH-259",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1867,
+      "fetched_at": "2026-08-11T13:55:23.344043+00:00"
+    },
+    {
+      "bug_id": "91",
+      "url": "https://issues.apache.org/jira/browse/MATH-252",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 598,
+      "fetched_at": "2026-08-11T13:55:23.485009+00:00"
+    },
+    {
+      "bug_id": "92",
+      "url": "https://issues.apache.org/jira/browse/MATH-241",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1607,
+      "fetched_at": "2026-08-11T13:55:23.628889+00:00"
+    },
+    {
+      "bug_id": "93",
+      "url": "https://issues.apache.org/jira/browse/MATH-240",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 502,
+      "fetched_at": "2026-08-11T13:55:23.768618+00:00"
+    },
+    {
+      "bug_id": "94",
+      "url": "https://issues.apache.org/jira/browse/MATH-238",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 458,
+      "fetched_at": "2026-08-11T13:55:23.910021+00:00"
+    },
+    {
+      "bug_id": "95",
+      "url": "https://issues.apache.org/jira/browse/MATH-227",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1371,
+      "fetched_at": "2026-08-11T13:55:24.052260+00:00"
+    },
+    {
+      "bug_id": "96",
+      "url": "https://issues.apache.org/jira/browse/MATH-221",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1357,
+      "fetched_at": "2026-08-11T13:55:24.194613+00:00"
+    },
+    {
+      "bug_id": "97",
+      "url": "https://issues.apache.org/jira/browse/MATH-204",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1558,
+      "fetched_at": "2026-08-11T13:55:24.336909+00:00"
+    },
+    {
+      "bug_id": "98",
+      "url": "https://issues.apache.org/jira/browse/MATH-209",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 620,
+      "fetched_at": "2026-08-11T13:55:24.479369+00:00"
+    },
+    {
+      "bug_id": "99",
+      "url": "https://issues.apache.org/jira/browse/MATH-243",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 298,
+      "fetched_at": "2026-08-11T13:55:24.621226+00:00"
+    },
+    {
+      "bug_id": "100",
+      "url": "https://issues.apache.org/jira/browse/MATH-200",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 940,
+      "fetched_at": "2026-08-11T13:55:24.763171+00:00"
+    },
+    {
+      "bug_id": "101",
+      "url": "https://issues.apache.org/jira/browse/MATH-198",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1098,
+      "fetched_at": "2026-08-11T13:55:24.904347+00:00"
+    },
+    {
+      "bug_id": "102",
+      "url": "https://issues.apache.org/jira/browse/MATH-175",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1732,
+      "fetched_at": "2026-08-11T13:55:25.047113+00:00"
+    },
+    {
+      "bug_id": "103",
+      "url": "https://issues.apache.org/jira/browse/MATH-167",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 337,
+      "fetched_at": "2026-08-11T13:55:25.189674+00:00"
+    },
+    {
+      "bug_id": "104",
+      "url": "https://issues.apache.org/jira/browse/MATH-166",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 410,
+      "fetched_at": "2026-08-11T13:55:25.330925+00:00"
+    },
+    {
+      "bug_id": "105",
+      "url": "https://issues.apache.org/jira/browse/MATH-85",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 651,
+      "fetched_at": "2026-08-11T13:55:25.470974+00:00"
+    },
+    {
+      "bug_id": "106",
+      "url": "https://issues.apache.org/jira/browse/MATH-60",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1506,
+      "fetched_at": "2026-08-11T13:55:25.612146+00:00"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+Summary: IteratorUtils.collatedIterator do not use natural ordering if no comparator was provided
+
+Description:
+In case a null comparator was provided natural ordering should be used, as stated in the javadoc.
+
+In fact an exception is thrown the first time the returned iterator is used.

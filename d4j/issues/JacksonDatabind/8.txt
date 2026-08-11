@@ -1,0 +1,5 @@
+Title: Problem with bogus conflict between single-arg-String vs `CharSequence` constructor
+
+Body:
+Although it is good idea to allow recognizing `CharSequence` as almost like an alias for `String`, this can cause problems for classes like `StringBuilder` that have separate constructors for both.
+This actually throws a bogus exception for 2.5.0, due to introduction of ability to recognize `CharSequence`.

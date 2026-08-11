@@ -1,0 +1,23 @@
+Summary: Serialization/Deserialization doesn't work well with empty buffers.
+
+Description:
+When I serialize the queue to disk an it has elements, all works ok, but when I serialize an empty queue I have some problems when I create a new object using the serialized file.
+
+When I deserialize the queue it has a 'buffer' with size 1 (with null content), 'tail' and 'head' fields are 0 (they are declared transient). So, when I try to add a new object to the queue, the sentence:
+
+ Object[] tmp = new Object[((buffer.length - 1) * 2) + 1];
+
+Is executed in the add() method to increase the buffer length, but the buffer remains with the same size! (buffer.length = 1 --> (1 - 1) * 2 + 1 = 1). So, the object is added and when the tail is going to be incremented, it is reset to 0!! 
+
+    private int increment(int index) {
+        index++;
+        if (index >= buffer.length) {
+            index = 0;
+        }
+        return index;
+    }
+
+
+So it is impossible to add new elements after an empty queue has been serialized / deserialized.
+
+I attach a simple TestCase where this is proved. The example works when you use XMLEncoder to serialize the buffer but doesn't work if you use ObjectOutputStream or XStream.

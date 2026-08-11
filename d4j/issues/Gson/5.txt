@@ -1,0 +1,142 @@
+Title: ISO8601 is not fully implemented
+
+Body:
+Hi guys,
+
+I'm working on a project where I have to parse `2016-01-11T11:06:14.000-02` to java.util.Date which is a valid date according to [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) on page 12.
+
+But I got an Exception trying to archive it
+
+```
+Caused by: com.google.gson.JsonSyntaxException: 2016-01-11T11:06:14.000-02
+        at com.google.gson.DefaultDateTypeAdapter.deserializeToDate(DefaultDateTypeAdapter.java:107)
+        at com.google.gson.DefaultDateTypeAdapter.deserialize(DefaultDateTypeAdapter.java:84)
+        at com.google.gson.DefaultDateTypeAdapter.deserialize(DefaultDateTypeAdapter.java:38)
+        at com.google.gson.TreeTypeAdapter.read(TreeTypeAdapter.java:58)
+        at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$1.read(ReflectiveTypeAdapterFactory.java:117)
+        at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:217)
+        at com.google.gson.internal.bind.TypeAdapterRuntimeTypeWrapper.read(TypeAdapterRuntimeTypeWrapper.java:40)
+        at com.google.gson.internal.bind.CollectionTypeAdapterFactory$Adapter.read(CollectionTypeAdapterFactory.java:82)
+        at com.google.gson.internal.bind.CollectionTypeAdapterFactory$Adapter.read(CollectionTypeAdapterFactory.java:61)
+        at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$1.read(ReflectiveTypeAdapterFactory.java:117)
+        at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:217)
+        at com.google.gson.Gson.fromJson(Gson.java:861)
+        at com.google.gson.Gson.fromJson(Gson.java:926)
+        at com.google.gson.Gson.fromJson(Gson.java:899)
+        at ...
+Caused by: java.text.ParseException: Failed to parse date ["2016-01-11T11:06:14.000-02']: Mismatching time zone indicator: GMT-02 given, resolves to GMT-02:00
+        at com.google.gson.internal.bind.util.ISO8601Utils.parse(ISO8601Utils.java:270)
+        at com.google.gson.DefaultDateTypeAdapter.deserializeToDate(DefaultDateTypeAdapter.java:105)
+        ... 31 more
+Caused by: java.lang.IndexOutOfBoundsException: Mismatching time zone indicator: GMT-02 given, resolves to GMT-02:00
+        at com.google.gson.internal.bind.util.ISO8601Utils.parse(ISO8601Utils.java:236)
+        ... 32 more
+```
+
+I'm able to fix this if it sounds reasonable.
+
+
+Comment:
+Does using the `UtcDateTypeAdapter` work? https://github.com/google/gson/blob/master/extras/src/main/java/com/google/gson/typeadapters/UtcDateTypeAdapter.java
+
+
+Comment:
+It doesn't seem to work:
+
+``` java
+public class Bla {
+        private Date createdAt;
+
+        public Date getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(Date createdAt) {
+            this.createdAt = createdAt;
+        }
+    }
+```
+
+registering adapter:
+
+``` java
+public class GsonFactory {
+
+    public Gson getGson(){
+
+        GsonBuilder gsonBuilder = new GsonBuilder();
+
+        return gsonBuilder.registerTypeAdapter(Date.class, new UtcDateTypeAdapter()).create();
+    }
+}
+```
+
+test case:
+
+``` java
+public class GsonFactoryTest {
+
+    @Test
+    public void dateShouldBeParsed() throws Exception {
+        GsonFactory gsonFactory = new GsonFactory();
+        Gson gson = gsonFactory.getGson();
+
+        Bla bla = gson.fromJson("{\"createdAt\": \"2016-01-08T17:29:05.730-02\"}", Bla.class);
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(bla.getCreatedAt());
+
+        assertEquals(2016, calendar.get(Calendar.YEAR));
+    }
+}
+```
+
+and the return:
+
+```
+com.google.gson.JsonParseException: java.text.ParseException: Failed to parse date ["2016-01-08T17:29:05.730-02']: null
+    at notificador.domain.config.factory.UtcDateTypeAdapter.read(UtcDateTypeAdapter.java:60)
+    at notificador.domain.config.factory.UtcDateTypeAdapter.read(UtcDateTypeAdapter.java:33)
+    at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$1.read(ReflectiveTypeAdapterFactory.java:117)
+    at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:217)
+    at com.google.gson.Gson.fromJson(Gson.java:861)
+    at com.google.gson.Gson.fromJson(Gson.java:826)
+    at com.google.gson.Gson.fromJson(Gson.java:775)
+    at com.google.gson.Gson.fromJson(Gson.java:747)
+    at notificador.domain.config.factory.GsonFactoryTest.dateShouldBeParsed(GsonFactoryTest.java:18)
+    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.lang.reflect.Method.invoke(Method.java:497)
+    at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:47)
+    at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+    at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:44)
+    at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+    at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:271)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:70)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:50)
+    at org.junit.runners.ParentRunner$3.run(ParentRunner.java:238)
+    at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:63)
+    at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:236)
+    at org.junit.runners.ParentRunner.access$000(ParentRunner.java:53)
+    at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:229)
+    at org.junit.runners.ParentRunner.run(ParentRunner.java:309)
+    at org.apache.maven.surefire.junit4.JUnit4Provider.execute(JUnit4Provider.java:252)
+    at org.apache.maven.surefire.junit4.JUnit4Provider.executeTestSet(JUnit4Provider.java:141)
+    at org.apache.maven.surefire.junit4.JUnit4Provider.invoke(JUnit4Provider.java:112)
+    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.lang.reflect.Method.invoke(Method.java:497)
+    at org.apache.maven.surefire.util.ReflectionUtils.invokeMethodWithArray(ReflectionUtils.java:189)
+    at org.apache.maven.surefire.booter.ProviderFactory$ProviderProxy.invoke(ProviderFactory.java:165)
+    at org.apache.maven.surefire.booter.ProviderFactory.invokeProvider(ProviderFactory.java:85)
+    at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:115)
+    at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:75)
+Caused by: java.text.ParseException: Failed to parse date ["2016-01-08T17:29:05.730-02']: null
+    at notificador.domain.config.factory.UtcDateTypeAdapter.parse(UtcDateTypeAdapter.java:234)
+    at notificador.domain.config.factory.UtcDateTypeAdapter.read(UtcDateTypeAdapter.java:57)
+    ... 37 more
+```
+
+Am I doing something wrong?

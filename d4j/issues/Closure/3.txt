@@ -1,0 +1,42 @@
+Summary: optimization fails with variable in catch clause
+
+Description:
+Enter the following in the closure service:
+
+function getStack() {
+  var getErrorObject = function() {
+    try {
+      throw Error(&quot;&quot;);
+    } catch(err) {
+      return err;
+    }
+  };
+  return getErrorObject().stack;
+}
+window['getStackTrace']=getStack;
+
+Use Optimization = Simple. Note the following result:
+
+function getStack() 
+{ 
+  try 
+  { 
+    throw Error(&quot;&quot;); 
+  }
+  catch(a) 
+  { 
+  } 
+  return a.stack 
+} 
+window.getStackTrace = getStack;
+
+The scope of the variable a is limited to the catch clause, but the compiler references it illegally as the return value of the inlined function.
+
+Comment:
+Thanks for the report and the reduced test case.  It looks like the "flow sensitive variable inliner" is causing this problem.
+
+Comment:
+I have a fix for this.
+
+Comment:
+This issue was closed by revision r2415.

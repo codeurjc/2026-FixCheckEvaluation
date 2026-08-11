@@ -1,0 +1,35 @@
+Summary: anonymous object type inference inconsistency when used in union
+
+Description:
+Code:
+/** @param {{prop: string, prop2: (string|undefined)}} record */
+var func = function(record) {
+  window.console.log(record.prop);
+}
+
+/** @param {{prop: string, prop2: (string|undefined)}|string} record */
+var func2 = function(record) {
+  if (typeof record == 'string') {
+    window.console.log(record);
+  } else {
+    window.console.log(record.prop);
+  }
+}
+
+func({prop: 'a'});
+func2({prop: 'a'});
+
+
+
+
+errors with:
+ERROR - actual parameter 1 of func2 does not match formal parameter
+found   : {prop: string}
+required: (string|{prop: string, prop2: (string|undefined)})
+func2({prop: 'a'});
+
+
+the type of the record input to func and func2 are identical but the parameters to func2 allow some other type.
+
+Comment:
+This issue was closed by revision r2117.

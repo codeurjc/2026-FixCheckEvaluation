@@ -1,0 +1,4 @@
+Summary: Brent solver doesn't throw IllegalArgumentException when initial guess has the wrong sign
+
+Description:
+Javadoc for "public double solve(final UnivariateRealFunction f, final double min, final double max, final double initial)" claims that "if the values of the function at the three points have the same sign" an IllegalArgumentException is thrown. This case isn't even checked.

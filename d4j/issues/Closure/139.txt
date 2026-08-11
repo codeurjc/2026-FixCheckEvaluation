@@ -1,0 +1,42 @@
+Summary: Redefinition of a function in third party code can be miscompiled
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Run this code snippet and observe that it doesn't raise an error:
+
+function assert(b) {if (!b) throw &quot;error&quot;}
+
+assert(f() === 1)
+var f = function() {return 2;}
+assert(f() === 2)
+
+function f() {return 1;}
+
+2. Compile it as third_party:
+3. Observe that the first definition of f has been changed from an assignment to a declaration, and that the code now raises an error.
+
+<b>What version of the product are you using? On what operating system?</b>
+r8
+
+<b>Please provide any additional information below.</b>
+
+This bug is originally from a blog comment[1], I don't know if it has hit anyone in the wild yet.
+
+1) http://webreflection.blogspot.com/2009/11/google-closure-im-not-impressed.html#1604178721861066706
+
+Comment:
+CollapseAnonymousFunctions has been turned off for simple mode.  This problem surfaced 
+as a result of allowing redefinitions of functions.
+
+To reproduce this, use the webservice or the command-line with the --third_party 
+option.
+
+Comment:
+Issue 39 has been merged into this issue.
+
+Comment:
+I think the thing to do, is modify the scope builder so that the named function is
+the declaration.  The "var" from "var f" should be removed anyway.
+
+Comment:
+This issue was closed by revision r148.

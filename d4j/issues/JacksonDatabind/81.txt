@@ -1,0 +1,11 @@
+Title: Add support for handling primitive/discrepancy problem with type refinements
+
+Body:
+(note: derived from https://github.com/FasterXML/jackson-module-jaxb-annotations/issues/64)
+
+The problem is that although `int` and `java.lang.Integer` are related, logically, they are not related by inheritance (or implementation). Since some legacy code may try refinements in this axis it'd be nice to handle this somehow. Two basic approaches would be:
+
+1. Just ignore primitive/wrapper override, return original type as is
+2. Allow wrapper to "refine" primitive, return wrapper.
+
+There is also related question of whether to allow "int to long" and similar refinements, but start with basics.

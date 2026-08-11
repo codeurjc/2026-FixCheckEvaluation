@@ -1,0 +1,60 @@
+Title: Jsoup.parse seems to remove system identifier in DOCTYPE
+
+Body:
+Specifically when I call:
+```
+Document doc = Jsoup.parse(xhtml, "", Parser.xmlParser());
+```
+on a xhtml document that has the following doctype:
+
+```
+<!DOCTYPE html SYSTEM "exampledtdfile.dtd">
+```
+I end up with the following result in the document (SYSTEM is now missing):
+
+```
+<!DOCTYPE html "exampledtdfile.dtd"> 
+```
+
+But this works fine on a document with:
+
+```
+ <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
+```
+
+Since SYSTEM is a proper way of declaring a DTD, I believe this is an issue with Jsoup.
+
+
+Comment:
+@gzli92 ,
+
+This thing is also happening to me, and not only has to do with the SYSTEM identifier.
+
+Having a file header like:
+
+> <?xml version="1.0" encoding="UTF-8"?>
+> <!DOCTYPE whatever SYSTEM "whatever.dtd">
+
+Parsing my document twice:
+
+> Jsoup.parse(new FileInputStream(xmlFile), FILE_ENCODING, xmlFile.getPath(), Parser.xmlParser());
+
+Will generate this in the first iteration (parse):
+
+> <?xml version="1.0" encoding="UTF-8"?>
+> <!DOCTYPE whatever "whatever.dtd">
+
+And then generate this in the second iteration (parse):
+
+> <?xml version="1.0" encoding="UTF-8"?>
+> <!DOCTYPE whatever>
+
+And I am using the latest version so far (1.8.3)
+
+
+Comment:
+@jhy can you make a statement to this issue, please.
+
+
+Comment:
+Thanks!

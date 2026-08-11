@@ -1,0 +1,24 @@
+Title: More robust charset detection code
+
+Body:
+With the following HTML:
+
+```
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; " />
+</head>
+```
+
+jsoup fails to parse the page with a IllegalCharsetNameException. I see that http-equiv="Content-Type" has an invalid content-type but it would be possible to still parse it correctly by using the html5  <meta charset="UTF-8">, i.e. jsoup could be more robust on this one.
+
+other domains which are not working but could be:
+9kuhkep.net
+www.a-bright.org
+
+I use this code to parse the sites:
+
+```
+Jsoup.connect(url).execute()
+```

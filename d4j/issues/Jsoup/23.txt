@@ -1,0 +1,31 @@
+Title: Entity whose name is made up of letters and digits is not retained
+
+Body:
+At about line 136 Tokenizer.java, reader.consumeLetterSequence() is called. This is fine until it an entity such as &amp;sup1; is encountered - just the letter part of the entity name will be read causing the Entities.isNamedEntity(nameRef) call at about line 140 to fail.
+
+I have fixed this quickly locally by replacing reader.consumerLetterSequence() with a call to a new consumeLetterDigitSequence() in the CharacterReader.java - there may be a better way of doing this:
+
+```
+String consumeLetterDigitSequence() {
+    String letters = consumeLetterSequence();
+    String digits = consumeDigitSequence();
+    return letters + digits;
+}
+```
+
+The following is a sample  unit test:
+
+```
+@Test public void letterDigitEntities() {
+    String html = "<p>&sup1;&sup2;&sup3;&frac14;&frac12;&frac34;</p>";
+    Whitelist whitelist = Whitelist.none();
+    whitelist
+        .addTags("p");
+    String html = Jsoup.clean(html, whitelist);
+    assertEquals("<p>&sup1;&sup2;&sup3;&frac14;&frac12;&frac34;</p>", html);
+}
+```
+
+
+Comment:
+Thanks for pointing this out, and the code examples!

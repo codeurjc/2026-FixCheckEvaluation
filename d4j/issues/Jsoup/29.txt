@@ -1,0 +1,31 @@
+Title: '\n' and redundant space char is not needed from title
+
+Body:
+We assume that we just need 1 line title string from below uri.
+http://docs.oracle.com/javase/tutorial/uiswing/lookandfeel/nimbus.html
+
+we can see title like as below by viewing page source code in that page (of course, It is real situation.)
+
+<pre>
+<title>Nimbus Look and Feel (The Java&trade; Tutorials &gt;        
+            Creating a GUI With JFC/Swing &gt; Modifying the Look and Feel)
+</title>
+</pre>
+
+
+maybe some another page has multiline title, but browser will shows ordinarily.
+in the other words, Browser shows one line title without CR/LF and redundant space character
+whether string has newline character or many redundant space or tab, or not.
+
+But,
+When we execute Jsoup.connect(uri).get().title(); after we assign 
+"http://docs.oracle.com/javase/tutorial/uiswing/lookandfeel/nimbus.html" into uri variable as String,
+it gives two lines like below,
+
+"Nimbus Look and Feel (The Java™ Tutorials > &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Creating a GUI With JFC/Swing > Modifying the Look and Feel)"
+
+"Nimbus Look and Feel (The Java™ Tutorials > Creating a GUI With JFC/Swing > Modifying the Look and Feel)"
+is better, I think.
+
+Humm ... do you have another idea?

@@ -1,0 +1,22 @@
+Summary: Writing 7z empty entries produces incorrect or corrupt archive
+
+Description:
+I couldn't find an exact rule that causes this incorrect behavior, but I tried to reduce it to some simple scenarios to reproduce it:
+
+Input: A folder with certain files -> tried to archive it.
+If the folder contains more than 7 files the incorrect behavior appears.
+
+Scenario 1: 7 empty files
+Result: The created archive contains a single folder entry with the name of the archive (no matter which was the name of the file)
+
+Scenario 2: 7 files, some empty, some with content
+Result: The created archive contains a folder entry with the name of the archive and a number of file entries also with the name of the archive. The number of the entries is equal to the number of non empty files.
+
+Scenario 3: 8 empty files
+Result: 7zip Manager cannot open archive and stops working.
+
+Scenario 4.1: 8 files: some empty, some with content, last file (alphabetically) with content
+Result: same behavior as described for Scenario 2.
+
+Scenario 4.2: 8 files, some empty, some with content, last file empy
+Result: archive is corrupt, the following message is received: "Cannot open file 'archivename.7z' as archive" (7Zip Manager does not crash).

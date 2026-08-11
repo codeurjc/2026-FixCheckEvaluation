@@ -1,0 +1,19 @@
+Title: LeafNode.childNodes() throws UnsupportedOperationException.
+
+Body:
+`LeafNode.childNodes()` throws `UnsupportedOperationException` since this commit:
+https://github.com/jhy/jsoup/commit/f71712ba5d28df09c9a5b6e3c8a37f05f5e3372d#diff-605d28890f72a0f43298f842d0a3414f
+
+The javadoc of `Node.childNodes()` says this:
+  `@return list of children. If no children, returns an empty list.`
+
+But in the case of a LeafNode, which has no children, it throws `UnsupportedOperationException`. This is because `childNodes()` calls `ensureChildNodes()`, which throws an exception when called on a `LeafNode`.
+
+The result is that the calling application needs to guard against this case. But the application should not need to know if the `Node` it has is a `LeafNode` or not.
+
+`LeafNode.childNodes()` should simply return an empty list as it used to do, and as per the javadoc.
+
+
+
+Comment:
+Thanks for reporting this issue. Fixed!

@@ -1,0 +1,7 @@
+Summary: TypeHandler should throw ParseException for an unsupported class
+
+Description:
+JavaDoc for TypeHandler states that createValue will
+{noformat}
+* @throws ParseException if the value creation for the given object type failedtype{noformat}
+ However createValue(String str, Class<?> clazz) will return null if the clazz is unknown.

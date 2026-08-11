@@ -1,0 +1,48 @@
+Summary: Incorrect output if a function is assigned to a variable, and the function contains a variable with the same name
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+ 1. Enter the following into the online compiler
+
+  var foo = function bar(){
+    var bar;
+    alert(bar)
+  };
+
+ 2.  Compile using simple optimization
+
+<b>What is the expected output? What do you see instead?</b>
+
+ I'd expect to see
+
+  var foo = function() {
+    alert(void 0)
+  };
+
+ Instead I see
+
+  var foo = function bar() {
+    alert(bar)
+  };
+
+<b>What version of the product are you using? On what operating system?</b>
+
+ Using http://closure-compiler.appspot.com/home
+
+<b>Please provide any additional information below.</b>
+
+ The compiled output is correct if you remove the &quot;var foo =&quot; part, or if you rename the function from &quot;bar&quot; to something else.
+
+Comment:
+Thanks for the report.
+
+This is a problem with how the compiler currently models the scope, which is overly simplistic.  The variable "bar" should shadow the function name but does not.
+
+We can work around this by tweaking the local name normalization like we do for catch declarations or by removing the name from function expression (which is inaccessible).  The proper fix will likely wait until ES6 support with its lexically scoped declarations (let, const, function).
+
+Comment:
+This issue was closed by revision r1552.
+
+Comment:
+Issue 597 has been merged into this issue.

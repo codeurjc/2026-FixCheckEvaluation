@@ -1,0 +1,15 @@
+Summary: Negative numbers mistaken for options
+
+Description:
+If an option has a negative numerical argument, the parser mistakes it for another option and throws an error. For example, consider:
+
+{{Argument numArg = aBuilder.withValidator(NumberValidator.getNumberInstance()).withMinimum(1).withMaximum(1).create();}}
+{{Option numOpt = oBuilder.withLongName("num").withArgument(numArg).create();}}
+{{Group options = gBuilder.withOption(numOpt).create();}}
+
+Then parsing {{--num -0.1}} results in:
+
+{{Unexpected -0.1 while processing --num}}
+
+
+

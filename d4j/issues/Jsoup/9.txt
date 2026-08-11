@@ -1,0 +1,18 @@
+Title: Html entities containing digits are not unescaped correctly
+
+Body:
+Some html entities (such as sup1, sup2) are not unescaped correctly by Entities.unescape because they contain digits.
+
+The problem is the pattern Entities.unescapePattern. I changed it to '&(#(x|X)?([0-9a-fA-F]+)|[0-9a-zA-Z]+);?', and it worked fine for me. But there might be side effects ...
+
+You can see my changes here : https://github.com/clementdenis/jsoup/commit/d65387cb6763c4e6e9896917ce02ea623e30b04e
+
+
+Comment:
+Thanks for finding this.
+
+
+Comment:
+Fixed support for HTML entities with numbers in name (e.g. &frac34, &sup1)
+
+Closed by 6d4812111d19e33f22f7fac92c2203366a6fe5e0

@@ -1,0 +1,114 @@
+Title: Context attributes are not passed/available to custom serializer if object is in POJO
+
+Body:
+Below is a test case where I create a custom serializer and use it to serialize an object 1) in a HashMap and 2) in an ObjectNode. In both cases I pass attribute to the serializer like this:
+`mapper.writer().withAttribute("myAttr", "Hello!")`
+Serializing HashMap works as expected, but during ObjectNode serialization the attribute is null . It seems that in both cases the custom serializer should get access to the passed attribute and so both lines in the output should contain "Hello!"
+
+Produced output from running testCase.test()
+```
+{"data":{"aStr":"The value is: Hello!"}}
+{"data":{"aStr":"The value is: NULL"}}
+
+```
+Test case:
+
+```
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+public class TestCase {
+  public final static ObjectMapper mapper = new ObjectMapper();
+
+  @JsonSerialize(using = TestCase.CustomSer.class)
+  public static class Data {
+    public String aStr;
+  }
+
+  public static class CustomSer extends StdSerializer<Data> {
+    public CustomSer() {
+      super(Data.class);
+    }
+
+    @Override
+    public void serialize(Data value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+      String attrStr = (String) provider.getAttribute("myAttr");
+      gen.writeStartObject();
+      gen.writeObjectField("aStr", "The value is: " + (attrStr == null ? "NULL" : attrStr));
+      gen.writeEndObject();
+    }
+  }
+
+  public static void test() throws IOException {
+    Data data = new Data();
+    data.aStr = "Hello";
+
+    Map<String, Object> mapTest = new HashMap<>();
+    mapTest.put("data", data);
+
+    ObjectNode treeTest = mapper.createObjectNode();
+    treeTest.putPOJO("data", data);
+
+    String mapOut = mapper.writer().withAttribute("myAttr", "Hello!").writeValueAsString(mapTest);
+    System.out.println(mapOut);
+
+    String treeOut = mapper.writer().withAttribute("myAttr", "Hello!").writeValueAsString(treeTest);
+    System.out.println(treeOut);
+  }
+}
+
+```
+
+
+Comment:
+Version 2.9.5
+
+Comment:
+Thank you for reporting this. I agree in that context should be retained and attributes available.
+
+There may be technical problems in achieving that with 2.x since there is unfortunately no way to pass them through methods in `JsonGenerator`. This is something that is solved in 3.x (`master`), but is not something that can be retrofitted easily.
+
+But I hope to see if there might something simple to do; it really depends on how delegation works for `POJONode`s and serialization.
+
+
+
+Comment:
+A hack that worked for me is to use `writeValue(Writer, Object)` that allows you to pass on a custom Writer that can carry context.
+Example:
+```
+class MyWriter extends StringWriter {
+    MyWriter(Object context) {
+        this.context = context;
+    }
+    Object getContext() {
+        return context;
+    }
+}
+```
+In the custom serializer, you can get hold of the context through the Writer
+```
+public void serialize(Data value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+    Object context = ((MyWriter) get.getOutputTarget()).getContext();
+    ........
+}
+```
+And use it as below
+
+```
+      Writer writer = new MyWriter(WHAT_EVER);
+      mapper.writer().writeValue(writer, mapTest);
+      String serializedStr = writer.toString();
+```
+
+
+Comment:
+@SrinivasKothuri Thank you for sharing this interesting technique! Yes, that allows passing of information. :)
+

@@ -1,0 +1,12 @@
+Title: Further issues with `@JsonInclude` with `NON_DEFAULT`
+
+Body:
+(follow-up to #1351)
+
+Looks like there are still cases where class annotation like:
+
+```
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+```
+
+does not work for default `null` value suppression for `String` type  (at least).

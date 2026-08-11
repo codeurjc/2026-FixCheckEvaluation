@@ -1,0 +1,8 @@
+Summary: ExtendedProperties - field include should be non-static and private
+
+Description:
+The field "include" in ExtendedProperties is currently static and protected, yet has instance get/set accessors.
+
+Given that there are accessors, it seems unnecessary for the field to be protected - it could be private.
+
+The field should also surely be non-static - or the accessors should be made static, if the field really is supposed to be shared among instances.

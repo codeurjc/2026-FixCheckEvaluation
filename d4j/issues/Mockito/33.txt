@@ -1,0 +1,37 @@
+Summary: polimorphic call not dispatched correctly
+
+Description:
+Edge case around generics + inheritance. Below code did not work correctly due to polimorphic call not dispatched to correct method.
+
+
+    protected interface MyIterable&lt;T&gt; extends Iterable&lt;T&gt; {
+        public MyIterator&lt;T&gt; iterator();
+    }
+
+    protected interface MyIterator&lt;T&gt; extends Iterator&lt;T&gt; {
+        // adds nothing here
+    }
+
+    MyIterator&lt;String&gt; myIterator = Mockito.mock(MyIterator.class);
+    MyIterable&lt;String&gt; iterable = Mockito.mock(MyIterable.class);
+
+    @Test
+    public void shouldStubbingWork() {
+        Mockito.when(iterable.iterator()).thenReturn(myIterator);
+        Assert.assertNotNull(((Iterable) iterable).iterator());
+        Assert.assertNotNull(iterable.iterator());
+    }
+    
+    @Test
+    public void shouldVerificationWorks() {
+        iterable.iterator();
+        
+        verify(iterable).iterator();
+        verify((Iterable) iterable).iterator();
+    }
+
+Comment:
+This issue was closed by revision r2022.
+
+Comment:
+Issue 278 has been merged into this issue.

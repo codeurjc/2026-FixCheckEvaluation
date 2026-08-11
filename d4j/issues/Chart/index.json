@@ -1,0 +1,196 @@
+{
+  "project": "Chart",
+  "updated_at": "2026-08-11T14:31:15.647403+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://sourceforge.net/p/jfreechart/bugs/983",
+      "tracker": "generic",
+      "usable": false,
+      "status": "cached",
+      "chars": 2632
+    },
+    {
+      "bug_id": "2",
+      "url": "https://sourceforge.net/p/jfreechart/bugs/959",
+      "tracker": "generic",
+      "usable": false,
+      "status": "cached",
+      "chars": 1490
+    },
+    {
+      "bug_id": "3",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "4",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "5",
+      "url": "https://sourceforge.net/p/jfreechart/bugs/862",
+      "tracker": "generic",
+      "usable": false,
+      "status": "cached",
+      "chars": 4725
+    },
+    {
+      "bug_id": "6",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "7",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "8",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "9",
+      "url": "https://sourceforge.net/p/jfreechart/bugs/818",
+      "tracker": "generic",
+      "usable": false,
+      "status": "cached",
+      "chars": 3112
+    },
+    {
+      "bug_id": "10",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "11",
+      "url": "https://sourceforge.net/p/jfreechart/bugs/868",
+      "tracker": "generic",
+      "usable": false,
+      "status": "cached",
+      "chars": 2646
+    },
+    {
+      "bug_id": "12",
+      "url": "https://sourceforge.net/p/jfreechart/patches/213",
+      "tracker": "generic",
+      "usable": false,
+      "status": "cached",
+      "chars": 2211
+    },
+    {
+      "bug_id": "13",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "14",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "15",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "16",
+      "url": "https://sourceforge.net/p/jfreechart/bugs/834",
+      "tracker": "generic",
+      "usable": false,
+      "status": "cached",
+      "chars": 2654
+    },
+    {
+      "bug_id": "17",
+      "url": "https://sourceforge.net/p/jfreechart/bugs/803",
+      "tracker": "generic",
+      "usable": false,
+      "status": "cached",
+      "chars": 2031
+    },
+    {
+      "bug_id": "18",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "19",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "20",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "21",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "22",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "23",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "24",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "25",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    },
+    {
+      "bug_id": "26",
+      "url": null,
+      "tracker": "none",
+      "status": "cached",
+      "chars": 0
+    }
+  ]
+}

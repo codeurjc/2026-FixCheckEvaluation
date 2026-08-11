@@ -1,0 +1,59 @@
+Title: @JsonUnwrapped is not treated as assuming @JsonProperty("")
+
+Body:
+See discussion [here](https://groups.google.com/forum/#!topic/jackson-user/QLpWb8YzIoE) but basically `@JsonUnwrapped` on a private field by itself does not cause that field to be serialized, currently,  You need to add an explicit `@JsonProperty`.  You shouldn't have to do that.  (Following test fails currently, should pass, though you can make it pass by commenting out the line with `@JsonProperty`.  Uses TestNG and AssertJ.)
+
+``` java
+package com.bakins_bits;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.testng.annotations.Test;
+
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class TestJsonUnwrappedShouldMakePrivateFieldsSerializable
+{
+    public static class Inner
+    {
+        public String animal;
+    }
+
+    public static class Outer
+    {
+        // @JsonProperty
+        @JsonUnwrapped
+        private Inner inner;
+    }
+
+    @Test
+    public void jsonUnwrapped_should_make_private_fields_serializable() throws JsonProcessingException {
+        // ARRANGE
+        Inner inner = new Inner();
+        inner.animal = "Zebra";
+
+        Outer outer = new Outer();
+        outer.inner = inner;
+
+        ObjectMapper sut = new ObjectMapper();
+
+        // ACT
+        String actual = sut.writeValueAsString(outer);
+
+        // ASSERT
+        assertThat(actual).contains("animal");
+        assertThat(actual).contains("Zebra");
+        assertThat(actual).doesNotContain("inner");
+    }
+}
+```
+
+
+Comment:
+Should `@JsonIgnore` have been included too?
+
+
+Comment:
+@david-bakin didn't think so, as it drops definition? Including that may have some side-effects.

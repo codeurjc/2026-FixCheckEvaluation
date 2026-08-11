@@ -1,0 +1,52 @@
+Summary: @InjectMocks injects mock into Object-typed fields
+
+Description:
+When using @InjectMocks on a class which has fields of the type &quot;Object&quot;, the mock gets injected into that field instead of being only injected into the field it is supposed to be injected to.
+
+See attachments for a testcase on this problem.
+
+It would be better if @InjectMocks would leave the Object fields alone, because this behaviour is not expected and it is causing my own unit tests to fail. One example of such a failure is the production code having a Object-constant (see the commented out one in TestService as illustration) which mockito tries to override with a mock, but fails because PowerMock is not available. 
+
+And even if i set the Object-field to non-static, it mangles the logic of my production code, because on class initialization the object is used to register a listener in a different class with that object as a map accessor. Now when mockito overrides the Object-field, the requests are added with the mock object instead of the original Object-instance and thus no listeners are being found by the async service my service uses.
+
+I don't like the idea of removing the Object-field as an accessor to instead use &quot;this&quot; (not explicit enough for readability purposes) or some other type as the accessor-type (just more code), instead I think this should better be fixed.
+
+Surely there will be more occasions this will make me problems in writing unit tests.
+
+Best regards
+subes
+
+Comment:
+Thanks for reporting! We'll fix it.
+
+Comment:
+Hi Edwin,
+
+I'm against ignoring Object typed fields, because some technical framework might want to manipulate Object references.
+
+However, I propose to first look for the right type, and if not found then look for supertypes (including Object).
+
+It should fix your problem, while remaining type flexible.
+
+Comment:
+yup, that should do the trick, thanks
+
+Comment:
+ok, makes perfect sense :)
+
+Comment:
+Fixed by revision 3674611dba
+
+Comment:
+@Brice, consider this scenario:
+
+    private class TestService {
+        public Object one;
+        public TestBean two;
+    }
+
+    //test:
+    @Mock TestBean mock;
+    @InjectMocks TestService illegalInjectionExample = new TestService();
+
+There's a single mock so we should probably inject only 'two'; 'one' should be left out null?

@@ -1,0 +1,36 @@
+Summary: Preserve doesn't preserve whitespace at start of line
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+Code such as:
+/**
+ * @preserve
+
+This
+  was
+    ASCII
+       Art
+
+*/
+
+<b>What is the expected output? What do you see instead?</b>
+
+The words line up on the left:
+/*
+This
+was
+ASCII
+Art
+*/
+
+
+<b>What version of the product are you using? On what operating system?</b>
+
+Live web verison.
+
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+This issue was closed by revision r1869.

@@ -1,0 +1,138 @@
+Joda - Time / Bugs / #124 Inconsistent interpretation of ambiguous time during DST
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+Joda - Time
+Bugs
+Inconsistent interpretation of ambiguous time during DST
+Project moved to GitHub
+Brought to you by:
+broneill
+,
+scolebourne
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Code
+Svn
+Tickets ▾
+Bugs
+Feature Requests
+News
+Discussion
+Donate
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+v1.0_(example)
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#124 Inconsistent interpretation of ambiguous time during DST
+Status:
+closed
+Owner:
+Stephen Colebourne
+Labels:
+Joda-Time (76)
+Priority:
+5
+Updated:
+2014-05-16
+Created:
+2011-10-17
+Creator:
+ohs
+Private:
+No
+The inconsistency appears for timezone Europe/London.
+Consider the following code
+…
+DateTime britishDate    = new DateTime(2011, 10, 30, 1, 59, 0, 0, DateTimeZone.forID("Europe/London"));
+DateTime norwDate       = new DateTime(2011, 10, 30, 2, 59, 0, 0, DateTimeZone.forID("Europe/Oslo"));
+DateTime finnishDate    = new DateTime(2011, 10, 30, 3, 59, 0, 0, DateTimeZone.forID("Europe/Helsinki"));
+System.out.println(britishDate);
+    System.out.println(norwDate);
+    System.out.println(finnishDate);
+…
+These three DateTime objects should all represent the same moment in time even if they are ambiguous. And using jodatime 1.6.2 this is the case. The code produces the following output:
+2011-10-30T01:59:00.000Z
+2011-10-30T02:59:00.000+01:00
+2011-10-30T03:59:00.000+02:00
+Using jodatime 2.0 however, the output is:
+2011-10-30T01:59:00.000Z
+2011-10-30T02:59:00.000+02:00
+2011-10-30T03:59:00.000+03:00
+which IMO is wrong for Europe/London. Correct output should have been
+2011-10-30T01:59:00.000+01:00
+The release notes for 2.0 states that:
+"Now, it always returns the earlier instant (summer time) during an overlap. …"
+Discussion
+Stephen Colebourne
+-
+2011-10-23
+Yes, that wasn't right. Tests added and line changed from >0 to >= 0.
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

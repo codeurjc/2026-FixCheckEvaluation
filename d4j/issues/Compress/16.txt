@@ -1,0 +1,4 @@
+Summary: Too relaxed tar detection in ArchiveStreamFactory
+
+Description:
+The relaxed tar detection logic added in COMPRESS-117 unfortunately matches also some non-tar files like a [test AIFF file|https://svn.apache.org/repos/asf/tika/trunk/tika-parsers/src/test/resources/test-documents/testAIFF.aif] that Apache Tika uses. It would be good to improve the detection heuristics to still match files like the one in COMPRESS-117 but avoid false positives like the AIFF file in Tika.

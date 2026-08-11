@@ -1,0 +1,48 @@
+Summary: Constructor types that return all or unknown fail to parse
+
+Description:
+Constructor types that return the all type or the unknown type currently fail to parse:
+
+/** @type {function(new:?)} */ var foo = function() {};
+/** @type {function(new:*)} */ var bar = function() {};
+
+foo.js:1: ERROR - Bad type annotation. type not recognized due to syntax error
+/** @type {function(new:?)} */ var foo = function() {};
+                        ^
+
+foo.js:2: ERROR - Bad type annotation. type not recognized due to syntax error
+/** @type {function(new:*)} */ var bar = function() {};
+                        ^
+
+This is an issue for a code generator that I'm working on.
+
+Comment:
+This seems similar to issue 790
+
+Comment:
+The parse simply needs to change from only accepting a type name to accepting a type (a one line change + tests, I would think).  It seems reasonable that this could be a record type or anything else.   
+
+The work around it to use a typedef:
+
+/** @typedef {?} */
+var Unknown;
+
+/** @type {function(new:Unknown)} */
+
+Comment:
+I'm not convinced we should allow {function(new:*)}, because {function(new:string)} is impossible. The proper way to express this is {function(new:Object)}.
+
+however, we should probably emit a more sensible warning, rather than treating it as a syntax error.
+
+Comment:
+posted a fix here:
+https://codereview.appspot.com/21200043/
+
+Comment:
+This issue was closed by revision 7d26b7bcae83.
+
+Comment:
+This issue was closed by revision 763faa34d5e6.
+
+Comment:
+This issue was closed by revision 7d26b7bcae83.

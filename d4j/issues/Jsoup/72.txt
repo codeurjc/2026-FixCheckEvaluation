@@ -1,0 +1,20 @@
+Title: StringIndexOutOfBoundsException as of jsoup 1.11.1
+
+Body:
+Example:
+
+    Jsoup.parse(new URL("https://gist.githubusercontent.com/valodzka/91ed27043628e9023009e503d41f1aad/raw/a15f68671e6f0517e48fdac812983b85fea27c16/test.html"), 10_000);
+
+
+Comment:
+This document is not complete. That's just the first 63kB of HTML, and the last line is:
+```
+       <!
+```
+Code to reproduce:
+```
+Jsoup.parse("<!");
+```
+
+Comment:
+Thanks for the report! Fixed.

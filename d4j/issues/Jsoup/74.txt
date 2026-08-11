@@ -1,0 +1,25 @@
+Title: &shy; renders as '-' when Node.text() is called
+
+Body:
+Consider the following JUnit4 test 
+```java
+@Test
+public void testIfShyIsStripped(){
+        String htmlwithSHY = "<html><body>quite&shy;a&shy;long&shy;word</body></html>";
+        Document parse = Jsoup.parse(htmlwithSHY);
+        String text = parse.body().text();
+        assertEquals("quitealongword", text);
+}
+```
+This test fails as text is parsed as `quite-a-long-word` rather then it's actual textual representation that would have been `quitealongword` in any browser.
+
+Perhaps this is working as intended, but it would be interesting to understand the reasoning behind it.
+
+
+Comment:
+It would make sense to normalize the soft-hyphen. Like `&nbsp;` is normalized. Related commit is d3f02400eca1c5cbf84212c46cebcff511536655
+
+Probably best to normalize all invisible characters out.
+
+Comment:
+Thanks, implemented.

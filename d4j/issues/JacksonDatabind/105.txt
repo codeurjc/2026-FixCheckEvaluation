@@ -1,0 +1,61 @@
+Title: Illegal reflective access operation warning when using `java.lang.Void` as value type
+
+Body:
+I'm using Jackson (**2.9.7**) through Spring's RestTemplate:
+
+```java
+ResponseEntity<Void> response = getRestTemplate().exchange(
+		requestUrl,
+		HttpMethod.PATCH,
+		new HttpEntity<>(dto, authHeaders),
+		Void.class
+);
+```
+
+When [`Void`](https://docs.oracle.com/javase/7/docs/api/java/lang/Void.html) is used to indicate that the ResponseEntity has no body, the following warning appears in the console:
+
+```
+WARNING: An illegal reflective access operation has occurred
+WARNING: Illegal reflective access by com.fasterxml.jackson.databind.util.ClassUtil (file:/<snip>repository/com/fasterxml/jackson/core/jackson-databind/2.9.7/jackson-databind-2.9.7.jar) to constructor java.lang.Void()
+WARNING: Please consider reporting this to the maintainers of com.fasterxml.jackson.databind.util.ClassUtil
+WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+WARNING: All illegal access operations will be denied in a future release
+```
+
+The problem disappears if `String` is used as generic type. 
+
+Comment:
+This forms part of https://github.com/FasterXML/jackson-core/pull/499
+
+Comment:
+Alright, I close the issue then. This was fast :)
+
+Comment:
+It probably also makes sense to add explicit handling for (nominal) type `Void`. Not much point in introspecting it as POJO. I'll actually re-open this to have a look.
+
+Comment:
+Hmm, This also definitely justifies open modules until version 3.
+
+java.lang is part of the java.base module, But it is also strictly named. 
+Currently, in order to run these you have one of two options (Because they are not/never going to 'opens java.lang' in the java.lang module)
+ 
+1) You can append ``` --add-opens java.base/java.lang=com.fasterxml.jackson.databind ``` which is the strict module name, and the mechanism for downwards exposure. This has been simplified by creating an @arguments file, and executing that way. This is the Strict JPMS Encapsulation, and is where all the performance boosts come from
+
+2) This one I like currently, and I'll explain how it works and doesn't destroy the module pathing after
+```
+open module com.mypackage.myapp {
+}
+```
+
+this does a few things but I'm only going to highlight the features, 
+
+1) The java.base module is now com.mypackage.myapp, and your classes and libraries have been placed in the parent parent module layer. No changes between JRE 8 and JPMS will be felt (so long as your libraries are named. In automatic/unnamed/classpath mode, the module pathing is disabled. 
+2) java.lang, java.xml, etc etc, as well as all your packages are opened and exported by default (allowing private field and class handlers like annotations/databind to do its thing without explicit definitions.
+3) The module pathing is still adhered to, and any other *named* libraries (except yours, because it is now java.base) will still be strictly enforced.
+
+
+
+
+
+Comment:
+Ok: as an orthogonal thing, I added handling for `Void` as special type to avoid handling of type as POJO; this should prevent warning. There are already handlers for "always read/write as`null`", as it happens, so not much additional work.

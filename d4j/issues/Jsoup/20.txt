@@ -1,0 +1,39 @@
+Title: Some html file's head element will be empty
+
+Body:
+Hello, Jonathan
+
+I love Jsoup, and handling many html files. 
+
+But today, I'm under the  problem.
+When parse with Jsoup, some html file's head element will be empty.
+
+Sample html is here -> http://dl.dropbox.com/u/972460/test.html
+
+Please help me.
+
+
+Comment:
+I'd vote to up the priority of this bug. I've check out the latest version from the repository, it's still not resolved.
+
+
+Comment:
+Thanks for pointing this out! This issue is fixed now. Please let me know if you see it in other cases.
+
+
+Comment:
+Hi Jonathan,
+
+We've been using Jsoup in production and loving it as well (good clean API and proper documentation), 
+Ran into the same problem in this page:
+http://www.visualbee.com/lp/visualbee-design-your-powerpoint-presentation.html
+same issue of an empty header and this fix didn't help us , as far as i can tell dropping the if switch around the fix (line #94) will do the job for us 
+Would appreciate handling this 
+Thanks
+
+
+Comment:
+Hi, Jonathan.
+You should also consider the propose in this patch pull request.
+https://github.com/jhy/jsoup/pull/144
+And my comment has fixed the corner case.

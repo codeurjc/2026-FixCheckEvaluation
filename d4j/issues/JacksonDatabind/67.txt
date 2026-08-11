@@ -1,0 +1,92 @@
+Title: Map key deserializerModifiers ignored
+
+Body:
+We have a module that extends simple model to allow us to accept enum names in lower case in a fairly generic manner
+Inside that we add the `modifyKeyDeserializer`
+
+The incoming class (using immutables) is mapped to a guava immutable map.
+Walking through the code:
+
+> com.fasterxml.jackson.datatype.guava.deser.ImmutableMapDeserializer.createContextual
+>  calls DeserializationContext.findKeyDeserializer
+>  calls DeserializerCache.findKeyDeserializer
+>  calls BasicDeserializerFactory.createKeyDeserializer
+
+which has the code:
+```java
+        // the only non-standard thing is this:
+        if (deser == null) {
+            if (type.isEnumType()) {
+                return _createEnumKeyDeserializer(ctxt, type);
+            }
+            deser = StdKeyDeserializers.findStringBasedKeyDeserializer(config, type);
+        }
+```
+
+Since we are an enum type, it returns the value in the `_createEnumKeyDeserializer`, which is the standard enum deserializer.
+Below that block is the check for the hasDeserializerModifiers, but since we have returned already, it is never called, so we can't override the behaviour.
+
+Module fragment:
+```java
+    setDeserializerModifier(new BeanDeserializerModifier() {
+                @Override
+                @SuppressWarnings("unchecked")
+                public JsonDeserializer<Enum> modifyEnumDeserializer(
+                        DeserializationConfig config,
+                        final JavaType type,
+                        BeanDescription beanDesc,
+                        final JsonDeserializer<?> deserializer) {
+                    return new JsonDeserializer<Enum>() {
+                        @Override
+                        public Enum deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
+                            Class<? extends Enum> rawClass = (Class<Enum<?>>) type.getRawClass();
+                            return Enum.valueOf(rawClass, jp.getValueAsString().toUpperCase());
+                        }
+                    };
+                }
+
+                @Override
+                public KeyDeserializer modifyKeyDeserializer(
+                        DeserializationConfig config,
+                        JavaType type,
+                        KeyDeserializer deserializer) {
+                    if (!type.isEnumType()) {
+                        return super.modifyKeyDeserializer(config, type, deserializer);
+                    }
+                    return new KeyDeserializer() {
+                        @Override
+                        @SuppressWarnings("unchecked")
+                        public Object deserializeKey(String key, DeserializationContext ctxt)
+                                throws IOException, JsonProcessingException {
+                            Class<? extends Enum> rawClass = (Class<Enum<?>>) type.getRawClass();
+                            return Enum.valueOf(rawClass, key.toUpperCase());
+                        }
+                    };
+                }
+            });
+```
+
+I appreciate the code around here is fairly complex.
+
+
+Related issues (possibly):
+https://github.com/FasterXML/jackson-databind/issues/749
+https://github.com/FasterXML/jackson-databind/issues/1313
+
+Comment:
+Thank you for reporting this. Couple of questions first:
+- Which jackson version is this (verified) with?
+- Does this also occur with standard JDK collections, or just with Guava ones?
+
+
+Comment:
+Version is 2.8.4. I had also been running with 2.6.4, which had the same issue, and upgraded as part of my digging.
+I confirm this is also happening with standard JDK collections.
+
+
+Comment:
+Thank you for verifying this. Being able to test with JDK collections makes it bit easier to repro with just databind.
+
+
+Comment:
+Fast! Thank you very much.

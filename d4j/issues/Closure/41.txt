@@ -1,0 +1,89 @@
+Summary: In ADVANCED mode, Compiler fails to warn about overridden methods with different signatures.
+
+Description:
+In ADVANCED mode, Compiler fails to warn about overridden methods with different signatures. The following code only warns in the one instance noted in the comment, whereas I would expect it to complain about the declarations of both Bar.prototype.add and Bar.prototype.sub, as they claim @inheritDoc, but have seemingly different signatures from that of their superclass methods.
+
+It would be helpful to have such a warning so that when you change the signature of a superclass method, you can run the Compiler to trigger warnings and find all of the other signatures that you need to update.
+
+Run the following:
+
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// @use_closure_library true
+// ==/ClosureCompiler==
+
+goog.provide('Foo');
+goog.provide('Bar');
+
+
+/** @constructor */
+Foo = function() {};
+
+
+/**
+ * @param {number} a
+ * @param {number} b
+ * @return {number}
+ */
+Foo.prototype.add = function(a, b) {
+  return a + b;
+};
+
+
+/**
+ * @param {number} a
+ * @param {number} b
+ * @return {number}
+ */
+Foo.prototype.sub = goog.abstractMethod;
+
+
+/**
+ * @constructor
+ * @extends {Foo}
+ */
+Bar = function() {
+  goog.base(this);
+};
+goog.inherits(Bar, Foo);
+
+
+/** @inheritDoc */
+Bar.prototype.add = function(one) {
+  return one;
+};
+
+
+/** @inheritDoc */
+Bar.prototype.sub = function(one) {
+  return one;
+};
+
+
+var foo = /** @type {Foo} */ (new Bar());
+alert(foo.add(3, 4));
+
+var bar = new Bar();
+// THIS PRODUCES JSC_WRONG_ARGUMENT_COUNT
+alert(bar.add(3, 4));
+
+Comment:
+i think they do have compatible signatures? e.g., Bar.prototype.add can take 2 arguments and it will work just fine.
+
+I think what we really need to do is infer dynamically that Bar.prototype.add may be called with 1 argument or 2 arguments, and the second argument is optional ALL {*=}. That would be completely consistent in our type system, i think?
+
+Comment:
+Yi and I were also talking about the secondary question of whether there should be a warning for the overriding methods. I've said 'no' in the past, because there are many cases where this feature is useful. e.g., if you have an event handler that doesn't use the event object, it doesn't really make sense to declare a variable for it.
+
+We've talked about having @override mean "it's ok to omit arguments", and @inheritDoc mean "all the arguments in the original documentation must be in the function"
+
+Comment:
+On p.151 of Closure: The Definitive Guide, I give an example of the dangers of introducing a new, optional argument to a function that is used as a listener function, which is why I discourage omitting the event variable in the signature.
+
+I included this example because I've definitely been stung by it, and it's hard to track down when it happens!
+
+Not sure if it completely maps to the current bug at hand, though.
+
+Comment:
+This issue was closed by revision r1742.

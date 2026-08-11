@@ -1,0 +1,88 @@
+Title: Mixin annotations lost when using a mixin class hierarchy with non-mixin interfaces
+
+Body:
+In summary, mixin annotations are lost when Jackson scans a parent mixin class with Json annotations followed by an interface implemented by the parent mixin class that does not have the same Json annotations.
+Jackson version: 2.4.0
+
+Detail:
+I have the following class structure
+
+``` java
+public interface Contact {
+    String getCity();
+}
+
+public class ContactImpl implements Contact {
+    public String getCity() { ... }
+}
+
+public class ContactMixin implements Contact {
+    @JsonProperty
+    public String getCity() { return null; }
+}
+
+public interface Person extends Contact {}
+
+public class PersonImpl extends ContactImpl implements Person {}
+
+public class PersonMixin extends ContactMixin implements Person {}
+```
+
+and I configure a module as
+
+``` java
+// There are other getters/properties in the Impl class that do not need to be serialized and so
+// I am using the Mixin to match the interface and explicitly annotate all the inherited methods
+module.disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
+    .disable(MapperFeature.AUTO_DETECT_FIELDS)
+    .disable(MapperFeature.AUTO_DETECT_GETTERS)
+    .disable(MapperFeature.AUTO_DETECT_IS_GETTERS)
+    .disable(MapperFeature.INFER_PROPERTY_MUTATORS);
+module.setMixInAnnotation(Person.class, PersonMixin.class);
+```
+
+When a `PersonImpl` instance is serialized, `city` is not included.
+
+I debugged the code and this is what happens:
+In `AnnotatedClass.resolveMemberMethods()` the supertypes of `PersonImpl` are `[Person.class, Contact.class, ContactImpl.class]` in that order.
+
+It starts with `Person` for which it finds `PersonMixin` and proceeds to `AnnotatedClass._addMethodMixIns()`. Here the `parents` list has `[PersonMixin, ContactMixin, Contact]`. When it processes `ContactMixin` it adds `getCity()` with the `JsonProperty` annotation. Then it processes `Contact`, doesn't find `getCity()` in `methods` map and so creates a new `AnnotatedMethod` for `getCity()` with the one from the interface which has no annotation which replaces the one from `ContactMixin`
+
+The workaround for this issue is to explicitly add any parent mixins to the module i.e.
+
+``` java
+module.setMixInAnnotation(Contact.class, ContactMixin.class);
+```
+
+
+Comment:
+I've found a previously working scenario related to a MixIn annotation hierarchy has broken in 2.4.2 and it may be caused by this fix. #515 fixes the case where the `parents` list has a MixIn class before an interface. If the interface appears before the MixIn, then MixIn annotations are no longer applied, this used to work in 2.4.0.
+
+Using the same example as above, assume that the `parents` list for `Person` has `[PersonMixIn, Contact, ContactMixIn]`. `Contact.getCity()` is processed by `mixIns.add(_constructMethod(m))` and `ContactMixIn.getCity()` is processed by `_addMixUnders(m, am)`.
+
+Then `AnnotatedClass.resolveMemberMethods()` processes `Contact`. The `parents` list for `Contact` has `ContactMixIn` and `ContactMixIn.getCity()` is once again processed by `_addMixUnders(m, am)`.
+After processing the MixIn, the call to `_addMixOvers()` in `_addMemberMethods()` would apply the annotations to `Contact.getCity()`. This method is still called in 2.4.2 but the MixIn annotations from ContactMixIn are not applied.
+
+
+Comment:
+Hi Tatu,
+
+I believe this fix has broken some existing functionality. I have added comments to the issue but I do not have rights to reopen the issue.
+
+Thanks,
+Steve
+
+On Wednesday, August 13, 2014 4:05 PM, Tatu Saloranta notifications@github.com wrote:
+
+Closed #515 via fd0f1fe.
+—
+Reply to this email directly or view it on GitHub.
+
+
+Comment:
+@stevebread If you could file a new issue, that'd be great -- in general re-opening is problematic anyway since it will be more difficult to track which release addressed which issue. At least if fixes have been released (as is the case here).
+You can just copy the description of the new problem from above, and refer to this issue from new one.
+
+
+Comment:
+Done. #529

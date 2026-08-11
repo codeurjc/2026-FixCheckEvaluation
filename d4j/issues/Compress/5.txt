@@ -1,0 +1,20 @@
+Summary: ZipArchiveInputStream doesn't report the end of a truncated archive
+
+Description:
+If a Zip archive is truncated, (e.g. because it is the first volume in a multi-volume archive) the ZipArchiveInputStream.read() method will not detect that fact. All calls to read() will return 0 bytes read. They will not return -1 (end of stream), nor will they throw any exception (which would seem like a good idea to me because the archive is truncated).
+
+I have tracked this problem to ZipArchiveInputStream.java, line 239. It contains a check
+
+if (read == 0 && inf.finished()) {
+    return -1;
+}
+
+For truncated archives the read is always zero but the inf is never finished(). I suggest adding two lines below:
+
+if (read == 0 && inf.finished()) {
+    return -1;
+} else if (read == 0 && lengthOfLastRead == -1) {
+	throw new IOException("Truncated ZIP file");
+}
+
+This solves the problem in my tests.

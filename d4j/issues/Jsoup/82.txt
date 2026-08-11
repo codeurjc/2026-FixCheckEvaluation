@@ -1,0 +1,57 @@
+Title: UnsupportedOperationException thrown for charsets that don't support encoding
+
+Body:
+```
+public static void main(String[] args) throws IOException {
+
+    String html = "<html><meta charset=\"ISO-2022-CN\"/></html>";
+
+    System.out.println(
+        Jsoup.parse(new ByteArrayInputStream(html.getBytes()), null, "")
+    );  
+
+}
+```
+
+throws
+
+<pre>
+Exception in thread "main" java.lang.UnsupportedOperationException
+	at sun.nio.cs.ext.ISO2022_CN.newEncoder(ISO2022_CN.java:76)
+	at org.jsoup.nodes.Document$OutputSettings.prepareEncoder(Document.java:443)
+	at org.jsoup.nodes.Node$OuterHtmlVisitor.<init>(Node.java:704)
+	at org.jsoup.nodes.Node.outerHtml(Node.java:573)
+	at org.jsoup.nodes.Element.html(Element.java:1395)
+	at org.jsoup.nodes.Element.html(Element.java:1389)
+	at org.jsoup.nodes.Document.outerHtml(Document.java:195)
+	at org.jsoup.nodes.Element.toString(Element.java:1422)
+	at java.lang.String.valueOf(String.java:2982)
+	at java.io.PrintStream.println(PrintStream.java:821)
+</pre>
+
+
+Comment:
+Jsoup defaults the output charset to whatever the input charset was. If you don't have an encoder on your system for that charset, you can use a different one by setting the [output character set](https://jsoup.org/apidocs/org/jsoup/nodes/Document.OutputSettings.html#charset-java.lang.String-).
+
+Comment:
+@jhy but some charsets, e.g., ISO2022_CN, *do not support encoding* **at all**. They only support decoding.
+
+So this will fail on *everyone's* system, this is not just a problem with "my system".
+
+Should it be our responsibility to check every page we fetch to make sure that the output charset also supports encoding, not just decoding? I don't think so. I think that if a certain charset does *not support encoding*, then you should *not* try to use that charset to encode the document; instead just fall back on UTF-8. Just my two cents.
+
+Comment:
+That's a good point, and maybe further we could look if it makes sense to default the output stream to UTF-8 always, vs just if the input isn't supported. I.e. if I'm hitting different sites and I don't know ahead of time their encoding, why should the output encoding change.
+
+Need to think about how that might impact back compat.
+
+Comment:
+If you change the encoding you probably want to remove/change document elements specifying the original encoding. Otherwise the document contents and the actual encoding conflict.
+
+Comment:
+@jhy FYI, this error was one of a few that popped up during the course of an Apache Tika discussion about migrating from TagSoup to Jsoup. It may be of interest to you: https://issues.apache.org/jira/browse/TIKA-1599 (exceptions contained in the attachment "tagsoup_vs_jsoup_reports.zip").
+
+Comment:
+Thanks, implemented, including updating the meta charset el.
+
+@HansBrende thanks, if there's more that's useful to fix please feel free to raise them too.

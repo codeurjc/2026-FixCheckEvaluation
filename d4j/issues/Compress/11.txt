@@ -1,0 +1,5 @@
+Summary: createArchiveInputStream detects text files less than 100 bytes as tar archives
+
+Description:
+The fix for COMPRESS-117 which modified ArchiveStreamFactory().createArchiveInputStream(inputstream) results in short text files (empirically seems to be those <= 100 bytes) being detected as tar archives which obviously is not desirable if one wants to know whether or not the files are archives.
+I'm not an expert on compressed archives but perhaps the heuristic that if a stream is interpretable as a tar file without an exception being thrown should only be applied on archives greater than 100 bytes?

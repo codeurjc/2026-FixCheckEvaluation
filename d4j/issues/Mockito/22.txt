@@ -1,0 +1,28 @@
+Summary: areEqual does not try == operator for trivial equality case and sometimes has unneccessary exceptions
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Any class that throws an exception in its equals method.  For example:
+
+private final class BadEquals {
+   @Override
+        public boolean equals (Object oth) {
+	      throw new RuntimeException();
+        }
+   }
+2. Create an instance of that class.  Object badequals=new BadEquals();
+3. Test for equality using org.mockito.internal.matchers.Equality.areEqual:  areEqual(badequals,badequals)
+
+<b>What is the expected output? What do you see instead?</b>
+I expect to see they are equal.
+
+I suspect that the areEqual method is calling the equals method which is throwing an Exception.  In this case, we can use the java equality operator to see that they are equal, bypassing the equals method and its exception.
+
+
+<b>What version of the product are you using? On what operating system?</b>
+
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+Pushed to master. Thanks a lot for the pull request!

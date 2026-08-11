@@ -1,0 +1,4 @@
+Summary: "HarmonicFitter.ParameterGuesser" sometimes fails to return sensible values
+
+Description:
+The inner class "ParameterGuesser" in "HarmonicFitter" (package "o.a.c.m.optimization.fitting") fails to compute a usable guess for the "amplitude" parameter.

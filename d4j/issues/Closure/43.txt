@@ -1,0 +1,75 @@
+Summary: @lends does not work unless class is defined beforehand
+
+Description:
+<b>What steps will reproduce the problem?</b>
+With advanced optimizations enabled as well as type checking (--jscomp_error=checkTypes), try to use @lends in the same way it's used on the jsdoc page at http://code.google.com/p/jsdoc-toolkit/wiki/TagLends - using either a utility method called &quot;makeClass&quot; or another method of class constructing such as John Resig's method at http://ejohn.org/blog/simple-javascript-inheritance/
+
+<b>What is the expected output? What do you see instead?</b>
+Expected output is to have code compiled but instead I get a compile error such as:
+
+ERROR - Variable Person.prototype not declared before @lends annotation.
+
+
+<b>What version of the product are you using? On what operating system?</b>
+Latest svn build, OS X.
+
+Comment:
+Nick, do you have thoughts about this?
+
+Comment:
+I do, but I haven't organized them yet. :)
+
+For example, I think that doing:
+
+foo(/** @lends {Bar} */ {});
+var Bar = function() {};
+
+should probably invalid. So, the bug, as stated is working as intended.
+
+But it seems reasonable to support @lends in the statement where a symbol is declared.
+
+does that sound right?
+
+Comment:
+Yes, the intent of this bug report is to allow for the use of @lends in the same statement where the symbol is declared.
+
+Comment:
+Hey Googler',s
+
+We at Sprout have been using the Google Closure Compiler to compile our mobile ads. We took an initial pass at trying to compile our code using ADVANCED_OPTIMIZATIONS but our JS code uses a very similar extension model to that of John Resig's simple inheritance  http://ejohn.org/blog/simple-javascript-inheritance/ as posted in the initial bug. It seems that it's still not possible to use the @lends annotation inline as described by this ticket.
+
+Is this bug on the roadmap for a fix anytime soon?
+
+Thanks,
+Brian
+
+Comment:
+I haven't heard any other complaints about it, or gotten any proposed patches for it, so I assumed it was lower priority. (I guess I use @lends-based inheritance differently than you do.) I can look at this next week if it's important to you.
+
+Comment:
+Hey Nick,
+
+That would really be awesome! We'd definitely appreciate a fix as we're starting to integrate some of the more advanced features of the Closure Compiler into both our local development workflow as a debug tool and our production deployment for performance improvements.
+
+Thanks,
+Brian
+
+Comment:
+Hi Nick,
+
+I'd second that this will be a nice feature to allow Closure to be used with other third-party libraries.
+
+I have been forced to preprocess my Dojo sources to split "dojo.declare" calls into two statements in order to avoid this error.  For example:
+
+var some.Class = dojo.declare("some.Class", { prototype methods... });
+
+must be turned into:
+
+/** @constructor */
+var some.Class = function() {};
+some.Class = dojo.declare("some.Class", /** @lends {some.Class} */ { prototype methods... });
+
+in order to compile.  This, however, is a hack and turning one statement into two is not always possible in the context of code.
+
+Comment:
+This issue was closed by revision r1727.

@@ -1,0 +1,41 @@
+Title: Parser error on <template> inside <tr>
+
+Body:
+I've been experimenting with jsoup as a validator for TensorBoard code and I encountered a bug.
+
+If I have code like this:
+
+```html
+          <tr>
+            <th></th>
+            <th>Name</th>
+            <template is="dom-if" if="{{smoothingEnabled}}">
+              <th>Smoothed</th>
+            </template>   
+            <th>Value</th>
+            <th>Step</th>
+            <th>Time</th>
+            <th>Relative</th>
+          </tr>
+```
+
+I get errors like this:
+
+ERROR: tensorflow/tensorboard/components/vz_line_chart/vz-line-chart.html (offset 1282): Unexpected token [StartTag] when in state [InTable]
+ERROR: tensorflow/tensorboard/components/vz_line_chart/vz-line-chart.html (offset 1338): Unexpected token [EndTag] when in state [InTable]
+ERROR: tensorflow/tensorboard/components/vz_line_chart/vz-line-chart.html (offset 1338): Unexpected token [EndTag] when in state [InBody]
+
+Please note that those offset numbers point to the `<template>` tags.
+
+Template tag is legal here because https://www.w3.org/TR/html5/tabular-data.html#the-tr-element says content model for `tr` is "Zero or more td, th, and script-supporting elements" and `template` is a script supporting element.
+
+Comment:
+Thanks for pointing it out. I'll need to refactor the InsertionModes in the tree builder as the `<template>` object introduces an insertion mode stack.
+
+Will probably take a pass at the implementation without having the children of `template` become associated with another Document/DocumentFragment like described (in the whatwg spec that we follow, not w3c) because without a scripting implementation I think it's just complexity that won't help users.
+
+Comment:
+Right now I'm investigating whether or not jsoup will be a good library for validating all the Polymer code maintained by hundreds of Googlers. Polymer code uses `<template>` very heavily. I want Googlers to be able to benefit from the amazing work you've done. What would you advise?
+
+Comment:
+Thanks, merged #901

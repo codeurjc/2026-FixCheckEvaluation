@@ -1,0 +1,34 @@
+Summary: Simple "Whitespace only" compression removing "each" keyword from "for each (var x in arr)" loop
+
+Description:
+<b>What steps will reproduce the problem?</b>
+See below code snippet before after compression
+
+---Before---
+contactcenter.screenpop.updatePopStatus = function(stamp, status) {
+for each ( var curTiming in this.timeLog.timings ) {
+if ( curTiming.callId == stamp ) {
+curTiming.flag = status;
+break;
+}
+}
+};
+---After---
+contactcenter.screenpop.updatePopStatus=function(stamp,status){for(var curTiming in this.timeLog.timings)if(curTiming.callId==stamp){curTiming.flag=status;break}};
+
+
+<b>What is the expected output? What do you see instead?</b>
+---each keyword should be preserved
+
+<b>What version of the product are you using? On what operating system?</b>
+<b>Please provide any additional information below.</b>
+for each (** in **) ---&gt;  returns object value
+for (** in **) --&gt; returns index
+
+Comment:
+"for each" is not part of the EcmaScript standard: https://developer.mozilla.org/en/JavaScript/Reference/Statements/for_each...in
+
+It should however be a parse error.
+
+Comment:
+This issue was closed by revision r1737.

@@ -1,0 +1,68 @@
+Title: java.lang.ClassCastException: java.lang.Class cannot be cast to java.lang.String
+
+Body:
+Exception throws on verifyZeroInteractions when using mock with default answer.
+checked on versions 1.10.5-2.0.5
+all ok on 1.9.5
+
+
+Comment:
+Hi,
+
+Do you have a JUnit test so that we could reproduce.
+Also please see the [contributing guide](https://github.com/mockito/mockito/blob/master/CONTRIBUTING.md).
+
+
+Comment:
+``` java
+public class MockitoTest extends Mockito {
+    public interface TestMock {
+        public boolean m1();
+    };
+
+    @Test
+    public void test() {
+        TestMock test = mock(TestMock.class, new Answer() {
+            @Override public Object answer(InvocationOnMock invocation) throws Throwable {
+                return false;
+            }
+        });
+        test.m1();
+        verifyZeroInteractions(test);
+    }
+}
+```
+
+
+Comment:
+Hi, sorry for the late reply.
+
+Thanks for the testcase, indeed we missed something there.
+
+For reference the stacktrace is :
+
+```
+java.lang.ClassCastException: java.lang.Boolean cannot be cast to java.lang.String
+    at org.mockitousage.bugs.ClassCastExOnVerifyZeroInteractionsTest$TestMock$$EnhancerByMockitoWithCGLIB$$91d883c5.toString(<generated>)
+    at java.lang.String.valueOf(String.java:2847)
+    at java.lang.StringBuilder.append(StringBuilder.java:128)
+    at org.mockito.exceptions.Reporter.noMoreInteractionsWanted(Reporter.java:420)
+    at org.mockito.internal.verification.NoMoreInteractions.verify(NoMoreInteractions.java:24)
+    at org.mockito.internal.MockitoCore.verifyNoMoreInteractions(MockitoCore.java:113)
+    at org.mockito.Mockito.verifyZeroInteractions(Mockito.java:1674)
+    at org.mockitousage.bugs.ClassCastExOnVerifyZeroInteractionsTest.test(ClassCastExOnVerifyZeroInteractionsTest.java:23)
+```
+
+
+Comment:
+Actually the usage report was improved to include the mock name, however in this usage the default answer always returns `false`. So when the String message is generated there's a CCE because the default answer returns a `boolean`.
+
+On your side the workaround is to return valid values for these `Object` inherited methods.
+
+On mockito side there should be two possible thing to do:
+- get the name safely without invoking `toString`
+- validate more aggressively answer's result
+
+
+Comment:
+Hello, I've one doubt, can we do casting for mocking objects?. When I tried to do that I got "java.lang.ClassCastException".

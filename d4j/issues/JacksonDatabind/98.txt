@@ -1,0 +1,400 @@
+Title: External property polymorphic deserialization does not work with enums
+
+Body:
+versions: Jackson 2.8.1, Jackson-module-kotlin 2.8.1
+
+Attempting to deserialize a class using external_property. In my case, the property is an Enum type with values matching the type name. Now that issue #999 is fixed, I thought this would work, but now I'm getting a different error:
+
+```
+Exception in thread "main" com.fasterxml.jackson.databind.JsonMappingException: Can not construct instance of enum.Invite, problem: argument type mismatch
+ at [Source: {
+  "kind": "CONTACT",
+  "to": {
+    "name": "Foo"
+  }
+}; line: 6, column: 1]
+    at com.fasterxml.jackson.databind.JsonMappingException.from(JsonMappingException.java:268)
+    at com.fasterxml.jackson.databind.DeserializationContext.instantiationException(DeserializationContext.java:1405)
+    at com.fasterxml.jackson.databind.deser.std.StdValueInstantiator.wrapAsJsonMappingException(StdValueInstantiator.java:468)
+    at com.fasterxml.jackson.databind.deser.std.StdValueInstantiator.rewrapCtorProblem(StdValueInstantiator.java:487)
+    at com.fasterxml.jackson.databind.deser.std.StdValueInstantiator.createFromObjectWith(StdValueInstantiator.java:276)
+    at com.fasterxml.jackson.module.kotlin.KotlinValueInstantiator.createFromObjectWith(KotlinValueInstantiator.kt:30)
+    at com.fasterxml.jackson.databind.deser.impl.PropertyBasedCreator.build(PropertyBasedCreator.java:135)
+    at com.fasterxml.jackson.databind.deser.impl.ExternalTypeHandler.complete(ExternalTypeHandler.java:225)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserializeUsingPropertyBasedWithExternalTypeId(BeanDeserializer.java:937)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserializeWithExternalTypeId(BeanDeserializer.java:792)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserializeFromObject(BeanDeserializer.java:312)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:148)
+    at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3789)
+    at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2852)
+    at enum.Reproduction_KindEnumKt.main(Reproduction-KindEnum.kt:49)
+    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.lang.reflect.Method.invoke(Method.java:498)
+    at com.intellij.rt.execution.application.AppMain.main(AppMain.java:147)
+Caused by: java.lang.IllegalArgumentException: argument type mismatch
+    at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+    at sun.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+    at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+    at java.lang.reflect.Constructor.newInstance(Constructor.java:423)
+    at com.fasterxml.jackson.databind.introspect.AnnotatedConstructor.call(AnnotatedConstructor.java:124)
+    at com.fasterxml.jackson.databind.deser.std.StdValueInstantiator.createFromObjectWith(StdValueInstantiator.java:274)
+    ... 15 more
+
+Process finished with exit code 1
+```
+
+Here is the reproduction recipe: https://github.com/rocketraman/jackson-issue-enum-polymorphism/blob/master/src/main/kotlin/enumtype/Reproduction-KindEnum.kt
+
+
+Comment:
+This one is odd, basically in the subclass of `StdValueInstantiator` in `createFromObjectWith()` function it receives in the `buffer: PropertyValueBuffer` parameter when calling `buffer.getParameters(props)` a first parameter of type String that is `CONTACT` and a second that is type `InviteToContact` that is correct and this is stored in local variable`jsonParmValueList`.  
+
+Then the `KotlinValueInstantiator` in this case just delegates to `super.createFromObjectWith(ctxt, jsonParmValueList)` which blows up with this exception, so it tries to create the object with the wrong datatype for the first parameter (String instead of the `InviteKind` enum) and causes this exception.  That doesn't appear to be a problem in the Kotlin module which doesn't handle this case and just delegates.  Although I think if it didn't it would blow up differently because it would still have the wrong type.  
+
+
+Comment:
+So the bug is that the type of the polymorphic variable is coming in as `String` instead of the `Enum` type and therefore cannot be used to create the object, argument type mismatch to the constructor.
+
+Fails when databind code does the instantiation, and when I have the kotlin module do the same, it fails as well.  
+
+Maybe only applies when `ValueInstantiator` is being used, or is that always used as `StdValueInstantiator`?
+
+@cowtowncoder ??
+
+
+Comment:
+You can test by running the Kotlin module after re-enabling the test in:
+https://github.com/FasterXML/jackson-module-kotlin/blob/master/src/test/kotlin/com/fasterxml/jackson/module/kotlin/test/GithubDatabind1328.kt
+
+
+Comment:
+I would need a Java-only reproduction here, since it sounds there's nothing Kotlin-specific about it.
+
+
+Comment:
+Or is this basically #1366?
+
+
+Comment:
+@apatrida (cc: @cowtowncoder ) I was not able to reproduce this in Java. Here is the java repro attempt:
+
+https://github.com/rocketraman/jackson-issue-enum-polymorphism/blob/master/src/main/java/enumtype/java/ReproductionKindEnum.java
+
+
+Comment:
+@rocketraman not sure, basically I receive a value of the wrong type (string) when it should be coerced to the enum value already.  
+
+It could still be an issue with the StdValueInstantiator... i'll check it again.
+
+
+Comment:
+@cowtowncoder  The issue is `StdValueInstantiator` and is hard to reproduce in Java because the default constructor is called and then values are set after at which point they have the correct type.  But if a value instantiator is in play, then this code will break:
+
+```
+ @Override public Object createFromObjectWith(DeserializationContext ctxt,
+            SettableBeanProperty[] props, PropertyValueBuffer buffer) {
+   Object[] jsonParmValueList = buffer.getParameters(props)
+   super.createFromObjectWith(ctxt, jsonParmValueList)
+}
+```
+
+and looking at the `Object[]` of parameters received it is because the enum comes as type `String` and not as an enum type.  Whereas if this is set via a property (in @rocketraman  attempt to reproduce in Java) then it comes as the enum type which doesn't crash.
+
+So something in the `PropertyValueBuffer` class does not know what type to coerce the value into... 
+
+Looking at the method signature again...  the `SettableBeanProperty[] props` parameter should have the properties with their correct types, right?    And it does, I have 2 properties that come in as:
+
+```
+[simple type, class com.fasterxml.jackson.module.kotlin.test.GithubDatabind1328$InviteKind]
+[simple type, class com.fasterxml.jackson.module.kotlin.test.GithubDatabind1328$InviteTo]
+```
+
+Great, those are correct.  So why then does `buffer.getParameters(props)` return:
+
+```
+[0]  "CONTACT" as String
+[1]   InviteToContact(name=Foo) as InviteToContact
+```
+
+Therefore `buffer.getParameters` in databind does not coerce the string "CONTACT" into an `enum` as it should.  The issue lies there.  Not sure how in Java you can force the StdValueInstantiator to be used to reproduce this.  
+
+
+Comment:
+Looking at the work from https://github.com/FasterXML/jackson-databind/pull/1224 would help to figure out how to reproduce this from Java since there were test cases written for this @rocketraman 
+
+
+Comment:
+And it goes deeper, whatever created the `PropertyValueBuffer` instance put the wrong type in to begin with since `_creatorParameters` contains the string instead of enum as well.
+
+
+Comment:
+```
+ public boolean assignParameter(SettableBeanProperty prop, Object value)
+    {
+        final int ix = prop.getCreatorIndex();
+        _creatorParameters[ix] = value;    <------ VALUE IS WRONG TYPE, but `prop` is correct type
+        ...
+```
+
+So the value passed  into `PropertyValueBuffer.assignParameter` is wrong type.  
+
+who's job is it to coerce the type from a string into an enum @cowtowncoder ?
+
+
+Comment:
+I can work around the issue by special casing `string` => `enum` conversion but then the normal StdValueInstantiator will still fail, I'd only fix the Kotlin case.
+
+
+Comment:
+@apatrida Ok hadn't noticed your second to last comment. I think I'd really need a smallish example to follow through, to know who is right, who wrong.
+
+
+Comment:
+I have the same issue(I think its an issue) after upgrading from 2.7.4 -> 2.8.6  in Java spring-boot project
+Using an Enum as EXTERNAL_PROPERTY, the instantiation of my polymorphic variable its right set but the type variable(Enum type) (that its correctly mapped) on object creation the args comes as String
+
+My json
+`{ 
+    type:"A", 
+     obj: {...}
+}`
+
+```
+public class MyObject {
+	Type type;
+
+	@JsonTypeInfo(property = "type", include = EXTERNAL_PROPERTY, use = NAME)
+	@JsonSubTypes({
+			@JsonSubTypes.Type(value = A.class,name = "A"),
+			@JsonSubTypes.Type(value = B.class,name = "B")
+        })
+	Interface 	obj;
+}
+
+enum Type {
+        A, B
+}
+
+class A implements Interface {
+...
+}
+class B implements Interface {
+...
+}
+```
+
+
+
+Comment:
+Looking at this again now I realize that it is not clear whether type id is even expected to allow anything other than `String`s. I never intended it to be used for anything other than simple strings, for what that is worth -- if it has worked, that is actually surprising...
+
+But I'll try to see if it'd be easy to make this work. It is not an unreasonable wish.
+
+
+Comment:
+@pmorixe Unfortunately I still don't see the issue here: no exception is thrown. What is the exact problem you see?
+
+Note that `type` is metadata-only, by default, so its value should not be visible to properties, unless `visible=true` is set for `@JsonTypeInfo`. But even if that is done, I do not see failure.
+So I think I'd like to see some assertion(s) in test.
+I tested this with 2.8.8 / 2.9.0.pr3, but I don't assume this is different from 2.8.4.
+
+Comment:
+@apatrida Conversion to expected value of property should be done by `jackson-databind`, when buffering (if possible); if not possible only tokens (as `TokenBuffer`) should be buffered and no value deserialized.
+
+Comment:
+Unfortunately can not reproduce at this point. May be re-opened/re-filed with Java reproduction.
+
+
+Comment:
+I also ran into this problem. I noticed that when it came time to call the all argument constructor if I set 
+```
+include = JsonTypeInfo.As.EXTERNAL_PROPERTY,
+```
+Jackson would try to pass a `String` rather than a `Enum`. I tried to break it down into something small to demonstrate this problem, and found out the issue is lombok adds
+```
+@java.beans.ConstructorProperties({"type", "animal"})
+```
+to the all args constructor.
+
+If I manually make the constructor with that annotation it fails if I remove it it works.
+
+Here is a code that demonstrates the problem:
+```
+import java.util.Arrays;
+import java.util.List;
+
+import org.junit.Test;
+
+import java.io.IOException;
+
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
+import com.fasterxml.jackson.databind.DatabindContext;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonTypeIdResolver;
+import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
+import com.fasterxml.jackson.databind.type.TypeFactory;
+
+public class EnumFailureExample {
+
+    public interface Animal {
+        
+    }
+    
+    public static class Dog implements Animal {
+        
+        private String dogStuff;
+        
+        public Dog() {
+            
+        }
+        
+        public Dog(String dogStuff) {
+            this.dogStuff = dogStuff;
+        }
+
+        public String getDogStuff() {
+            return dogStuff;
+        }
+
+        public void setDogStuff(String dogStuff) {
+            this.dogStuff = dogStuff;
+        }
+        
+    }
+    
+    public enum AmimalType {
+        Dog;
+    }
+    
+    public static class AnimalAndType {
+        
+        private AmimalType type;
+        
+        @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, 
+            include = JsonTypeInfo.As.EXTERNAL_PROPERTY, 
+            property = "type")
+        @JsonTypeIdResolver(AnimalResolver.class)   
+        private Animal animal;
+        
+        
+        public AnimalAndType() {
+            
+        }
+        
+        // problem is this annotation
+        @java.beans.ConstructorProperties({"type", "animal"})
+        public AnimalAndType(final AmimalType type, final Animal animal) {
+            this.type = type;
+            this.animal = animal;
+        }
+        
+        
+        public AmimalType getType() {
+            return type;
+        }
+        public void setType(AmimalType type) {
+            this.type = type;
+        }
+        public Animal getAnimal() {
+            return animal;
+        }
+        public void setAnimal(Animal animal) {
+            this.animal = animal;
+        }
+    }
+    
+    public static class AnimalResolver implements TypeIdResolver {
+
+        private JavaType baseType;
+        @Override
+        public void init(JavaType baseType) {
+            this.baseType = baseType;
+        }
+
+        @Override
+        public String idFromValue(Object value) {
+            // Its external why is this called?
+            return null;
+        }
+
+        @Override
+        public String idFromValueAndType(Object value, Class<?> suggestedType) {
+            // Its external why is this called?
+            return null;
+        }
+
+        @Override
+        public String idFromBaseType() {
+            throw new UnsupportedOperationException("Missing action type information - Can not construct");
+        }
+
+        @Override
+        public JavaType typeFromId(DatabindContext context, String id) throws IOException {
+            Class clazz = null;
+            if (AmimalType.Dog.toString().equals(id)) {
+                clazz = Dog.class;
+            } else {
+                throw new IllegalArgumentException("What is a " + id);
+            }
+                       
+            return TypeFactory.defaultInstance()
+                    .constructSpecializedType(baseType, clazz);
+        }
+
+        @Override
+        public String getDescForKnownTypeIds() {
+            return null;
+        }
+
+        @Override
+        public Id getMechanism() {
+            return Id.CUSTOM;
+        } 
+        
+    }
+    
+    @Test
+    public void testExample() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        
+        byte[] bytes = mapper.writerWithDefaultPrettyPrinter()
+                .writeValueAsBytes(Arrays.asList(new AnimalAndType(AmimalType.Dog, new Dog())));
+        
+        System.out.println(new String(bytes));
+        mapper.readValue(bytes, 
+            mapper.getTypeFactory().constructCollectionType(List.class, AnimalAndType.class));
+    }
+}
+
+``` 
+
+
+This is using jackson 2.9.1
+
+Comment:
+Lombok unfortunately is often part of a problem. It is possible here it is due to its adding `@ConstructorParameters`, which both names the constructor parameters and indicates it as "creator" (active constructor to use).
+
+But it is possible to disable latter part, by disabling
+
+    MapperFeature.INFER_CREATOR_FROM_CONSTRUCTOR_PROPERTIES
+
+which might prevent the issue.
+
+
+Comment:
+Ah thanks that is useful to know.
+
+Yes it is due to the `@ConstructorParameters` annotation, I was able to remove lombok and just have that annotation and the problem showed up.
+
+What should be done next? I think this is a bug. Would you like a new issue be created or should this be re-opened?
+
+Comment:
+@LukeButtersFunnelback How about I re-open it, given that there is a Java reproduction.
+
+
+Comment:
+Ok so this took a while. But I found the problem and fixed it for 2.9.6. As @apatrida pointed out earlier, value was of wrong type -- `String` -- and needs to be routed via deserializer (first added into temporary buffer). Doing that resolves this case at least; I did not see other code paths so I hope this is sufficient.

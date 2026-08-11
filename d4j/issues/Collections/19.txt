@@ -1,0 +1,32 @@
+Summary: SetUniqueList may become inconsistent
+
+Description:
+I found this bug during my work on issue COLLECTIONS-310 : 
+
+When you 'set' an element to a position that contains this element, it is removed from the internal set. This leads to the situation that 
+- invocing get() returns the element
+- invocing contains() returns false.
+
+Extending the existing test method for set:
+{code}
+   public void testSet() {
+        final SetUniqueList<E> lset = new SetUniqueList<E>(new ArrayList<E>(), new HashSet<E>());
+
+        // Duplicate element
+        final E obj1 = (E) new Integer(1);
+        final E obj2 = (E) new Integer(2);
+        final E obj3 = (E) new Integer(3);
+
+        lset.add(obj1);
+        lset.add(obj2);
+        lset.set(0, obj1);
+        assertEquals(2, lset.size());
+        assertSame(obj1, lset.get(0));
+        assertSame(obj2, lset.get(1));
+
+        assertTrue(lset.contains(obj1));  // fails !
+        assertTrue(lset.contains(obj2));
+
+{code}
+
+

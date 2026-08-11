@@ -1,0 +1,5 @@
+Title: Custom serializer not used if POJO has `@JsonValue`
+
+Body:
+Looks like serializers constructed for `@JsonValue` have higher precedence than custom serializers; that is, registered custom serializer is not found if POJO type has `@JsonValue` annotation.
+This is wrong.

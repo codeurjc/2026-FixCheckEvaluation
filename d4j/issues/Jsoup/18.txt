@@ -1,0 +1,31 @@
+Title: outerHtml method returns extra attribute when element definition has new line
+
+Body:
+I think this is a bug.
+
+Version: jsoup-1.6.0.jar
+
+Source:
+---------BEGIN
+&lt;img alt=""
+
+```
+         src="/imagelibraries/homepagebanners/british_10k_2010.jpg" />
+```
+
+---------END
+Steps to reproduce: element.outerHtml() ->
+
+Expected result: two attributes alt and src
+Observed result output
+----------BEGIN
+&lt;img alt="" ="" src="/imagelibraries/homepagebanners/british_10k_2010.jpg" />
+----------END
+
+
+Comment:
+Thanks for pointing this out! Newlines were correctly being ignored in tags, but carriage returns were not being normalised correctly.
+
+
+Comment:
+Great work - thanks a lot! Great library btw.

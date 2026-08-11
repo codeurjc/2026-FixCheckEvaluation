@@ -1,0 +1,80 @@
+Title: JsonParser.getTokenLocation() doesn't update after field names.
+
+Body:
+There's a unit test to repro the issue below.  Basically, when you're on a FIELD_NAME token, if you call getTokenLocation() and then nextToken() and then getTokenLocation() again, you'll get the same location for both calls to getTokenLocation(), even though you've advanced to a new token.
+
+The issue seems to be the _nextToken logic in ReaderBasedJsonParser and UTF8StreamJsonParser.  When calling nextToken() on a FIELD_NAME, it calls _nextAfterName(), which updates _currToken but doesn't update _tokenInputRow and _tokenInputCol for the new token's location.
+
+I started to try to fix it, but the _nextToken logic is spread across so much code that it looked like it'd be a pretty major surgery.  Not something I'm willing to do at this point. :-)
+
+```
+public void testTokenLocationAfterFieldName() throws Exception
+{
+    _testTokenLocationAfterFieldName(false);
+    _testTokenLocationAfterFieldName(true);
+}
+
+private void _testTokenLocationAfterFieldName(Boolean useStream) throws Exception
+{
+    final String DOC = "{\"name\":123}";
+    JsonFactory jf = new JsonFactory();
+    JsonParser jp = useStream ?
+            jf.createJsonParser(new ByteArrayInputStream(DOC.getBytes("UTF-8")))
+            : jf.createJsonParser(new StringReader(DOC));
+
+    assertEquals(JsonToken.START_OBJECT, jp.nextToken());
+    assertEquals(JsonToken.FIELD_NAME, jp.nextToken());
+    assertEquals(JsonToken.VALUE_NUMBER_INT, jp.nextToken());
+    assertEquals(1, jp.getTokenLocation().getLineNr());
+    assertEquals(9, jp.getTokenLocation().getColumnNr());
+    jp.close();
+}
+```
+
+
+Comment:
+Ah. Yes, this must be a regression due to an earlier rewrite that combines parsing of field names with minimal tokenization of the following value. This was done for performance reasons, but did not consider effects for token location handling.
+
+
+Comment:
+(and by earlier, I mean something like 1.7 or 1.8 -- quite a while ago).
+
+
+Comment:
+It gets worse when the values are not the first in an object. For example:
+
+```
+{
+  "book" : [ {
+    "year" : 1999,
+    "title" : "Title",
+    "author" : "Author"
+  }]
+}
+```
+
+In this case for `title`, the `getTokenLocation()` and the `getCurrentLocation()` select both for the `FIELD_NAME` and the string value the following text:
+
+```
+                        ,
+    "author"
+```
+
+Please recognize no value is selected this time, and the previous `,` is also selected. Similar behaviour for the `author`.
+(This is with version: 2.4.3.)
+
+
+Comment:
+Is this with byte- or char-backed source? Or both.
+
+
+Comment:
+@cowtowncoder I have just tested with the byte-backed source: `new JsonFactory().createParser(json.getBytes("UTF-8"))`. Just tested with the char-based backend and it seems to work the same way.
+
+
+Comment:
+@aborg0 Makes sense, but just wanted to verify.
+
+
+Comment:
+Please see my attached pull request for a fix.

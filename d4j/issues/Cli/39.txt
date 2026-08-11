@@ -1,0 +1,14 @@
+Summary: Option parser type EXISTING_FILE_VALUE not check file existing
+
+Description:
+When the user pass option type FileInputStream.class, I think the expected behavior for the return value is the same type, which the user passed.
+
+Options options = new Options();
+options.addOption(Option.builder("f").hasArg().type(FileInputStream.class).build());
+CommandLine cline = new DefaultParser().parse(options, args);
+FileInputStream file = (FileInputStream) cline.getParsedOptionValue("f"); // it returns "File" object, without check File exist.
+
+
+I attach a solution for it:
+https://github.com/schaumb/commons-cli/commit/abfcc8211f529ab75f3b3edd4a827e484109eb0b
+

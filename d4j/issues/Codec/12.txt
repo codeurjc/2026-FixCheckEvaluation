@@ -1,0 +1,29 @@
+Summary: Base64InputStream.skip skips underlying stream, not output
+
+Description:
+Base64InputStream.skip() skips within underlying stream, leading to unexpected behaviour.
+
+The following code will reproduce the issue:
+
+@Test
+public void testSkip() throws Throwable {
+    InputStream ins =
+            new ByteArrayInputStream("AAAA////".getBytes("ISO-8859-1"));//should decode to {0, 0, 0, 255, 255, 255}
+    Base64InputStream instance = new Base64InputStream(ins);
+    assertEquals(3L, instance.skip(3L)); //should skip 3 decoded characters, or 4 encoded characters
+    assertEquals(255, instance.read()); //Currently returns 3, as it is decoding "A/", not "//" 
+}
+
+The following code, if added to Base64InputStream, or (BaseNCodecInputStream in the dev build) would resolve the issue:
+
+@Override
+public long skip(long n) throws IOException {
+    //delegate to read()
+    long bytesRead = 0;
+    while ((bytesRead < n) && (read() != -1)) {
+        bytesRead++;
+    }
+    return bytesRead;
+}
+
+More efficient code may be possible.

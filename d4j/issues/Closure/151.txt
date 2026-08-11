@@ -1,0 +1,34 @@
+Summary: Add a --version option for the compiler.
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Run java -jar compiler.jar --version
+
+<b>What is the expected output? What do you see instead?</b>
+Expected: A version statement.
+Actual: An error that --version is not supported.
+
+<b>What version of the product are you using? On what operating system?</b>
+See above. This is a compiler.jar I downloaded from this project (didn't 
+build it myself), file is dated 04/12/2009.
+On Windows XP.
+
+<b>Please provide any additional information below.</b>
+This information doesn't seem to be given anywhere, don't see it on --help 
+either.
+
+This is an enhancement request, not a bug report.
+
+Comment:
+there's got to be some Ant magic to do this at build time. the only reason it's not 
+done is because our Ant skills are weak. Hrmmm...
+
+Comment:
+Yes, ant can help here. There's a `buildnumber` task that will increment a number in a 
+plain file, or the `propertyfile` task that can do more sophisticated things; example 
+of the latter attached, which you can very nearly just drop into your existing build 
+file. More here:
+http://ant.apache.org/manual/OptionalTasks/propertyfile.html
+
+Comment:
+This issue was closed by revision r440.

@@ -1,0 +1,15 @@
+Title: DocumentType.outerHtmlHead missing quote
+
+Body:
+There's just a doublequote missing from the append sequence right before the systemId.
+
+For example:
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+Comment:
+Thanks for pointing this out.
+
+
+Comment:
+Thanks.  This library is great!

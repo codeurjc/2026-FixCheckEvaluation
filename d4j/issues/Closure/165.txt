@@ -1,0 +1,46 @@
+Summary: Properties defined on any record type applying to unrelated record types
+
+Description:
+Consider the following code:
+
+/** @typedef {{name: string, id: number}} */
+var RecordType1;
+
+/**
+* @param {RecordType1} rec
+*/
+var func = function(rec) {
+  alert(rec.name2);
+};
+func({name: 'jim', id: 0});
+
+Compiled with: 
+java -jar build/compiler.jar --compilation_level=ADVANCED_OPTIMIZATIONS --jscomp_error=accessControls --jscomp_error=checkTypes --jscomp_error=checkVars --js ~/Desktop/test.js
+
+Properly errors:
+/Users/dolapo/Desktop/test.js:9: ERROR - Property name2 never defined on rec
+  alert(rec.name2);
+
+
+However, add another recordtype with name2 defined:
+
+/** @typedef {{name: string, id: number}} */
+var RecordType1;
+
+/** @typedef {{name2: string}} */
+var RecordType2;
+
+/**
+* @param {RecordType1} rec
+*/
+var func = function(rec) {
+  alert(rec.name2);
+};
+func({name: 'jim', id: 0});
+
+
+
+and this compiles with no errors.
+
+Comment:
+This issue was closed by revision r1984.

@@ -1,0 +1,11 @@
+Title: Missing type checks when using polymorphic type ids
+
+Body:
+(report by Lukes Euler)
+
+`JavaType` supports limited amount of generic typing for textual representation, originally just to support typing needed for `EnumMap` (I think). Based on some reports, it appears that some of type compatibility checks are not performed in those cases; if so, they should be made since there is potential for abuse.
+The problem here although actual type assignment will fail later on, ability to trigger some of processing (instantiation of incompatible classes, perhaps assingnment of properties) may itself be vulnerability.
+
+
+Comment:
+Fixed in 2.8.10 / 2.9.1

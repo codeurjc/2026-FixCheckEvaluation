@@ -1,0 +1,192 @@
+Title: Gson deserializes wildcards to LinkedHashMap
+
+Body:
+This issue is a successor to #1101.
+
+Models:
+```java
+// ? extends causes the issue
+class BigClass { Map<String, ? extends List<SmallClass>> inBig; }
+
+class SmallClass { String inSmall; }
+```
+
+Json:
+```json
+{
+  "inBig": {
+    "key": [
+      { "inSmall": "hello" }
+    ]
+  }
+}
+```
+
+Gson call:
+```java
+SmallClass small = new Gson().fromJson(json, BigClass.class).inBig.get("inSmall").get(0);
+```
+
+This call will fail with a `ClassCastException` exception –
+ `com.google.gson.internal.LinkedTreeMap cannot be cast to Entry`. If we remove `? extends` then everything works fine.
+
+Comment:
+was this ever fixed/released? I still see the problem even on v2.8.5
+
+Comment:
+Could you please test if this still occurs with the latest Gson version? I think #1146 should have fixed this. At least the originally provided sample code seems to work, except that the member name seems to be incorrect: <code>fromJson(json, BigClass.class).inBig.get("<del>inSmall</del><ins>key</ins>").get(0)</code>
+
+If you still experience this please provide a small self contained example, and mention which Gson version you are using.
+
+Comment:
+Hi, <br>
+
+Im using Gson 2.10.1. I think the issue is still present. I was trying to write a class that can
+parse json array from a json file stored in the android assets folder.
+
+The following is the class for the parser. This takes in a Generic Type.
+
+``` 
+class AssetJsonParser<T>  {  
+    companion object{  
+        private const val TAG = "AssetJsonParser"  
+  }  
+  
+    fun getDataAsList(context: Context, filePath : String): List<T> {  
+        lateinit var jsonString : String  
+        try {  
+            jsonString = context.assets.open(filePath).bufferedReader().use {  
+ it.readText()  
+            }  
+  }catch (ioException: IOException){  
+            Log.d(TAG, "parse: failed due to : ${ioException.message}" )  
+        }  
+        val listOfData = object : TypeToken<List<T>>() {}.type  
+  return Gson().fromJson(jsonString,listOfData)  
+    }  
+}
+
+```
+
+In the test case below, I was expecting the Gson parser to return a list of the generic type (here TypeA or TypeB).
+
+I was expecting this test case to pass but I see that the type returned is actually a
+LinkedTreeMap type and not what is expected (TypeA or TypeB). Is it an issue with my
+way of using the Gson library or is it same as the issue #1107 mentioned here ?
+
+```
+@Test  
+fun typeTest() {  
+    // Context of the app under test.  
+  val appContext = InstrumentationRegistry.getInstrumentation().targetContext  
+  
+  val parserTypeA = AssetJsonParser<TypeA>()  
+    val parserTypeB = AssetJsonParser<TypeB>()  
+  
+    val listOfTypeA = parserTypeA.getDataAsList(appContext, "TypeA.json")  
+    val listOfTypeB = parserTypeB.getDataAsList(appContext, "TypeB.json")  
+  
+    assertTrue(listOfTypeA[0] is TypeA)  
+    assertTrue(listOfTypeB[0] is TypeB)  
+  
+}
+```
+### Additional Details
+These are two data classes and the json file contents that were used in the test case shown above
+
+TypeA.kt
+
+```
+data class TypeA (  
+    @SerializedName("key")  
+    @Expose  
+  var key: Int,  
+  @SerializedName("value")  
+    @Expose  
+  var value: String,  
+)
+```
+
+TypeB.kt
+
+```
+data class TypeB (  
+    @SerializedName("key")  
+    @Expose  
+  var key: Int,  
+  @SerializedName("value")  
+    @Expose  
+  var value: String,  
+  @SerializedName("value")  
+    @Expose  
+  var desc: String,  
+)
+```
+
+Type A. json
+
+```
+[  
+  {  
+    "key": 1,  
+  "value": "one"  
+  },  
+  {  
+    "key": 2,  
+  "value": "two"  
+  }  
+]
+```
+
+TypeB.json
+
+```
+[  
+  {  
+    "key": 1,  
+  "value": "one",  
+  "desc": ""  
+  },  
+  {  
+    "key": 2,  
+  "value": "two",  
+  "desc": ""  
+  }  
+]
+```
+
+
+
+Comment:
+@mhdsuhail172, that is a different issue. The problem with your code is that it uses `TypeToken<List<T>>() {}`. Due to [type erasure](https://kotlinlang.org/docs/generics.html#type-erasure) at runtime your code is actually equivalent to <code>TypeToken&lt;List&lt;<b>Any</b>&gt;&gt;() {}</code>. There is nothing Gson can do to solve this, other than failing fast when it notices such errors (see #1219).
+
+You have to make `T` or rather `TypeToken<T>` a property of your class, provided to the constructor, and then use `TypeToken.getParameterized​(List.class, elementTypeToken.getType())` to construct your `TypeToken<List<T>>`. Or you could try to rewrite your code to use Kotlin's [reified type parameter](https://kotlinlang.org/docs/inline-functions.html#reified-type-parameters); in that case the actual value for `T` is present at compile time.
+
+Comment:
+@Marcono1234 thank you so much for guiding me to the reified type parameter. This helped solve this . I changed the function to an inline reified function like shown below. Now the type info is present at runtime and its able to deserialize perfectly to TypeA or TypeB.
+
+```
+class AssetJsonParser  {
+    val TAG = "AssetJsonParser"
+
+    inline fun <reified T> getDataAsList(context: Context, filePath : String): List<T> {
+        lateinit var jsonString : String
+        try {
+            jsonString = context.assets.open(filePath).bufferedReader().use {
+                it.readText()
+            }
+        }catch (ioException: IOException){
+            Log.d(TAG, "parse: failed due to : ${ioException.message}" )
+        }
+
+        val listOfData = object : TypeToken<List<T>>()  {}.type
+
+        return Gson().fromJson(jsonString,listOfData)
+    }
+}
+```
+
+
+
+Comment:
+I am going to close this because this issue might not exist with the latest Gson version anymore, see https://github.com/google/gson/issues/1107#issuecomment-1250406236 above. Please comment here if you still experience this with the latest Gson version.

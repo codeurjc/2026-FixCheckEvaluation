@@ -1,0 +1,58 @@
+Summary: void function () {}(); wrongly identified as having no side effects
+
+Description:
+This code results in the execution of the function and should not be identified as having no side effects.
+
+Comment:
+You mean (function() {})() ?
+
+What sort of side effect does that have?
+
+Comment:
+I'm sorry, I had typed the expression into the summary like this for brevity, even if the function has a body it is still stripped, eg:
+
+void function () {
+   my_global = true;
+}();
+
+Comment:
+try removing the void keyword it doesn't do what you think it does here.
+
+void function() {}  === undefined, and is in this case side-effect free.
+(undefined)()  will throw.
+
+Comment:
+I'm sorry, but you are mistaken.
+
+The void operator consumes a statement and returns undefined as the result.  The statement in this case is "function () {}()", which defines a function statement and then executes it, returning the result to void, which returns undefined.
+
+(void function () {}()) === undefined
+
+It does not throw an error.
+
+Comment:
+but if you're not using the result, then why do you need the void keyword?
+
+i think we just need better messaging here as to what part of the code has no side-effects.
+
+Comment:
+This is just an idiom used to make function an expression rather than a statement so that it can be invoked in the same expression, you are right in that the return value of the void expression is redundant and could be replaced without side effect.
+
+A definite bug here though is that code that is marked as having no side effects is removed at higher compression levels, and in this case removing the "function () {}()" is incorrect (unless the body of the function also has no side effects)
+
+Comment:
+"This is just an idiom used to make function an expression rather than a statement so that it can be invoked in the same expression,"
+
+this seems like an odd idiom to me.
+
+"void" seems like a confusing substitute for putting parentheses around the function.
+
+"A definite bug here though is that code that is marked as having no side effects is removed at higher compression levels, and in this case removing the "function () {}()" is incorrect (unless the body of the function also has no side effects)"
+
+agreed
+
+Comment:
+This issue was closed by revision r1248.
+
+Comment:
+Issue 515 has been merged into this issue.

@@ -1,0 +1,35 @@
+Summary: precondition crash: goog.scope local with aliased in the type declaration
+
+Description:
+var goog = {};
+goog.scope;
+
+var ns = {};
+ns.sub = {};
+/** @constructor */
+ns.sub.C = function() {};
+
+
+goog.scope(function() {
+  var sub = ns.sub;
+  /** @type {sub.C} */
+  var x = null;
+});
+
+
+produces:
+
+java.lang.IllegalStateException at com.google.common.base.Preconditions.checkState(Preconditions.java:137) at com.google.javascript.jscomp.ScopedAliases$AliasedTypeNode.applyAlias(ScopedAliases.java:236) at com.google.javascript.jscomp.ScopedAliases.hotSwapScript(ScopedAliases.java:147) at com.google.javascript.jscomp.ScopedAliases.process(ScopedAliases.java:128) at
+
+Comment:
+whew, this is really subtle, and it took me a while to figure out what was going on. We do a shallow clone of the jsdoc multiple times in the tree. This usually makes total sense, because jsdoc is usually immutable. But ScopedAliases also rewrites jsdoc, and it's getting into a weird state where its internal bookkeeping is wrong.
+
+Comment:
+fix posted here:
+https://codereview.appspot.com/30180043/
+
+Comment:
+This issue was closed by revision aae547f4d911.
+
+Comment:
+This issue was closed by revision aae547f4d911.

@@ -1,0 +1,7 @@
+Summary: UnmodifiableTrie should not decorate an already unmodifiable Trie
+
+Description:
+An already unmodifiable trie was decorated again.
+To be consistent with the other Unmodifiable wrappers, in this case the object itself shall be returned.
+
+Also the return type shall be changed to Trie.

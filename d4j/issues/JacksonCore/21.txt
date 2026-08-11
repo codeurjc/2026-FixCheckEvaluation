@@ -1,0 +1,62 @@
+Title: `FilteringParserDelegate` seems to miss last closing `END_OBJECT`
+
+Body:
+(note: adding a failing test for this case)
+
+Looks like with settings like:
+
+```java
+        JsonParser p = new FilteringParserDelegate(p0,
+               new NameMatchFilter("value"),
+                   true, // includePath
+                   false // multipleMatches
+                );
+```
+
+and input
+
+```json
+{
+  "a":123,
+  "array":[1,2],
+  "ob": {
+    "value0":2,
+    "value":3,
+    "value2":4
+  },
+  "b":true
+}
+```
+
+output will be like:
+
+```json
+{"ob":{"value":3}
+```
+
+(note the missing trailing `}` for closing `END_OBJECT`)
+
+
+
+Comment:
+@cowtowncoder seems like `FilteringParserDelegate.nextToken` was missing the `includePath` check when `allowMultipleMatches` was `false`. That's why the it was returning prematurely with null. Will [this fix](https://github.com/rfoltyns/jackson-core/commit/efdbde902a89239fc4dc573a76eb2e425ae87f83) do the trick?
+
+It's not the only issue I've found in the filtering, but.. one thing at a time.
+
+Comment:
+@rfoltyns I'll have to check this out. If this fix works wrt existing test it's a good start. Filtering code is unfortunately rather complicated and somewhat difficult to debug.
+
+Comment:
+@rfoltyns Applying patch, as it does fix tests. Wish I had more time to step through to verify for sure, but will have to do for now.
+
+
+Comment:
+My patch has broken `allowMultipleMatches` functionality.. It doesn't work with `includePath: true` (still fine for false, though..).
+Tests passed because they were going through the standard path again, looking for more matches, but provided JSON didn't cover this scenario.
+I'll try to fix it as soon as possible, but until then, it might be safer to revert it.
+
+Comment:
+I've added more tests and it turned out that it was broken before the patch. I'll create a separate issue for that.
+
+Comment:
+@rfoltyns I undid patch, moved failing tests under `failing`.

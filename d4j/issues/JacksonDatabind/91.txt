@@ -1,0 +1,303 @@
+Title: 2.9.2 deserialization regression
+
+Body:
+There seems to be a regression in the latest 2.9.2 release.
+
+Using `org.apache.logging.log4j.core.jackson.Log4jJsonObjectMapper` from `org.apache.logging.log4j:log4j-core:2.9.1` to deserialize the appended JSON object is throwing an exception with 2.9.2 but worked with 2.9.1.
+
+`org.apache.logging.log4j.core.jackson.Log4jYamlObjectMapper` and `org.apache.logging.log4j.core.jackson.Log4jXmlObjectMapper` fail in similar ways.
+
+### inputString
+```json
+{
+  "timeMillis" : 1493121664118,
+  "thread" : "main",
+  "threadId" : 1,
+  "threadPriority" : 5,
+  "level" : "INFO",
+  "loggerName" : "HelloWorld",
+  "marker" : {
+    "name" : "child",
+    "parents" : [ {
+      "name" : "parent",
+      "parents" : [ {
+        "name" : "grandparent"
+      } ]
+    } ]
+  },
+  "message" : "Hello, world!",
+  "thrown" : {
+    "commonElementCount" : 0,
+    "message" : "error message",
+    "name" : "java.lang.RuntimeException",
+    "extendedStackTrace" : [ {
+      "class" : "logtest.Main",
+      "method" : "main",
+      "file" : "Main.java",
+      "line" : 29,
+      "exact" : true,
+      "location" : "classes/",
+      "version" : "?"
+    } ]
+  },
+  "contextStack" : [ "one", "two" ],
+  "loggerFqcn" : "org.apache.logging.log4j.spi.AbstractLogger",
+  "endOfBatch" : false,
+  "contextMap" : {
+    "bar" : "BAR",
+    "foo" : "FOO"
+  },
+  "source" : {
+    "class" : "logtest.Main",
+    "method" : "main",
+    "file" : "Main.java",
+    "line" : 29
+  }
+}
+```
+
+### Exception
+```
+org.apache.logging.log4j.core.parser.ParseException: com.fasterxml.jackson.databind.exc.MismatchedInputException: Cannot construct instance of `org.apache.logging.log4j.Level` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('INFO')
+ at [Source: (byte[])"{
+  "timeMillis" : 1493121664118,
+  "thread" : "main",
+  "threadId" : 1,
+  "threadPriority" : 5,
+  "level" : "INFO",
+  "loggerName" : "HelloWorld",
+  "marker" : {
+    "name" : "child",
+    "parents" : [ {
+      "name" : "parent",
+      "parents" : [ {
+        "name" : "grandparent"
+      } ]
+    } ]
+  },
+  "message" : "Hello, world!",
+  "thrown" : {
+    "commonElementCount" : 0,
+    "message" : "error message",
+    "name" : "java.lang.RuntimeException",
+    "extendedStackTrace" : [ {
+      "clas"[truncated 482 bytes]; line: 6, column: 13] (through reference chain: org.apache.logging.log4j.core.impl.Log4jLogEvent["level"])
+```
+
+### parsing pseudo code
+```java
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.parser.LogEventParser;
+import org.apache.logging.log4j.core.parser.JsonLogEventParser;
+import java.nio.charset.StandardCharsets;
+
+LogEventParser parser = new JsonLogEventParser();
+LogEvent result = parser.parseFrom(inputString.getBytes(StandardCharsets.UTF_8));
+assert result != null;
+```
+
+
+Comment:
+That would seem to be about not detecting single-String constructor (or `valueOf` static method) of `Level` class... there was a change to creator detection, so I suspect that would be the root cause.
+But one of the things there, if I remember correctly, had to do with proper visibility checking wrt creators. I hope to look into this soon, as breakage is obviously not planned (and is unfortunate for a patch release: we try to keep patches non-intrusive). Unfortunately creator-detection code is rather delicate area... so figuring out safe fixes is challenging.
+
+
+
+
+Comment:
+Ok, looks like `log4j` v2 does have `public` factory method:
+
+https://logging.apache.org/log4j/2.x/log4j-api/apidocs/org/apache/logging/log4j/Level.html#valueOf(java.lang.String)
+
+which should be detectable. I think v1 did not. But I assume this for version 2.x?
+
+If so, this definitely looks like a bug. I hope to create a stand-alone test case to verify, then fix for 2.9.3.
+
+
+Comment:
+Yep, it's `org.apache.logging.log4j:log4j-core:2.9.1`, so log4j v2.
+
+It's a bit confusing that log4j2 and jackson versions match up so neatly at the moment. So log4j 2.9.1 works with jackson 2.9.1 but fails with jackson 2.9.2.
+
+Comment:
+@huxi heh, funny alignment. I hope to resolve this relatively quickly, and get patch out within two weeks or so.
+
+Comment:
+Also, I think #1810 is either same or just closely related.
+
+Comment:
+Hmmh. So, unfortunately I can not reproduce this with a simple(r) reproduction -- adding both constructor and static method chooses constructor. Or, as in this case, adding `private` 2-arg constructor does not block discovery.
+
+I guess the only other possibility I wonder about is whether Jackson parameter name module might be in use?
+
+So I think I need a reproduction here
+
+
+Comment:
+I suppose you mean a simpler reproduction than something like this:
+
+#### build.gradle
+```groovy
+apply plugin: 'groovy'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	testCompile 'com.fasterxml.jackson.core:jackson-databind:2.9.2'
+	testCompile 'com.fasterxml.jackson.core:jackson-annotations:2.9.2'
+	testCompile 'org.apache.logging.log4j:log4j-core:2.9.1'
+	
+	testCompile 'org.codehaus.groovy:groovy:2.4.12'
+	testCompile 'org.spockframework:spock-core:1.1-groovy-2.4', {
+		exclude group: 'org.codehaus.groovy', module: 'groovy-all' 
+	}
+	testCompile 'junit:junit:4.12'
+}
+```
+
+#### /src/test/groovy/foo/RegressionSpec.groovy
+```groovy
+package foo
+
+import java.nio.charset.StandardCharsets
+import org.apache.logging.log4j.core.LogEvent
+import org.apache.logging.log4j.core.parser.JsonLogEventParser
+import org.apache.logging.log4j.core.parser.LogEventParser
+import spock.lang.Specification
+
+class RegressionSpec extends Specification {
+	
+	def 'deserialization works'() {
+		when:
+		LogEventParser parser = new JsonLogEventParser()
+		LogEvent result = parser.parseFrom(inputString.getBytes(StandardCharsets.UTF_8))
+		
+		then:
+		noExceptionThrown()
+		result != null
+		
+		where:
+		inputString = """
+{
+  "timeMillis" : 1493121664118,
+  "thread" : "main",
+  "threadId" : 1,
+  "threadPriority" : 5,
+  "level" : "INFO",
+  "loggerName" : "HelloWorld",
+  "marker" : {
+    "name" : "child",
+    "parents" : [ {
+      "name" : "parent",
+      "parents" : [ {
+        "name" : "grandparent"
+      } ]
+    } ]
+  },
+  "message" : "Hello, world!",
+  "thrown" : {
+    "commonElementCount" : 0,
+    "message" : "error message",
+    "name" : "java.lang.RuntimeException",
+    "extendedStackTrace" : [ {
+      "class" : "logtest.Main",
+      "method" : "main",
+      "file" : "Main.java",
+      "line" : 29,
+      "exact" : true,
+      "location" : "classes/",
+      "version" : "?"
+    } ]
+  },
+  "contextStack" : [ "one", "two" ],
+  "loggerFqcn" : "org.apache.logging.log4j.spi.AbstractLogger",
+  "endOfBatch" : false,
+  "contextMap" : {
+    "bar" : "BAR",
+    "foo" : "FOO"
+  },
+  "source" : {
+    "class" : "logtest.Main",
+    "method" : "main",
+    "file" : "Main.java",
+    "line" : 29
+  }
+}
+		""".trim()
+	}
+}
+```
+
+#### `gradle dependencies` output
+```
+testCompileClasspath - Compile classpath for source set 'test'.
++--- com.fasterxml.jackson.core:jackson-databind:2.9.2
+|    +--- com.fasterxml.jackson.core:jackson-annotations:2.9.0 -> 2.9.2
+|    \--- com.fasterxml.jackson.core:jackson-core:2.9.2
++--- com.fasterxml.jackson.core:jackson-annotations:2.9.2
++--- org.apache.logging.log4j:log4j-core:2.9.1
+|    \--- org.apache.logging.log4j:log4j-api:2.9.1
++--- org.codehaus.groovy:groovy:2.4.12
++--- org.spockframework:spock-core:1.1-groovy-2.4
+|    \--- junit:junit:4.12
+|         \--- org.hamcrest:hamcrest-core:1.3
+\--- junit:junit:4.12 (*)
+```
+
+One strange thing I just saw while implementing this is that `com.fasterxml.jackson.core:jackson-databind:2.9.2` adds a transitive dependency on `com.fasterxml.jackson.core:jackson-annotations:2.9.0` instead of `2.9.2` for some reason.
+But upgrading that dependency manually didn't fix anything either.
+
+Comment:
+I can start with this, thank you!
+
+On annotations: dependency is intentional, there are no planned changes across versions, and for 3.x patch version will be dropped from annotations. So 2.9.2 and 2.9.0 are identical (plus it's just annotation type definitions anyway).
+
+
+Comment:
+Ok. Wow. Yes, I can see how simplifying is challenging, lots of mix-ins, configuration used (to avoid having to add annotations directly in types). I can get test as-is to fail but will need to simplify significantly to see what is going on.
+
+Fwtw looks like pertinent mix-in part here is:
+
+```java
+abstract class LevelMixIn {
+  @JsonCreator
+    public static Level getLevel(@JsonProperty("name") final String name) {
+        return null;
+    }
+}
+```
+
+and I _think_ it may actually be due to mix-in being wrong, and not implementation -- but so that earlier Jackson introspection code did not properly handle it. So, with `2.9.1`, this was somehow either taken as delegating-creator anyway, I think.
+
+If I am right, intent here is to use delegating creator and NOT property-based one: but annotation indicates property-based one. I'll verify, but fix should be either:
+
+1. Remove `@JsonProperty` from `name` argument and/or
+2. Add `mode = JsonCreator.Mode.DELEGATING`
+
+(I would do both).
+
+
+
+
+
+Comment:
+Yes: was able to create simplified version for just `Level`, and both changes will make behavior work as expected.
+
+I think that changes should be safe wrt earlier Jackson versions as well: I am surprised that behavior changed, as it seems it should not have worked the way it used to be. But the new behavior seems more correct.
+
+It is possible (and probably likely) same problem could exist within other mixins; I'll have a quick look if I can see others.
+
+
+Comment:
+Did not find others: `MarkerMixIn` looked similar, but I think it should use properties-based creator, unlike `Level`.
+
+Comment:
+Thank you for the research, I will test out the changes you suggest.
+
+Comment:
+I changed our code in Log4j 2 and was then able to update to Jackson 2.9.2. Thank you all.
+
+Comment:
+@garydgregory Thank you for following up on this and verifying my hypothesis was correct.

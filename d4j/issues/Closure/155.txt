@@ -1,0 +1,65 @@
+Summary: Overzealous arguments optimisation
+
+Description:
+Consider the following JavaScript code:
+
+function d3_call(callback) {
+  var f = callback;
+  arguments[0] = this;
+  f.apply(this, arguments);
+  return this;
+}
+
+This is optimised to:
+
+function d3_call(a){arguments[0]=this;a.apply(this,arguments);return this};
+
+However, the use of a temporary variable `f` is necessary to avoid `arguments[0] = this` from overwriting the first argument.
+
+In the above optimised code, `arguments[0] = this` causes `this` to be assigned to `a`.
+
+Verified on latest SVN r878.
+
+See also: https://github.com/mbostock/d3/issues/closed#issue/68
+
+Comment:
+Good find!
+
+The both variable inliner should not be inlining across an arguments access like this.
+
+Comment:
+Forgot to mention, I will be looking at this in a bit. Thanks.
+
+Comment:
+FYI: I put in a fix. Currently pending review.
+
+Comment:
+r911 and r896
+
+Comment:
+Doesn't appear to work; tested the latest release 20110322 on the code above and the same thing happens.
+
+Comment:
+Reopen, still an issue.
+
+Comment:
+This issue was closed by revision r942.
+
+Comment:
+Still not working I'm afraid, the output as of r942 is:
+
+function d3_call(a){var b;arguments[0]=this;a.apply(this,arguments);return this};
+
+Notice how nothing is assigned to b and "a.apply" is used.
+
+Comment:
+Reopen.
+
+Comment:
+it would be nice if there were real integration tests for this issue, rather than just unit tests.
+
+Comment:
+Should be fixed with r949. Care to verify.
+
+Comment:
+Perfect, thanks!

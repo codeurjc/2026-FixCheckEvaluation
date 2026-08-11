@@ -1,0 +1,14 @@
+Title: Canonical string for reference type is built incorrectly
+
+Body:
+Canonical string for reference type is built incorrectly. 
+E.g.:
+`new ReferenceType(new TypeFactory(new LRUMap<Object, JavaType>(0, 10000)).constructType(Object.class), new PlaceholderForType(0)).toCanonical()`
+yields:
+`java.lang.Object<$1`
+while the expected value is:
+`java.lang.Object<$1>`
+
+Comment:
+Thank you for reporting this and pointing out the fix!
+I had to manually merge this just for ease of backporting (will be in 2.8/2.9/2.10/3.x), but fix is the suggested one.

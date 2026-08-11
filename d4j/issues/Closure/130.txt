@@ -1,0 +1,83 @@
+Summary: arguments is moved to another scope
+
+Description:
+Using ADVANCED_OPTIMIZATIONS with CompilerOptions.collapsePropertiesOnExternTypes = true a script I used broke, it was something like:
+
+function () {
+  return function () {
+    var arg = arguments;
+    setTimeout(function() { alert(args); }, 0);
+  }
+}
+
+Unfortunately it was rewritten to:
+
+function () {
+  return function () {
+    setTimeout(function() { alert(arguments); }, 0);
+  }
+}
+
+arguments should not be collapsed.
+
+Comment:
+Can you provide an exact snippet, I'm not able to reproduce this problem.  Also, note that code that you provide here has a typo ("arg" vs. "args").
+
+CompilerOptions.collapsePropertiesOnExternTypes should also have nothing to do with inlining variables.
+
+Comment:
+Yeah, we almost always model "arguments" as "a global variable that can change over time." If there was a bug where a local alias "arguments" was getting inlined, then it's likely that bug would affect all global variables, and some project would have run into it by now.
+
+I suspect that you did see a bug, but that you mis-diagnosed what triggered it... and in an attempt to simplify the repro steps, you edited out the trigger.
+
+Comment:
+I've added an example of this behavior in the following repository:
+https://github.com/robbert/closure-compiler/tree/issue-931
+
+The following commit contains one build with and one without the flag set to true:
+issue-931/jQueryDeferred.min.js
+issue-931/jQueryDeferred.min-collapsePropertiesOnExternTypes.js
+
+https://github.com/robbert/closure-compiler/commit/bf59bcf89262c76de9ab6e75599bdba0291a31cf
+
+Excerpt of collapsePropertiesOnExternTypes = true:
+
+function C() {
+  var a = D;
+  return function() {
+    console.log("This is were arguments originally is defined");
+    var b = new p;
+    this.d.then(function(d) {
+      var c = d[a];
+      console.log("This is it ends up");
+      c = c.apply(d, arguments);
+      c instanceof p ? c.then(z(b, b.resolve), z(b, b.reject)) : c instanceof A ? c.d.then(z(b, b.resolve), z(b, b.reject)) : b.resolve(c);
+      return c
+    }, B);
+    return new A(b)
+  }
+}
+
+Without that flag, arguments is on the fifth line as it is supposed to:
+
+function C() {
+  var a = D;
+  return function() {
+    console.log("This is were arguments originally is defined");
+    var b = arguments, d = new p;
+    this.d.then(function(c) {
+      var f = c[a];
+      console.log("This is it ends up");
+      c = f.apply(c, b);
+      c instanceof p ? c.then(z(d, d.resolve), z(d, d.reject)) : c instanceof A ? c.d.then(z(d, d.resolve), z(d, d.reject)) : d.resolve(c);
+      return c
+    }, B);
+    return new A(d)
+  }
+}
+
+Comment:
+Thank you for the detailed reproduction steps, I was able to reproduce this.
+
+Comment:
+This issue was closed by revision 9fac3ccd2fa9.

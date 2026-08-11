@@ -1,0 +1,131 @@
+JFreeChart / Bugs / #803 cloning of TimeSeries
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+JFreeChart
+Bugs
+cloning of TimeSeries
+Brought to you by:
+mungady
+,
+taqua
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Mailing Lists
+Tickets ▾
+Patches
+Bugs
+Feature Requests
+News
+Code
+Cvs
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+1.0.x
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#803 cloning of TimeSeries
+Status:
+closed-fixed
+Owner:
+David Gilbert
+Labels:
+General (896)
+Priority:
+5
+Updated:
+2007-11-21
+Created:
+2007-11-15
+Creator:
+Anonymous
+Private:
+No
+It's just a minor bug!
+When I clone a TimeSeries which has no items, I get an IllegalArgumentException ("Requires start <= end").
+But I don't think the user should be responsible for checking whether the TimeSeries has any items or not.
+Discussion
+David Gilbert
+-
+2007-11-21
+labels
+:  --> General
+assigned_to
+: nobody --> mungady
+status
+: open --> closed-fixed
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2007-11-21
+Logged In: YES
+user_id=112975
+Originator: NO
+Thanks for the report.  I've committed a fix to Subversion, for inclusion in the 1.0.8 release.
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

@@ -1,0 +1,42 @@
+Summary: closure compiler screws up a perfectly valid isFunction() implementation
+
+Description:
+hi, this function does not get compiled correctly via google closure compiler
+
+ isFunction = function(functionToCheck) {
+    var getType;
+    getType = {}; //just an object
+    return functionToCheck &amp;&amp; getType.toString.apply(functionToCheck) === '[object Function]';
+  };
+
+gets compiled into 
+
+isFunction = function(a) {
+  return a &amp;&amp; &quot;[object Function]&quot; === (void 0).apply(a)
+};
+
+to make it work, we have to use an array instead of an object (even though we just want to call the object toString method)
+
+  isFunction = function(functionToCheck) {
+    var getType;
+    getType = []; //not it's an array 
+    return functionToCheck &amp;&amp; getType.toString.apply(functionToCheck) === '[object Function]';
+  };
+
+gets compiled into
+
+isFunction = function(a) {
+  var b;
+  b = [];
+  return a &amp;&amp; &quot;[object Function]&quot; === b.toString.apply(a)
+};
+
+and it does what it should do. 
+
+i wasted an hour to find that bug. bugs me. great tool otherwise.
+
+Comment:
+ugh, that's pretty bad. thanks for the report.
+
+Comment:
+This issue was closed by revision r1967.

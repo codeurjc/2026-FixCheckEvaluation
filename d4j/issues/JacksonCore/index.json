@@ -1,0 +1,214 @@
+{
+  "project": "JacksonCore",
+  "updated_at": "2026-08-11T13:51:49.377136+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://github.com/FasterXML/jackson-core/issues/98",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1443,
+      "fetched_at": "2026-08-11T13:51:28.930373+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://github.com/FasterXML/jackson-core/issues/105",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 331,
+      "fetched_at": "2026-08-11T13:51:29.736997+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://github.com/FasterXML/jackson-core/issues/111",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1140,
+      "fetched_at": "2026-08-11T13:51:30.551254+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://github.com/FasterXML/jackson-core/issues/152",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2104,
+      "fetched_at": "2026-08-11T13:51:31.306951+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://github.com/FasterXML/jackson-core/issues/173",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1192,
+      "fetched_at": "2026-08-11T13:51:32.103405+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://github.com/FasterXML/jackson-core/issues/176",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 307,
+      "fetched_at": "2026-08-11T13:51:32.886162+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://github.com/FasterXML/jackson-core/issues/177",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 12229,
+      "fetched_at": "2026-08-11T13:51:33.752893+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://github.com/FasterXML/jackson-core/issues/182",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 767,
+      "fetched_at": "2026-08-11T13:51:34.552786+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://github.com/FasterXML/jackson-core/issues/188",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 663,
+      "fetched_at": "2026-08-11T13:51:35.307723+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://github.com/FasterXML/jackson-core/issues/207",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 10447,
+      "fetched_at": "2026-08-11T13:51:36.182994+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://github.com/FasterXML/jackson-core/issues/216",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 8480,
+      "fetched_at": "2026-08-11T13:51:37.112194+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://github.com/FasterXML/jackson-core/issues/37",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2912,
+      "fetched_at": "2026-08-11T13:51:38.169658+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://github.com/FasterXML/jackson-core/pull/246",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 379,
+      "fetched_at": "2026-08-11T13:51:39.057838+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://github.com/FasterXML/jackson-core/issues/255",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 331,
+      "fetched_at": "2026-08-11T13:51:39.825368+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://github.com/FasterXML/jackson-core/issues/209",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 440,
+      "fetched_at": "2026-08-11T13:51:40.572019+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://github.com/FasterXML/jackson-core/issues/296",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1615,
+      "fetched_at": "2026-08-11T13:51:41.370975+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://github.com/FasterXML/jackson-core/issues/307",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2110,
+      "fetched_at": "2026-08-11T13:51:42.168971+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://github.com/FasterXML/jackson-core/issues/315",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5435,
+      "fetched_at": "2026-08-11T13:51:43.038312+00:00"
+    },
+    {
+      "bug_id": "19",
+      "url": "https://github.com/FasterXML/jackson-core/issues/317",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1606,
+      "fetched_at": "2026-08-11T13:51:43.825722+00:00"
+    },
+    {
+      "bug_id": "20",
+      "url": "https://github.com/FasterXML/jackson-core/issues/318",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 859,
+      "fetched_at": "2026-08-11T13:51:44.550865+00:00"
+    },
+    {
+      "bug_id": "21",
+      "url": "https://github.com/FasterXML/jackson-core/issues/330",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1961,
+      "fetched_at": "2026-08-11T13:51:45.330761+00:00"
+    },
+    {
+      "bug_id": "22",
+      "url": "https://github.com/FasterXML/jackson-core/issues/208",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 974,
+      "fetched_at": "2026-08-11T13:51:46.139681+00:00"
+    },
+    {
+      "bug_id": "23",
+      "url": "https://github.com/FasterXML/jackson-core/issues/502",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 898,
+      "fetched_at": "2026-08-11T13:51:46.890169+00:00"
+    },
+    {
+      "bug_id": "24",
+      "url": "https://github.com/FasterXML/jackson-core/issues/508",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1192,
+      "fetched_at": "2026-08-11T13:51:47.718620+00:00"
+    },
+    {
+      "bug_id": "25",
+      "url": "https://github.com/FasterXML/jackson-core/pull/510",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1665,
+      "fetched_at": "2026-08-11T13:51:48.574047+00:00"
+    },
+    {
+      "bug_id": "26",
+      "url": "https://github.com/FasterXML/jackson-core/issues/531",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1953,
+      "fetched_at": "2026-08-11T13:51:49.377093+00:00"
+    }
+  ]
+}

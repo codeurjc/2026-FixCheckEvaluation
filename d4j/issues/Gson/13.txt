@@ -1,0 +1,56 @@
+Title: Negative zero
+
+Body:
+Hi,
+
+I have been cross testing various json parsers looking for those that expose the lexical of json numbers and not only their bound java.lang.Number. Because of the lazy parsing done by gson with `LazilyParsedNumber`,  that keeps the lexical, all my roundtrip tests pass apart one: the lexical  `-0` that is treated as it were `0`
+
+I read some threads about negative zero: 
+https://www.ietf.org/mail-archive/web/json/current/msg03668.html
+https://www.ietf.org/mail-archive/web/json/current/msg01520.html
+https://www.ietf.org/mail-archive/web/json/current/msg01523.html
+https://www.ietf.org/mail-archive/web/json/current/msg01525.html
+
+I created this issue thinking that `-0` is a float, the same as `-0.0`, since a signed zero makes sense only in floating point numbers and also because in Java only Double/Float preserve sign of zero.  This would have the implication that `-0` could not be validated by jsonschema `type` `integer` , and that a jsonschema implementation would have the need to know if a `-0` is present in json data, but probably this is not the case.
+
+After I started to (re)consider that `-0` could be an integer, only that seems that in no programming language there is an integer that preserves sign for zero.
+
+In any case, differentiating between `0` and `-0`  at lexical level would allow a client of gson to be able to refuse the value `-0`.
+
+Gson could easily support differentiating between `0` and `-0`: in code `-0` is [treated as an integer (PEEKED_LONG) in JsonReader](https://github.com/google/gson/blob/master/gson/src/main/java/com/google/gson/stream/JsonReader.java#L731) so its value is stored in a Java `long` that cannot represent negative zero. I noted that `-0.0` roundtrips correctly because is treated as a PEEKED_NUMBER that is kept as a Java String. So the case of `-0` could be trapped and treated as `-0.0`, as a PEEKED_NUMBER, in this way the `toString()` method of `LazilyParsedNumber` will return `-0` and gson will be able to roundtrip any valid number value found in source, only clients using `Number.toString()` will notice any difference.
+
+My proposal is to change [this code](https://github.com/google/gson/blob/master/gson/src/main/java/com/google/gson/stream/JsonReader.java#L731)  from
+
+          if (last == NUMBER_CHAR_DIGIT && fitsInLong && (value != Long.MIN_VALUE || negative)) {
+    
+to 
+
+          if (last == NUMBER_CHAR_DIGIT && fitsInLong && (value!=0 || false==negative) && (value != Long.MIN_VALUE || negative)) {
+    
+
+Thanks,
+Michele
+
+
+Comment:
+@swankjesse Any concerns if we accept this change? 
+
+@eleumik Thank you for taking time to write the issue with considerable detail. It would be great if you can also send a pull request that we can just merge. Please include a test-case for negative zero as well.
+
+Comment:
+If somebody knows if `-0` is an integer with no representation in any language or a float same as `-0.0` or other, please let me know.
+
+Thanks for merging, happy you liked it
+
+
+Comment:
+all languages that use Two's complement can not represent -0 as ints.
+
+Comment:
+@eleumik  Did the test that you write fail without your fix? 
+
+Comment:
+yes, I wrote first the test.  I double checked now.
+
+Comment:
+Thanks. Yes, TDD for bug fixes is awesome.

@@ -1,0 +1,34 @@
+Summary: Compiler fails to find amd module in a subdirectory
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+1. Create 1st AMD module in lib/Foo.js
+2. Create 2nd AMD module in Bar.js depending on lib/Foo.js
+3. Try to compile both files with Bar.js as main module
+
+<b>What is the expected output? What do you see instead?</b>
+
+java -jar compiler.jar --transform_amd_modules --process_common_js_modules --common_js
+_entry_module=Bar.js --compilation_level=ADVANCED_OPTIMIZATIONS --js_output_file=out.js --js=Bar.js --js=lib/Foo.js
+ERROR - required entry point &quot;module$lib$Foo&quot; never provided
+
+1 error(s), 0 warning(s)
+make: *** [out.js] Error 1
+
+<b>What version of the product are you using? On what operating system?</b>
+
+Latest version from trunk including fix for issue #804
+
+<b>Please provide any additional information below.</b>
+
+Find minimal not-working example attached with Makefile. The same setup has been working prior to fix for #804 (although with backslashes). This feature does not seem to have enough unit test coverage.
+
+Comment:
+What OS are on you building on?
+
+Comment:
+i see the problem. to be fair, the code also emitted an error before issue 804 was fixed, it was just a worse error.
+
+Comment:
+This issue was closed by revision r2223.

@@ -1,0 +1,10 @@
+Title: DateTimeZone.forOffsetHoursMinutes cannot handle negative offset < 1 hour
+
+Body:
+`DateTimeZone.forOffsetHoursMinutes(h,m)` cannot handle negative offset < 1 hour like `-0:30` due to argument range checking. I used `forOffsetMillis()` instead.
+
+This should probably be mentioned in the documentation or negative minutes be accepted.
+
+
+Comment:
+Nice and clear fix, thank you!

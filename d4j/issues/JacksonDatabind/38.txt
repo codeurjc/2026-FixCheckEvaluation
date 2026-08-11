@@ -1,0 +1,31 @@
+Title: (2.7-regress) Handling of deprecated `SimpleType.construct()` too minimalistic
+
+Body:
+(note: spun from https://github.com/FasterXML/jackson/issues/48)
+
+Due to changes in type resolution, most direct construction methods in `JavaType` sub-classes can not be fully supported. Failure modes are typically with complex cases (and expected to be rare), with one exception: use of `SimpleType.construct(Class)`, because:
+1. This is mostly used for complex types, and not just "well-known" interfaces like `List`, `Map`; so actual access to at least immediate fields is necessary (and similarly lack of super-type info is problematic), and
+2. Its usage is likely to be wide-spread, despite existence of preferable methods (`TypeFactory`)
+3. Since refactoring of type resolution was not anticipated early enough in advance, deprecation of methods we want to move users away from could not be done in 2.6, as it should have been (in perfect case)
+
+Exact reasoning behind problems is quite complicated: but the fundamental reason is that `TypeFactory` has all the logic to do the generic resolution; `JavaType` has (and should have) very little if any. Since no reference to the factory is passed via constructors/factory methods, they can not properly delegate resolution tasks. This is why direct calls should only be made with all necessary, pre-resolved information; passing `JavaType`s for elements, not `Class`.
+Inability to resolve things means that super-types can not be properly resolved, for example. Handling of fields, methods will also be inexact wrt generic types.
+
+The first immediate problem is something that should be addressable: introspection by POJO deserializer builder does not find any fields or methods. It should be possible to at least find them, even if type resolution for generic types will not work well. This should be acceptable for the common (and reported) case of constructing element types for `Collection`s and `Map`s: generic parameterization will not be accessible anyway.
+
+There are other potential issues to address as best we can, but first things first.
+
+
+Comment:
+Was able to reproduce issue as reported; added bit more testing (for `Map` case; stand-alone POJO; sub-classing) so usage of direct methods should now work for common usage I am familiar with.
+
+@tkruse if you have an easy way to test, would appreciate your verification here -- `master` of `jackson-databind` has version with which your code should work as with 2.6. I would really like to solve this well for 2.7.1; this is one of 2 significant backwards-compatibility issues reported and resolved.
+
+
+Comment:
+Hi,
+for me it was quicker to set up a repo that reproduces the problem at https://github.com/tkruse/jacksonbug. If you can get the test to pass with the new version, that would be great.
+
+
+Comment:
+@tkruse Yes, it passes with locally built 2.7.1-SNAPSHOT. I was interested in learning whether you might have a bigger system, in which there might be other usages. But this isolated test passes fine.

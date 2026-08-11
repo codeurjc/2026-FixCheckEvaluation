@@ -1,0 +1,67 @@
+Summary: Inheritance not detected when prototype directly assigned
+
+Description:
+Given the following input JS:
+//--------------------------
+/**
+* @constructor
+*/
+function SuperClass () {
+}
+
+SuperClass.prototype.CustomMethod = function() {
+}
+
+/**
+* @constructor
+* @extends {SuperClass}
+*/
+function SubClass () {
+}
+SubClass.prototype = new SuperClass();
+
+/**
+* @override
+*/
+SubClass.prototype.CustomMethod = function() {
+	this.myProperty = &quot;value&quot;;
+}
+
+window['SubClassInstance'] = new SubClass();
+//---------------------------------
+
+When compiled with ADVANCED_OPTIMIZATIONS produces the warning:
+JSC_UNKNOWN_OVERRIDE: property CustomMethod not defined on any superclass
+of SubClass
+
+This error has been reproduced in both the downloaded compiler and the
+Compiler Service UI.
+
+When the prototype assignment is wrapped in a function, it is correctly
+detected. See below:
+//---------------------------------
+function inherit(Child, Parent) {
+    Child.prototype = new Parent();
+} 
+inherit(SubClass, SuperClass);
+//---------------------------------
+
+Comment:
+This issue was closed by revision r93.
+
+Comment:
+This issue is not fixed. The above code still generates the warning when the
+prototype assignment is not inside a function.
+
+Comment:
+The test case in r93 disagrees. Can you give a repro case of the warning that you see?
+
+Comment:
+Further testing shows the bug only comes into play in very specific circumstances. It
+requires an extern file as well as aliasing the type with @typedef.
+
+Attached are the 2 files as simple as I can get them and still get the error.
+
+I should mention that the compiler I'm testing in was built about 2 hours ago against
+the latest SVN source. I also enabled the ambiguateProperties and
+disambiguateProperties passes.

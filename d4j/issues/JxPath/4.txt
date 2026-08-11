@@ -1,0 +1,5 @@
+Summary: JXpath automatically trims string values
+
+Description:
+When an xml contains a value with leading or trailing spaces, JXPath trims this value.
+example: <value>     12324 56</value> is retrieved by JXPath as : '1234 56' while I expect '     1234 56'.

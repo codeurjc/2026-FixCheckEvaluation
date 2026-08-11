@@ -1,0 +1,82 @@
+Summary: catch(e) yields JSC_UNDEFINED_NAME warning when e is used in catch in advanced mode
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. set closure for advanced compilation
+2. compile this:
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// ==/ClosureCompiler==
+
+try {
+var x = 5;
+}
+catch(e) {
+var s = &quot;FAIL&quot; + e.name + &quot;: &quot;+ e.message;
+}
+
+<b>What is the expected output? What do you see instead?</b>
+I expect no warning or error for this.  Instead I see this:
+
+JSC_UNREACHABLE_CODE: unreachable code at line 4 character 0
+catch(e) {
+^
+JSC_UNDEFINED_NAME: e is never defined at line 5 character 17
+var s = &quot;FAIL&quot; + e.name + &quot;: &quot;+ e.message;
+                 ^
+JSC_UNDEFINED_NAME: e is never defined at line 5 character 32
+var s = &quot;FAIL&quot; + e.name + &quot;: &quot;+ e.message;
+                                ^
+In my case I'm especially complaining about the JSC_UNDEFINED_NAME warning...  Also it seems the unreachable complaint isn't right, but i'm not sure.
+
+<b>What version of the product are you using? On what operating system?</b>
+I'm using this url: http://closure-compiler.appspot.com/home
+using chrome browser on windows: Version 28.0.1500.95 m 
+... but this is a server side error from what I see...
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+Yeah, unfortunately the compiler doesn't model correctly variables introduced by a catch block.
+
+We're currently in the process of rewriting the type inference algorithm and will fix this in the new algorithm. But it's not going to be ready for a couple more months.
+
+Comment:
+@dimvar: i think you're misreading the error. it's much simpler than that. I posted a fix here:
+http://codereview.appspot.com/12744050
+
+Comment:
+@jeffreygreenberg: the unreachable warning is correct, because "var x = 5" can't throw an error.
+
+Comment:
+This issue was closed by revision 046e0b226e96.
+
+Comment:
+This issue was closed by revision 046e0b226e96.
+
+Comment:
+That can't be correct as the a catch can never occur... This is simplified code and the point is to catch an error should I do a programming error... It may be correct now but in the future I might screw it up.., the code is semantically correct and hence the compiler should allow it, not reject it.
+
+I hope you've closed it because you fixed it, not because you're saying an unreachable warning is correct. Feel free to make the line "var x = 5;" to instead call a function which will throw an error... That would be semantically equivalent to the case you are ignoring.
+
+Comment:
+As Nick mentioned, the JSC_UNREACHABLE_CODE is correct because the compiler knows that "var x = 5;" can never through an error. More complex code CAN throw an error and does not produce that warning. Take the following example:
+
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// ==/ClosureCompiler==
+
+try {
+ //Any of the following compile without warning
+ //throw new Error("custom error");
+ //document.getElementById('DoesNotExist').innerHTML = 'foo';
+ window['MyExternalFunction']();
+}
+catch(e) {
+var s = "FAIL" + e.name + ": "+ e.message;
+}
+
+Comment:
+This issue was closed by revision 046e0b226e96.

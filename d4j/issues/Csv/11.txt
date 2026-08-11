@@ -1,0 +1,4 @@
+Summary: NullPointerException when empty header string and and null string of ""
+
+Description:
+When setting the format to have a nullString of "" and having an empty header value, a nullPointerException is thrown.

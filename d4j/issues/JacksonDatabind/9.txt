@@ -1,0 +1,45 @@
+Title: Deserializing Map<Class<? extends Object>, String>
+
+Body:
+I am having problems deserializing my `Map<Class<? extends Object>, String>`. Simple test case demonstrates it:
+
+``` java
+@Test
+public void testMapWithClassAsKey() throws Exception {
+    Map<Class<? extends Object>, String> map = new HashMap<>();
+    map.put(ArrayList.class, "ArrayList");
+    map.put(HashMap.class, "HashMap");
+
+    ObjectMapper mapper = new ObjectMapper();
+
+    String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(map);
+    System.out.println(json);
+    mapper.readValue(json, new TypeReference<Map<Class<? extends Object>, String>>(){});
+}
+```
+
+This test serializes the map as:
+
+``` json
+{
+    "class java.util.ArrayList" : "ArrayList",
+    "class java.util.HashMap" : "HashMap"
+}
+```
+
+`mapper.readValue(json, new TypeReference<Map<Class<? extends Object>, String>>(){});` then throws a `Exception`:
+
+```
+com.fasterxml.jackson.databind.exc.InvalidFormatException: Can not construct     Map key of type java.lang.Class from String "class java.util.ArrayList": not a valid representation: Can not construct Map key of type java.lang.Class from String "class java.util.ArrayList": unable to parse key as Class
+ at [Source: ...
+```
+
+As i understood from #630 the KeyDeserializer for Class should be part of Jackson. Am I missing something?
+
+
+Comment:
+Looks like problem is with serialization, not deserialization -- output is not correct, as it appears to use `Class.toString()`. So need to have a look at `MapSerializer`s handling of key types.
+
+
+Comment:
+Added handling of `Class<?>` keys; unfortunately key serializers are separate from value serializers.

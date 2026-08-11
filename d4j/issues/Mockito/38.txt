@@ -1,0 +1,94 @@
+Summary: Mockito's sources in the central Maven repository should be in a *-sources.jar file
+
+Description:
+Right now, in http://repo1.maven.org/maven2/org/mockito/, the binaries and sources of 
+Mockito are packed in the same JAR file (e.g. mockito-all-1.7.jar). This is against 
+the Maven conventions. As a result, at least IntelliJ IDEA does not automatically 
+detect the sources (i.e. no quick access to documentation, no seeing of method 
+parameter names).
+
+The convention in Maven is to have the binaries in one JAR, the sources in another JAR 
+whose name is prefixed &quot;-sources&quot; and the javadocs in a third JAR prefixed &quot;-javadoc&quot;. 
+See http:// 
+maven.apache.org/guides/mini/guide-central-repository- 
+upload.html#Manual_upload_of_artifacts
+
+The expected way to organize the files is:
+
+mockito-all-X.Y.jar  -- the .class files and everything that is required at runtime
+mockito-all-X.Y-sources.jar  -- the .java files and other sources
+mockito-all-X.Y-javadoc.jar  -- the javadocs (I don't use them, but maybe someone else 
+likes them)
+
+Organizing them like this makes the library compatible with all Maven users. An added 
+benefit is that the binaries JAR becomes about 50% smaller, because the source code 
+will be in a separate file.
+
+Comment:
+Thanks for reporting. I didn't check with IntelliJ - eclipse dealt just fine with
+sources inside jars. We'll fix it in upcoming release.
+
+Comment:
+vote here: http://jetbrains.net/jira/browse/IDEA-15406
+
+Comment:
+The build now produces jars with sources.
+
+Comment:
+Reopened as the rc1 was not release with -sources.jar
+
+Comment:
+fixed in rc2. It is already released and available in maven central.
+
+Comment:
+It's good that the source JARs exist now, but there are some things that could still 
+be improved:
+
+- mockito-core-1.8.0-rc2-sources.jar contains also the sources for hamcrest and 
+objenesis, even though their .class files are not in the binary JAR. It should be the 
+responsibility of the external hamcrest and objenesis artifacts to have those 
+sources.
+
+- mockito-all-1.8.0-rc2-sources.jar does NOT contain the sources for hamcrest and 
+objenesis. Did the -core and -all source artifacts get mixed up?
+
+- The binary JARs for rc2 appear to still contain also the .java files, which makes 
+them larger than is necessary. It's enough for the binary JARs to contain only the 
+.class files.
+
+- The -core sources JAR contains also the .class files for hamcrest. The source JARs 
+should contain only the source code.
+
+Comment:
+That's a great feedback. Thanks a lot for your diligence! I'm on it.
+
+Comment:
+I like the fact sources are packed with binary, as some IDE handles it well. I also 
+don't think it adds that much to the size of the binary.
+
+We'll fix the sources jars for maven.
+
+Comment:
+mockito-core JAR with sources and binaries takes 1189 KB. The same JAR with only 
+binaries takes 629 KB. So sources make it 90% larger.
+
+Since Mockito is not usually distributed with other programs, it's only a test time 
+dependency, the size does not matter too much.
+
+Comment:
+It's a very good point about the size of the jar. On the other hand, the fact that
+sources are inside makes it totally painless to start browsing source code/javadocs
+in most decent IDEs. This means increased chance for users getting information
+quicker and potential contributors debugging framework code with useful
+feedback/patches/etc. Also, as you pointed out, mockito is not distributed with the
+program hence larger size becomes the a reasonable trade-off.
+
+Comment:
+Hmmm, most Esko points should be fixed before the final 1.8
+
+Comment:
+Oh right. Everything seems to be in order now.
+
+Thanks Esko for testing the jars & raising this issue!
+
+Thanks Igor for the fix!

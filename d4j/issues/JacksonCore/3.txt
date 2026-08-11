@@ -1,0 +1,18 @@
+Title: _currInputRowStart isn't initialized in UTF8StreamJsonParser() constructor. The column position will be wrong. 
+
+Body:
+The UTF8StreamJson Parser constructor allows to specify the start position. But it doesn't set the  "_currInputRowStart" as the same value. It is still 0. So when raise the exception, the column calculation (ParserBase.getCurrentLocation() )will be wrong.
+
+int col = _inputPtr - _currInputRowStart + 1; // 1-based
+
+public UTF8StreamJsonParser(IOContext ctxt, int features, InputStream in,
+            ObjectCodec codec, BytesToNameCanonicalizer sym,
+            byte[] inputBuffer, int start, int end,
+            boolean bufferRecyclable)
+
+
+Comment:
+Yes, you are right.
+
+Fixed for 2.3.0 -- there is a potential issue with respect BOM markers. Offset will now ignore BOM (considered to be out of input); but work as expected for input that does not start at index 0.
+May need to visit this question again in future; short-term problem is just that BOM is stripped off by bootstrapper, so all parser sees is a different offset. But this problem should also occur with streams, so it is sort of consistent at least.

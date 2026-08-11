@@ -1,0 +1,15 @@
+Summary: @InjectMocks should carry out their work by the method (and not by field) if available
+
+Description:
+@InjectMocks should carry out their work by the method (and not by field) if available
+
+Now @InjectMocks work in properties and this affects CodeCoberage reports :)
+
+Comment:
+Issue 210 has been merged into this issue.
+
+Comment:
+Comment deleted
+
+Comment:
+Fixed by revision e8715c19b946

@@ -1,0 +1,886 @@
+{
+  "project": "JacksonDatabind",
+  "updated_at": "2026-08-11T13:53:40.749975+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/223",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5909,
+      "fetched_at": "2026-08-11T13:51:50.158165+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/467",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1848,
+      "fetched_at": "2026-08-11T13:51:50.955635+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/479",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5424,
+      "fetched_at": "2026-08-11T13:51:52.053338+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/506",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3818,
+      "fetched_at": "2026-08-11T13:51:52.929488+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/515",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4054,
+      "fetched_at": "2026-08-11T13:51:53.738057+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/570",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 852,
+      "fetched_at": "2026-08-11T13:51:54.538293+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/592",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3239,
+      "fetched_at": "2026-08-11T13:51:55.470721+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/667",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 406,
+      "fetched_at": "2026-08-11T13:51:56.242236+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/682",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1661,
+      "fetched_at": "2026-08-11T13:51:57.036571+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/705",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 932,
+      "fetched_at": "2026-08-11T13:51:57.855655+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/609",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 269,
+      "fetched_at": "2026-08-11T13:51:58.559708+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/735",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4305,
+      "fetched_at": "2026-08-11T13:51:59.396525+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/742",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1478,
+      "fetched_at": "2026-08-11T13:52:00.132384+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/744",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 7842,
+      "fetched_at": "2026-08-11T13:52:01.194171+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/731",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 6554,
+      "fetched_at": "2026-08-11T13:52:02.022383+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/771",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1935,
+      "fetched_at": "2026-08-11T13:52:02.762742+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/793",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4018,
+      "fetched_at": "2026-08-11T13:52:03.567678+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/734",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 818,
+      "fetched_at": "2026-08-11T13:52:04.363653+00:00"
+    },
+    {
+      "bug_id": "19",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/810",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 525,
+      "fetched_at": "2026-08-11T13:52:05.094716+00:00"
+    },
+    {
+      "bug_id": "20",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/815",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1881,
+      "fetched_at": "2026-08-11T13:52:05.938181+00:00"
+    },
+    {
+      "bug_id": "21",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/677",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4210,
+      "fetched_at": "2026-08-11T13:52:06.754361+00:00"
+    },
+    {
+      "bug_id": "22",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/848",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 274,
+      "fetched_at": "2026-08-11T13:52:07.612852+00:00"
+    },
+    {
+      "bug_id": "23",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/849",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 21909,
+      "fetched_at": "2026-08-11T13:52:08.484855+00:00"
+    },
+    {
+      "bug_id": "24",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/889",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3107,
+      "fetched_at": "2026-08-11T13:52:09.266906+00:00"
+    },
+    {
+      "bug_id": "25",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/890",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3913,
+      "fetched_at": "2026-08-11T13:52:10.032131+00:00"
+    },
+    {
+      "bug_id": "26",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/899",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 708,
+      "fetched_at": "2026-08-11T13:52:10.857431+00:00"
+    },
+    {
+      "bug_id": "27",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/928",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 437,
+      "fetched_at": "2026-08-11T13:52:11.609833+00:00"
+    },
+    {
+      "bug_id": "28",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/941",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3346,
+      "fetched_at": "2026-08-11T13:52:12.370567+00:00"
+    },
+    {
+      "bug_id": "29",
+      "url": "https://github.com/FasterXML/jackson-databind/pull/942",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1769,
+      "fetched_at": "2026-08-11T13:52:13.205115+00:00"
+    },
+    {
+      "bug_id": "30",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/965",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3721,
+      "fetched_at": "2026-08-11T13:52:14.002702+00:00"
+    },
+    {
+      "bug_id": "31",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/984",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2345,
+      "fetched_at": "2026-08-11T13:52:14.843873+00:00"
+    },
+    {
+      "bug_id": "32",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/989",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 6370,
+      "fetched_at": "2026-08-11T13:52:15.651670+00:00"
+    },
+    {
+      "bug_id": "33",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1013",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1791,
+      "fetched_at": "2026-08-11T13:52:16.495388+00:00"
+    },
+    {
+      "bug_id": "34",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1045",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 414,
+      "fetched_at": "2026-08-11T13:52:17.256602+00:00"
+    },
+    {
+      "bug_id": "35",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1051",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 487,
+      "fetched_at": "2026-08-11T13:52:18.068876+00:00"
+    },
+    {
+      "bug_id": "36",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/803",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1121,
+      "fetched_at": "2026-08-11T13:52:18.924488+00:00"
+    },
+    {
+      "bug_id": "37",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1083",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 8418,
+      "fetched_at": "2026-08-11T13:52:39.835038+00:00"
+    },
+    {
+      "bug_id": "38",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1102",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3017,
+      "fetched_at": "2026-08-11T13:52:40.655522+00:00"
+    },
+    {
+      "bug_id": "39",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1108",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2924,
+      "fetched_at": "2026-08-11T13:52:41.518350+00:00"
+    },
+    {
+      "bug_id": "40",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1095",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3180,
+      "fetched_at": "2026-08-11T13:52:42.307989+00:00"
+    },
+    {
+      "bug_id": "41",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1115",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1960,
+      "fetched_at": "2026-08-11T13:52:43.144805+00:00"
+    },
+    {
+      "bug_id": "42",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1123",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1665,
+      "fetched_at": "2026-08-11T13:52:44.146390+00:00"
+    },
+    {
+      "bug_id": "43",
+      "url": "https://github.com/FasterXML/jackson-databind/pull/1150",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2232,
+      "fetched_at": "2026-08-11T13:52:44.983713+00:00"
+    },
+    {
+      "bug_id": "44",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1125",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 623,
+      "fetched_at": "2026-08-11T13:52:45.811782+00:00"
+    },
+    {
+      "bug_id": "45",
+      "url": "https://github.com/FasterXML/jackson-databind/pull/1155",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2214,
+      "fetched_at": "2026-08-11T13:52:46.714897+00:00"
+    },
+    {
+      "bug_id": "46",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1194",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 466,
+      "fetched_at": "2026-08-11T13:52:47.521689+00:00"
+    },
+    {
+      "bug_id": "47",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1231",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3308,
+      "fetched_at": "2026-08-11T13:52:48.330379+00:00"
+    },
+    {
+      "bug_id": "48",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1223",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3655,
+      "fetched_at": "2026-08-11T13:52:49.153994+00:00"
+    },
+    {
+      "bug_id": "49",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1255",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5753,
+      "fetched_at": "2026-08-11T13:52:50.006828+00:00"
+    },
+    {
+      "bug_id": "50",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1261",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 19312,
+      "fetched_at": "2026-08-11T13:52:51.091856+00:00"
+    },
+    {
+      "bug_id": "51",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1270",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 9605,
+      "fetched_at": "2026-08-11T13:52:51.944492+00:00"
+    },
+    {
+      "bug_id": "52",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/999",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5912,
+      "fetched_at": "2026-08-11T13:52:52.783358+00:00"
+    },
+    {
+      "bug_id": "53",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1215",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 7862,
+      "fetched_at": "2026-08-11T13:52:53.620110+00:00"
+    },
+    {
+      "bug_id": "54",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1256",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2789,
+      "fetched_at": "2026-08-11T13:52:54.404510+00:00"
+    },
+    {
+      "bug_id": "55",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1322",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 894,
+      "fetched_at": "2026-08-11T13:52:55.191397+00:00"
+    },
+    {
+      "bug_id": "56",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1344",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 973,
+      "fetched_at": "2026-08-11T13:52:56.134494+00:00"
+    },
+    {
+      "bug_id": "57",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1362",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 473,
+      "fetched_at": "2026-08-11T13:52:56.975796+00:00"
+    },
+    {
+      "bug_id": "58",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/877",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5137,
+      "fetched_at": "2026-08-11T13:52:57.821136+00:00"
+    },
+    {
+      "bug_id": "59",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1384",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 7863,
+      "fetched_at": "2026-08-11T13:52:58.606689+00:00"
+    },
+    {
+      "bug_id": "60",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1385",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3371,
+      "fetched_at": "2026-08-11T13:52:59.397335+00:00"
+    },
+    {
+      "bug_id": "61",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1395",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 8981,
+      "fetched_at": "2026-08-11T13:53:00.252815+00:00"
+    },
+    {
+      "bug_id": "62",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1392",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 6289,
+      "fetched_at": "2026-08-11T13:53:01.088304+00:00"
+    },
+    {
+      "bug_id": "63",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1403",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2056,
+      "fetched_at": "2026-08-11T13:53:01.859908+00:00"
+    },
+    {
+      "bug_id": "64",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1417",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 290,
+      "fetched_at": "2026-08-11T13:53:02.615250+00:00"
+    },
+    {
+      "bug_id": "66",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1441",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4364,
+      "fetched_at": "2026-08-11T13:53:03.424848+00:00"
+    },
+    {
+      "bug_id": "67",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1445",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3865,
+      "fetched_at": "2026-08-11T13:53:04.210809+00:00"
+    },
+    {
+      "bug_id": "68",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1421",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 7022,
+      "fetched_at": "2026-08-11T13:53:05.048309+00:00"
+    },
+    {
+      "bug_id": "69",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1476",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 6773,
+      "fetched_at": "2026-08-11T13:53:05.808173+00:00"
+    },
+    {
+      "bug_id": "70",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1493",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1008,
+      "fetched_at": "2026-08-11T13:53:06.590981+00:00"
+    },
+    {
+      "bug_id": "71",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1506",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 293,
+      "fetched_at": "2026-08-11T13:53:07.336129+00:00"
+    },
+    {
+      "bug_id": "72",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1501",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2272,
+      "fetched_at": "2026-08-11T13:53:08.113537+00:00"
+    },
+    {
+      "bug_id": "73",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/935",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 11230,
+      "fetched_at": "2026-08-11T13:53:09.039539+00:00"
+    },
+    {
+      "bug_id": "74",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1533",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 385,
+      "fetched_at": "2026-08-11T13:53:09.761229+00:00"
+    },
+    {
+      "bug_id": "75",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1543",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1529,
+      "fetched_at": "2026-08-11T13:53:10.815814+00:00"
+    },
+    {
+      "bug_id": "76",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1573",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3599,
+      "fetched_at": "2026-08-11T13:53:11.604425+00:00"
+    },
+    {
+      "bug_id": "77",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1599",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 8057,
+      "fetched_at": "2026-08-11T13:53:12.569107+00:00"
+    },
+    {
+      "bug_id": "78",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1599",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 8057,
+      "fetched_at": "2026-08-11T13:53:13.541969+00:00"
+    },
+    {
+      "bug_id": "79",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1607",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3067,
+      "fetched_at": "2026-08-11T13:53:14.348765+00:00"
+    },
+    {
+      "bug_id": "80",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1616",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 359,
+      "fetched_at": "2026-08-11T13:53:15.125218+00:00"
+    },
+    {
+      "bug_id": "81",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1592",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 697,
+      "fetched_at": "2026-08-11T13:53:15.859973+00:00"
+    },
+    {
+      "bug_id": "82",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1595",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 9093,
+      "fetched_at": "2026-08-11T13:53:16.649451+00:00"
+    },
+    {
+      "bug_id": "83",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1629",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4333,
+      "fetched_at": "2026-08-11T13:53:17.441015+00:00"
+    },
+    {
+      "bug_id": "84",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1647",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2348,
+      "fetched_at": "2026-08-11T13:53:18.200652+00:00"
+    },
+    {
+      "bug_id": "85",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1648",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5666,
+      "fetched_at": "2026-08-11T13:53:18.995859+00:00"
+    },
+    {
+      "bug_id": "86",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1647",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2348,
+      "fetched_at": "2026-08-11T13:53:19.779803+00:00"
+    },
+    {
+      "bug_id": "87",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1657",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5339,
+      "fetched_at": "2026-08-11T13:53:20.691355+00:00"
+    },
+    {
+      "bug_id": "88",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1735",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 659,
+      "fetched_at": "2026-08-11T13:53:21.568040+00:00"
+    },
+    {
+      "bug_id": "90",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1804",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3097,
+      "fetched_at": "2026-08-11T13:53:22.334793+00:00"
+    },
+    {
+      "bug_id": "91",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1809",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 10220,
+      "fetched_at": "2026-08-11T13:53:23.214744+00:00"
+    },
+    {
+      "bug_id": "92",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1737",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5433,
+      "fetched_at": "2026-08-11T13:53:24.089623+00:00"
+    },
+    {
+      "bug_id": "93",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1872",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 7696,
+      "fetched_at": "2026-08-11T13:53:24.969131+00:00"
+    },
+    {
+      "bug_id": "94",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1931",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3536,
+      "fetched_at": "2026-08-11T13:53:25.856543+00:00"
+    },
+    {
+      "bug_id": "95",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1941",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3115,
+      "fetched_at": "2026-08-11T13:53:26.712517+00:00"
+    },
+    {
+      "bug_id": "96",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2051",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 456,
+      "fetched_at": "2026-08-11T13:53:27.448375+00:00"
+    },
+    {
+      "bug_id": "97",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1991",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3891,
+      "fetched_at": "2026-08-11T13:53:28.231259+00:00"
+    },
+    {
+      "bug_id": "98",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/1328",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 16514,
+      "fetched_at": "2026-08-11T13:53:29.133151+00:00"
+    },
+    {
+      "bug_id": "99",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2109",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 554,
+      "fetched_at": "2026-08-11T13:53:29.964196+00:00"
+    },
+    {
+      "bug_id": "100",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2096",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1076,
+      "fetched_at": "2026-08-11T13:53:30.757518+00:00"
+    },
+    {
+      "bug_id": "101",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2088",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1077,
+      "fetched_at": "2026-08-11T13:53:31.530646+00:00"
+    },
+    {
+      "bug_id": "102",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2064",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1747,
+      "fetched_at": "2026-08-11T13:53:32.349614+00:00"
+    },
+    {
+      "bug_id": "103",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2128",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 390,
+      "fetched_at": "2026-08-11T13:53:33.094424+00:00"
+    },
+    {
+      "bug_id": "104",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2167",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4743,
+      "fetched_at": "2026-08-11T13:53:33.951726+00:00"
+    },
+    {
+      "bug_id": "105",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2197",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3258,
+      "fetched_at": "2026-08-11T13:53:34.768207+00:00"
+    },
+    {
+      "bug_id": "106",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2189",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 11886,
+      "fetched_at": "2026-08-11T13:53:35.650335+00:00"
+    },
+    {
+      "bug_id": "107",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2221",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 546,
+      "fetched_at": "2026-08-11T13:53:36.397825+00:00"
+    },
+    {
+      "bug_id": "108",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2211",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1739,
+      "fetched_at": "2026-08-11T13:53:37.180925+00:00"
+    },
+    {
+      "bug_id": "109",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2230",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3549,
+      "fetched_at": "2026-08-11T13:53:38.076312+00:00"
+    },
+    {
+      "bug_id": "110",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2265",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4236,
+      "fetched_at": "2026-08-11T13:53:39.080669+00:00"
+    },
+    {
+      "bug_id": "111",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2303",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5064,
+      "fetched_at": "2026-08-11T13:53:39.876369+00:00"
+    },
+    {
+      "bug_id": "112",
+      "url": "https://github.com/FasterXML/jackson-databind/issues/2324",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 15876,
+      "fetched_at": "2026-08-11T13:53:40.749931+00:00"
+    }
+  ]
+}

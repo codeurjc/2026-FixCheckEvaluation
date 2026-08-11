@@ -1,0 +1,10 @@
+Summary: Caverphone encodes names starting and ending with "mb" incorrectly.
+
+Description:
+Caverphone encode names starting and ending with "mb" incorrectly.
+
+According to the spec:
+"If the name ends with mb make it m2".
+
+This has been coded as:
+"If the name _starts_ with mb make it m2".

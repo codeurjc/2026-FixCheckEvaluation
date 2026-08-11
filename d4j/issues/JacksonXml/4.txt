@@ -1,0 +1,18 @@
+Title: `XmlSerializerProvider` does not use `withRootName` config for null
+
+Body:
+In `jackson-dataformat-xml/src/main/java/com/fasterxml/jackson/dataformat/xml/ser/XmlSerializerProvider.java`
+
+Line 203, I think `_rootNameFromConfig()` should be used if available instead of `ROOT_NAME_FOR_NULL`, so that `withRootName()` config can be used.
+
+I don't know whether/how deser would be affected
+
+https://github.com/FasterXML/jackson-dataformat-xml/blob/ca1c671c419e88a18357d497ec3671c73c37452e/src/main/java/com/fasterxml/jackson/dataformat/xml/ser/XmlSerializerProvider.java#L203
+
+
+Comment:
+I'd need to understand more what the problem here is: what is not working, and how to reproduce the issue. Is this just the question of serialization of root-level `null` not using wrapping as expected?
+
+
+Comment:
+Ok, I think I am able to reproduce what is being seen.

@@ -1,0 +1,61 @@
+Summary: true/false are not always replaced for !0/!1
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+function some_function() {
+  var fn1;
+  var fn2;
+
+  if (any_expression) {
+    fn2 = external_ref;
+    fn1 = function (content) {
+      return fn2();
+    }
+  }
+
+  return {
+    method1: function () {
+      if (fn1) fn1();
+      return true;
+    },
+    method2: function () {
+      return false;
+    }
+  }
+}
+
+<b>What is the expected output? What do you see instead?</b>
+
+We expect that true/false will be replaced for !0/!1, but it doesn't happend.
+
+function some_function() {
+  var a, b;
+  any_expression &amp;&amp; (b = external_ref, a = function () {
+    return b()
+  });
+  return {
+    method1: function () {
+      a &amp;&amp; a();
+      return true
+    },
+    method2: function () {
+      return false
+    }
+  }
+};
+
+<b>What version of the product are you using? On what operating system?</b>
+
+This is output for latest official build.
+I also got the same output for 20120430, 20120305. But 20111117 is OK.
+
+<b>Please provide any additional information below.</b>
+
+Here is just one of example. I found too many non-replaced true/false in compiler output. Replacement non-replaced true/false to !1/!0 in conpiler output saves 1-2 kb for 850 kb js file.
+
+Comment:
+The peephole optimizations are being short circuited, I'm pretty sure I caused this problem so I'll look into it.
+
+Comment:
+This issue was closed by revision r2119.

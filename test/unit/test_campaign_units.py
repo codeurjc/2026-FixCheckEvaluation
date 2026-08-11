@@ -21,13 +21,24 @@ import textwrap
 
 import pytest
 
-from defects4j_bugs import (
+from d4j.defects4j_bugs import (
+    ISSUE_AVAILABLE,
+    ISSUE_EMPTY,
+    ISSUE_UNCACHED,
+    ISSUE_UNUSABLE,
+    is_unusable_tracker,
+    issue_text,
     PROJECT_BUG_COUNTS,
     TOTAL_ACTIVE_BUGS,
     active_bug_ids,
     chunk,
+    issue_path,
+    load_cached_issue,
+    strip_issue_comments,
+    report_urls,
     resolve_bug_ids,
 )
+from d4j.fetch_issues import classify, format_googlecode, googlecode_json_url
 from experiment_runner import (
     RunOutcome,
     clean_checkout,
@@ -339,3 +350,291 @@ def test_project_job_derives_the_fixcheck_generator_from_the_model():
     text = open(os.path.join(_repo_root(), "scripts/project_job.sbatch"),
                 encoding="utf-8").read()
     assert 'FIXCHECK_ASSERTIONS="ollama:${MODEL#ollama/}@${OLLAMA_PORT}"' in text
+
+
+# --------------------------------------------------- issue reports and cache
+
+def test_report_urls_marks_unknown_as_no_issue(tmp_path):
+    """Defects4J writes the literal UNKNOWN when it has no issue URL.
+
+    18 Chart bugs are like that. Returning ``None`` rather than the string lets
+    the fetcher record "no issue exists" instead of trying to GET "UNKNOWN"
+    and calling it a failure.
+    """
+    project_dir = tmp_path / "Chart"
+    project_dir.mkdir(parents=True)
+    (project_dir / "active-bugs.csv").write_text(
+        "bug.id,revision.id.buggy,revision.id.fixed,report.id,report.url\n"
+        "1,a,b,R-1,https://example.org/1\n"
+        "3,a,b,UNKNOWN,UNKNOWN\n"
+    )
+    urls = report_urls("Chart", active_bugs_dir=str(tmp_path))
+    assert urls == {"1": "https://example.org/1", "3": None}
+
+
+def test_report_urls_cover_every_real_bug():
+    """Every one of the 854 bugs resolves to a URL or an explicit None."""
+    total = 0
+    for project in PROJECT_BUG_COUNTS:
+        urls = report_urls(project)
+        ids = active_bug_ids(project)
+        assert set(urls) == set(ids), f"{project}: url map and id list disagree"
+        total += len(urls)
+    assert total == TOTAL_ACTIVE_BUGS
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("https://issues.apache.org/jira/browse/LANG-747", "jira"),
+    ("https://github.com/FasterXML/jackson-dataformat-xml/issues/180", "github"),
+    ("https://storage.googleapis.com/google-code-archive/v2/code.google.com/"
+     "closure-compiler/issues/issue-253.json", "googlecode-json"),
+    ("https://code.google.com/archive/p/mockito/issues/188", "googlecode-page"),
+    ("https://sourceforge.net/p/jfreechart/bugs/983/", "generic"),
+    (None, "none"),
+])
+def test_classify_recognises_every_tracker_family(url, expected):
+    assert classify(url) == expected
+
+
+def test_every_real_bug_classifies_to_a_known_tracker():
+    # The counts are load-bearing: 197 bugs (Closure + part of Mockito) sit on
+    # Google Code, which the generic HTML path cannot read at all.
+    counts = {}
+    for project in PROJECT_BUG_COUNTS:
+        for url in report_urls(project).values():
+            kind = classify(url)
+            counts[kind] = counts.get(kind, 0) + 1
+    assert sum(counts.values()) == TOTAL_ACTIVE_BUGS
+    assert counts == {
+        "jira": 337, "github": 280, "googlecode-json": 174,
+        "googlecode-page": 23, "generic": 22, "none": 18,
+    }
+
+
+def test_googlecode_page_urls_are_rewritten_to_their_json():
+    """The archive page is JavaScript-only; scraping it yields boilerplate.
+
+    Fetching https://code.google.com/archive/p/mockito/issues/188 returns
+    ~210 bytes of "requires JavaScript to be enabled" and no issue text, so
+    the 23 Mockito bugs pointing there need the archive's JSON instead.
+    """
+    assert googlecode_json_url("https://code.google.com/archive/p/mockito/issues/188") == (
+        "https://storage.googleapis.com/google-code-archive/v2/code.google.com/"
+        "mockito/issues/issue-188.json"
+    )
+    assert googlecode_json_url("https://example.org/not/an/issue") is None
+
+
+def test_format_googlecode_matches_the_other_fetchers_shape():
+    rendered = format_googlecode({
+        "summary": "NPE in the parser",
+        "comments": [{"content": "It throws."}, {"content": "Fixed in r42."}],
+    })
+    assert rendered == (
+        "Summary: NPE in the parser\n\n"
+        "Description:\nIt throws.\n\n"
+        "Comment:\nFixed in r42."
+    )
+
+
+def test_format_googlecode_tolerates_an_issue_with_no_comments():
+    assert format_googlecode({"summary": "Bare"}) == "Summary: Bare"
+
+
+def test_load_cached_issue_distinguishes_absent_from_empty(tmp_path):
+    """An empty cached file means "this bug has no issue", not "not cached".
+
+    Conflating them would make the 18 Chart bugs hit the network on every run
+    forever.
+    """
+    assert load_cached_issue("Chart", "3", issues_dir=str(tmp_path)) is None
+    target = tmp_path / "Chart"
+    target.mkdir()
+    (target / "3.txt").write_text("")
+    assert load_cached_issue("Chart", "3", issues_dir=str(tmp_path)) == ""
+    (target / "1.txt").write_text("Summary: something")
+    assert load_cached_issue("Chart", "1", issues_dir=str(tmp_path)) == "Summary: something"
+
+
+def test_issue_path_layout():
+    assert issue_path("Lang", "12", issues_dir="/c") == os.path.join("/c", "Lang", "12.txt")
+
+
+# ------------------------------------------- usable issues and their statuses
+
+def test_sourceforge_issues_are_reported_unusable(tmp_path):
+    """SourceForge tickets scrape to a navigation menu, not the issue.
+
+    The generic HTML-to-text extraction keeps the whole page shell, so the
+    cached Chart and Time files open with ~40 lines of "Join/Login / Business
+    Software / Open Source Software / ..." before any ticket text. Feeding
+    that to a model is worse than feeding nothing, so those 22 bugs report
+    ``unusable`` and contribute no issue.
+    """
+    csv_dir = _write_active_bugs(tmp_path / "csv", "Chart", [])
+    (tmp_path / "csv" / "Chart" / "active-bugs.csv").write_text(
+        "bug.id,revision.id.buggy,revision.id.fixed,report.id,report.url\n"
+        "1,a,b,983,https://sourceforge.net/p/jfreechart/bugs/983/\n"
+        "2,a,b,J-2,https://issues.apache.org/jira/browse/J-2\n"
+    )
+    issues = tmp_path / "issues" / "Chart"
+    issues.mkdir(parents=True)
+    (issues / "1.txt").write_text("JFreeChart / Bugs / #983\nJoin/Login\nBusiness Software")
+    (issues / "2.txt").write_text("Summary: a real issue")
+
+    text, status = issue_text("Chart", "1", issues_dir=str(tmp_path / "issues"),
+                              active_bugs_dir=csv_dir)
+    assert (text, status) == ("", ISSUE_UNUSABLE)
+    # The raw download is still on disk: the exclusion is policy, not deletion.
+    assert load_cached_issue("Chart", "1", issues_dir=str(tmp_path / "issues"))
+
+    text, status = issue_text("Chart", "2", issues_dir=str(tmp_path / "issues"),
+                              active_bugs_dir=csv_dir)
+    assert (text, status) == ("Summary: a real issue", ISSUE_AVAILABLE)
+
+
+@pytest.mark.parametrize("url,unusable", [
+    ("https://sourceforge.net/p/jfreechart/bugs/983/", True),
+    ("https://a.sourceforge.net/p/x/1/", True),
+    ("https://issues.apache.org/jira/browse/LANG-1", False),
+    ("https://github.com/jhy/jsoup/issues/1", False),
+    (None, False),
+])
+def test_is_unusable_tracker(url, unusable):
+    assert is_unusable_tracker(url) == unusable
+
+
+def test_issue_text_distinguishes_every_no_issue_case(tmp_path):
+    """An absent issue must say *why*, not just be an empty string.
+
+    40 of the 854 bugs have no usable issue for three different reasons, and a
+    bare "" would make them indistinguishable in result.json.
+    """
+    csv_dir = str(tmp_path / "csv")
+    (tmp_path / "csv" / "Chart").mkdir(parents=True)
+    (tmp_path / "csv" / "Chart" / "active-bugs.csv").write_text(
+        "bug.id,revision.id.buggy,revision.id.fixed,report.id,report.url\n"
+        "3,a,b,UNKNOWN,UNKNOWN\n"
+        "9,a,b,R-9,https://issues.apache.org/jira/browse/R-9\n"
+    )
+    issues_dir = str(tmp_path / "issues")
+    (tmp_path / "issues" / "Chart").mkdir(parents=True)
+    # Cached but empty: the tracker had nothing (or there was no URL at all).
+    (tmp_path / "issues" / "Chart" / "3.txt").write_text("")
+
+    assert issue_text("Chart", "3", issues_dir, csv_dir) == ("", ISSUE_EMPTY)
+    # Never downloaded at all -- distinct from "downloaded and empty", because
+    # this one is worth fetching and that one is not.
+    assert issue_text("Chart", "9", issues_dir, csv_dir) == ("", ISSUE_UNCACHED)
+
+
+def test_the_real_cache_has_no_uncached_bugs():
+    """Every one of the 854 bugs resolves to a definite status."""
+    statuses = {}
+    for project in PROJECT_BUG_COUNTS:
+        for bug_id in active_bug_ids(project):
+            _text, status = issue_text(project, bug_id)
+            statuses[status] = statuses.get(status, 0) + 1
+    assert statuses.get(ISSUE_UNCACHED, 0) == 0, "run: python -m d4j.fetch_issues"
+    # 22 SourceForge (Chart 8 + Time 14), 18 Chart bugs with no URL and the one
+    # Jsoup issue GitHub no longer has.
+    assert statuses[ISSUE_UNUSABLE] == 22
+    assert statuses[ISSUE_EMPTY] == 19
+    assert statuses[ISSUE_AVAILABLE] == TOTAL_ACTIVE_BUGS - 22 - 19
+
+
+def test_chart_contributes_no_issue_at_all():
+    """The user's finding: Chart's issues are blank or unusable, all 26."""
+    for bug_id in active_bug_ids("Chart"):
+        text, status = issue_text("Chart", bug_id)
+        assert text == ""
+        assert status in (ISSUE_EMPTY, ISSUE_UNUSABLE)
+
+
+# ------------------------------------------------- trimming the comment thread
+
+def test_strip_issue_comments_keeps_the_report_and_drops_the_thread():
+    """The maintainers' thread is written after the diagnosis and leaks the fix.
+
+    Only the reporter's own text is context a repair tool would have had.
+    """
+    github = (
+        "Title: NPE in the parser\n\n"
+        "Body:\nIt throws on empty input.\n\n"
+        "Comment:\nFixed in 2.6, see commit abc1234.\n\n"
+        "Comment:\nThanks!"
+    )
+    assert strip_issue_comments(github) == (
+        "Title: NPE in the parser\n\nBody:\nIt throws on empty input."
+    )
+
+    googlecode = (
+        "Summary: args optimized away\n\n"
+        "Description:\nThe length property breaks.\n\n"
+        "Comment:\nThe compiler could replace it with a constant."
+    )
+    assert strip_issue_comments(googlecode) == (
+        "Summary: args optimized away\n\nDescription:\nThe length property breaks."
+    )
+
+
+def test_strip_issue_comments_leaves_jira_issues_untouched():
+    # fetch_issues asks Jira for summary+description only, so those 337 bugs
+    # never had a thread to begin with.
+    jira = "Summary: Something broke\n\nDescription:\nHere is how."
+    assert strip_issue_comments(jira) == jira
+    assert strip_issue_comments("") == ""
+
+
+def test_strip_issue_comments_requires_the_marker_on_its_own_line():
+    """A mention of "Comment:" inside prose or code must not cut the report."""
+    inline = (
+        "Title: Parser bug\n\n"
+        "Body:\nThe javadoc says Comment: foo, which is wrong.\n"
+        "See also /* Comment: bar */ in the source."
+    )
+    assert strip_issue_comments(inline) == inline.rstrip()
+
+
+def test_issue_text_returns_the_trimmed_report():
+    """The policy is applied where the text is read, not where it is cached."""
+    raw = load_cached_issue("Closure", "1")
+    trimmed, status = issue_text("Closure", "1")
+    assert status == ISSUE_AVAILABLE
+    assert "Comment:" in raw, "the cache still holds the thread as evidence"
+    assert "Comment:" not in trimmed
+    assert len(trimmed) < len(raw)
+
+
+def test_trimming_never_empties_a_real_issue():
+    """Guard on the real corpus: cutting must not leave a bug with no context.
+
+    Measured when this was introduced: 436 of the 813 issues with content carry
+    a thread, and none of them is left empty by the cut.
+    """
+    trimmed_count = 0
+    for project in PROJECT_BUG_COUNTS:
+        for bug_id in active_bug_ids(project):
+            raw = load_cached_issue(project, bug_id)
+            text, status = issue_text(project, bug_id)
+            if status != ISSUE_AVAILABLE:
+                continue
+            assert text.strip(), f"{project} {bug_id} lost all context to trimming"
+            if raw and "Comment:" in raw:
+                trimmed_count += 1
+    assert trimmed_count > 400, f"only {trimmed_count} issues trimmed; expected ~436"
+
+
+def test_jira_projects_are_unaffected_by_trimming():
+    """The eight Jira-tracked projects must come through byte for byte.
+
+    They have no thread to cut, so ``strip_issue_comments`` returns the text
+    untouched -- it only rstrips what it actually trimmed.
+    """
+    for project in ("Cli", "Codec", "Collections", "Compress", "Csv",
+                    "JxPath", "Lang", "Math"):
+        for bug_id in active_bug_ids(project):
+            raw = load_cached_issue(project, bug_id)
+            text, status = issue_text(project, bug_id)
+            if status == ISSUE_AVAILABLE:
+                assert text == raw, f"{project} {bug_id} was altered"

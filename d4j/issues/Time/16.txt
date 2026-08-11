@@ -1,0 +1,124 @@
+Joda - Time / Bugs / #148 DateTimeFormatter.parseInto broken when no year in format
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+Joda - Time
+Bugs
+DateTimeFormatter.parseInto broken when no year in format
+Project moved to GitHub
+Brought to you by:
+broneill
+,
+scolebourne
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Code
+Svn
+Tickets ▾
+Bugs
+Feature Requests
+News
+Discussion
+Donate
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+v1.0_(example)
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#148 DateTimeFormatter.parseInto broken when no year in format
+Status:
+closed
+Owner:
+nobody
+Labels:
+Joda-Time (76)
+Priority:
+5
+Updated:
+2012-10-08
+Created:
+2012-04-28
+Creator:
+pipelare
+Private:
+No
+In Joda Time 2.0, the default year was set to 2000 so that Feb 29 could be parsed correctly. However, parseInto now overwrites the given instant's year with 2000 (or whatever iDefaultYear is set to). The correct behavior would seem to be to use the given instant's year instead of iDefaultYear.
+This does mean that Feb 29 might not be parseable if the instant's year is not a leap year, but in this case the caller asked for that in a sense.
+Discussion
+pipelare
+-
+2012-04-28
+Diff showing what I think should be the right behaviour
+parseInto.diff
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Stephen Colebourne
+-
+2012-04-30
+Code fixed in git, thanks
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

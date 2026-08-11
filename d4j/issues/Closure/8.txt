@@ -1,0 +1,101 @@
+Summary: Obfuscated code triggers TypeError in Firefox
+
+Description:
+The Closure Compiler is a great tool, but I'm having problems with it. It often produces code that triggers TypeError in Firefox, even though original code does not. Here is why. The original code may look as follows:
+
+function(argument){
+...//use argument
+var variable = ...;
+...//argument not used anymore
+}
+
+But often Closure Compiler will translate it to:
+function(a){
+...
+var a = ...;
+...
+}
+
+This is not wrong JS, since argument is no longer used, Closure Compiler tries to reuse the name 'a' for something else.
+
+This triggers the following in Firefox 13-15:
+TypeError: variable a re-declares argument
+
+Still, the resulting code is correct and runs, but it's very annoying debugging it when I'm getting all the time a lot of TypeErrors in the console.
+
+Also, our customers have noticed these TypeErrors when testing the product and it undermines our code reliability.
+
+Could you please rename variables in such a way as to avoid these TypeErrors (not to rename vars in a way that will coincide with function argument names)?
+
+<b>What steps will reproduce the problem?</b>
+This happens reproducibly on our real-life JS input, which I cannot submit for various reasons. If my problem description is not clear enough, please make a comment and I will try to construct some artificial example that also triggers the TypeError.
+
+<b>What is the expected output? What do you see instead?</b>
+The expected output is obfuscated code with variables renamed to unique names, in order not to trigger TypeError in Firefox. Instead I see variables renamed to the same name, which runs OK, but Firefox complains with TypeError.
+
+<b>What version of the product are you using? On what operating system?</b>
+Closure Compiler (http://code.google.com/closure/compiler)
+Version: 20120917 (revision 2180)
+Built on: 2012/09/17 14:33
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+It seems like we could avoid redeclaring the "var" and simply reuse the name, which might be a size win as well.  Although, it seems strange that FF is generating this warning using "TypeError".  Have you filed a bug for this as well?
+
+Comment:
+hmmm...i haven't been able to reproduce this, either on the closure-compiler side or the firefox side.
+
+Can you give us an example of a script and compiler invocation where this happens?
+
+alternatively, is there some special setting in firefox 15 that i have to turn on to make this console warning appear? If i had that, i could probably find my own repro case.
+
+Comment:
+I can reproduce it on the firefox side by enable "javascript.options.strict" in about.config.  This option isn't normally on so personally, I'm not sure I care about this.  This is really noisy and somewhat contraversal http://www.howtocreate.co.uk/strictJSFirefox.html.
+
+I would be happy to remove the extra "var" however if we can get a repro case.
+
+Comment:
+No, I have never fiddled with firefox options, but I do have 'use strict' in all my JS sources to help me find strange JS bugs, etc. So here is a sample that triggers this, for reference:
+
+'use strict';
+function f(x){
+    var x = 1;
+}
+
+This is not produced by Closure Compiler, but by me. It would be very time consuming to try to guess some JS source that after compilation has this problem, because I don't know when Closure Compiler produces such an outcome. I get this multiple times when compiling my huge JS codebase, but can't provide a small sample that does it.
+
+Comment:
+Here are some samples of code actually produced by Closure Compiler:
+
+window.onpopstate = function(a) {
+  if(a && a.state && a.state.viewName) {
+  var a = a.state.viewName, b = q[a];
+  b && (!J || "faq" == a || q.t) ? b.B() : J && Q()
+  }
+};
+
+As you can see, var is necessary because a new variable 'b' is declared. Another example:
+
+function yd(a, b, e, f, j, g) {
+var k = K(a), t = a.getTime() === q.ed, j = j.aa({ub:function() {
+...
+
+Here 'k' and 't' are new, so var is needed. Currently I'm getting this error 8 times, in 8 functions, and in each case it's a mix of existing function arguments and new variables that are assigned to in var statement.
+
+I did some more investigating and I can see that Closure Compiler actually removes my 'use strict' when compiling. So the resulting script is not in strict mode. I actually consider this behavior a bug (that Closure Compiler removes 'use strict' statement). Should I file a separate bug report for that?
+
+Comment:
+we believe you that this happens. we're looking for a repro case. We don't need more examples of output.
+
+Comment:
+Actually, that does help. I was able to put together a unit test for CollaspseVariableDeclarations that reproduces the problem:
+
+function f(a) { var b=1; a=2; var c }
+
+gets collapsed to:
+
+function f(a) { var b=1,a=2,c }
+
+Comment:
+This issue was closed by revision r2226.

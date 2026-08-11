@@ -1,0 +1,14 @@
+Title: Problem with polymorphic types, losing properties from base type(s)
+
+Body:
+(background, see: https://github.com/dropwizard/dropwizard/pull/1449)
+
+Looks like sub-type resolution may be broken for one particular case: that of using `defaultImpl`. If so, appears like properties from super-types are not properly resolved; guessing this could be follow-up item for #1083 (even sooner than I thought...).
+
+
+Comment:
+While this could be related to #1128 that issue has now been resolved and there's no reproduction, so closing for now.
+
+
+Comment:
+Second try: guessing this is related to handling of `StdSubtypeResolver`.

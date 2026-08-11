@@ -1,0 +1,21 @@
+Summary: compiler crash on goog.scope locals
+
+Description:
+goog.provide(&quot;main&quot;);
+goog.scope (function (){
+  var a = foo, b, c = 1;
+});
+
+Reported by Thomas Fischer
+
+There are 2 separate issues here: that there's an error, and that the error make the compiler crash.
+
+Comment:
+Code review at
+http://codereview.appspot.com/14040044
+
+Comment:
+This issue was closed by revision d2b3ca66b608.
+
+Comment:
+This issue was closed by revision d2b3ca66b608.

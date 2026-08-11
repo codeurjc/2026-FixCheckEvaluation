@@ -1,0 +1,313 @@
+Title: `StringCollectionDeserializer` fails with custom collection
+
+Body:
+Seeing this with Jackson 2.9.8.
+
+We have a custom collection implementation, which is wired to use its "immutable" version for deserialization. The rationale is that we don't want accidental modifications to the data structures that come from the wire, so they all are forced to be immutable.
+
+After upgrade from 2.6.3 to 2.9.8, the deserialization started breaking with the message:
+
+>Cannot construct instance of `XXX` (although at least one Creator exists): no default no-arguments constructor found
+
+
+This happens ONLY when you deserialize a custom collection of strings as a property of the other object. Deserializing the custom collection of strings directly works fine, and so does the deserialization of custom collection of non-strings. I believe either the `StringCollectionDeserializer` should not be invoked for custom collections, or perhaps it does not handle the delegation as expected.
+
+Please see comments for repro and workaround.
+
+Thanks!
+
+Comment:
+Here is the unit test code that reproduces the problem. Only `testDeserializeBagOfStrings` fails for me.
+```
+    /** Assume you have a custom collection.
+     */
+    @JsonDeserialize(as=ImmutableBag.class)
+    public interface Bag<T> extends Collection<T> {
+
+    }
+
+    /** It is deserialized as an immutable version (i.e. no add / remove, etc.).
+     */
+    public static class ImmutableBag<T> extends AbstractCollection<T> implements Bag<T>  {
+        @Override
+        public Iterator<T> iterator() { return elements.iterator(); }
+
+        @Override
+        public int size() { return elements.size(); }
+
+        @JsonCreator(mode=JsonCreator.Mode.DELEGATING)
+        private ImmutableBag( Collection<T> elements ) {
+            this.elements = Collections.unmodifiableCollection(elements);
+        }
+
+        private final Collection<T> elements;
+    }
+
+    public static class Value {
+        public Value( String value ) { this.value = value; }
+        private String value;
+    }
+
+    /** This does not work - see {@link #testDeserializeBagOfStrings}.
+     */
+    public static class WithBagOfStrings {
+
+        public Bag<String> getStrings() { return this.bagOfStrings; }
+        public void setStrings(Bag<String> bagOfStrings) { this.bagOfStrings = bagOfStrings; }
+        private Bag<String> bagOfStrings;
+    }
+
+    /** This DOES work - see {@link #testDeserializeBagOfObjects}.
+     */
+    public static class WithBagOfValues {
+        public Bag<Value> getValues() { return this.bagOfValues; }
+        public void setValues(Bag<Value> bagOfValues) { this.bagOfValues = bagOfValues; }
+        private Bag<Value> bagOfValues;
+    }
+
+
+    @Test public void testDeserializeBagOfStrings() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        WithBagOfStrings result = mapper.readerFor(WithBagOfStrings.class)
+                .readValue("{\"strings\": [ \"a\", \"b\", \"c\"]}");
+        // Fails with:
+        // com.fasterxml.jackson.databind.exc.MismatchedInputException: Cannot construct instance of 
+        // `...$ImmutableBag` (although at least one Creator exists): no default no-arguments constructor found
+        // at [Source: (String)"{"strings": [ "a", "b", "c"]}"; line: 1, column: 13] (through reference chain: 
+        // ...$WithBagOfStrings["strings"])
+        //
+        //	at com.fasterxml.jackson.databind.exc.MismatchedInputException.from(MismatchedInputException.java:63)
+        //	at com.fasterxml.jackson.databind.DeserializationContext.reportInputMismatch(DeserializationContext.java:1343)
+        //	at com.fasterxml.jackson.databind.DeserializationContext.handleMissingInstantiator(DeserializationContext.java:1032)
+        //	at com.fasterxml.jackson.databind.deser.ValueInstantiator.createUsingDefault(ValueInstantiator.java:189)
+        //	at com.fasterxml.jackson.databind.deser.std.StdValueInstantiator.createUsingDefault(StdValueInstantiator.java:267)
+        //	at com.fasterxml.jackson.databind.deser.std.StringCollectionDeserializer.deserialize(StringCollectionDeserializer.java:168)
+        //	at com.fasterxml.jackson.databind.deser.std.StringCollectionDeserializer.deserialize(StringCollectionDeserializer.java:21)
+        //	at com.fasterxml.jackson.databind.deser.impl.MethodProperty.deserializeAndSet(MethodProperty.java:127)
+        //	at com.fasterxml.jackson.databind.deser.BeanDeserializer.vanillaDeserialize(BeanDeserializer.java:288)
+        //	at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:151)
+        //	at com.fasterxml.jackson.databind.ObjectReader._bindAndClose(ObjectReader.java:1611)
+        //	at com.fasterxml.jackson.databind.ObjectReader.readValue(ObjectReader.java:1219)
+        Assert.assertEquals(3, result.getStrings().size());
+    }
+
+    @Test public void testDeserializeBagOfObjects() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        WithBagOfValues result = mapper.readerFor(WithBagOfValues.class)
+                .readValue("{\"values\": [ \"a\", \"b\", \"c\"]}");
+        Assert.assertEquals(3, result.getValues().size());
+    }
+    
+    @Test public void testBagOfStringsAlone() throws IOException {
+        // curiously, this DOES work too!
+        ObjectMapper mapper = new ObjectMapper();
+        Bag<String> result = mapper.readerFor(Bag.class)
+                .readValue("[ \"a\", \"b\", \"c\"]");
+        Assert.assertEquals(3, result.size());
+    }
+```
+
+Comment:
+Workaround (understandably, less than desirable): nail the custom deserializer through the `ObjectMapper` configuration. Perhaps there are more elegant ways to do it, but I just customized the delegating deserializer.
+
+```
+ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule( new SimpleModule() {
+          {
+              this.addDeserializer(
+                  ImmutableBag.class,
+                  new StdDelegatingDeserializer<ImmutableBag>(
+                      new Converter<Collection,ImmutableBag>() {
+                          @Override
+                          public ImmutableBag convert(Collection value) {
+                              return new ImmutableBag(value);
+                          }
+
+                          @Override
+                          public JavaType getInputType(TypeFactory typeFactory) {
+                              return typeFactory.constructCollectionLikeType(Collection.class, Object.class);
+                          }
+
+                          @Override
+                          public JavaType getOutputType(TypeFactory typeFactory) {
+                              return typeFactory.constructCollectionLikeType(ImmutableBag.class, Object.class);
+                          }
+                      }
+                  ) {
+                      @Override
+                      public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) 
+                              throws JsonMappingException {
+                          // Slightly modified version of the original implementation
+                          // First: if already got deserializer to delegate to, contextualize it:
+                          if (_delegateDeserializer != null) {
+                              JsonDeserializer<?> deser = ctxt.handleSecondaryContextualization(_delegateDeserializer,
+                                      property, _delegateType);
+                              if (deser != _delegateDeserializer) {
+                                  return withDelegate(_converter, _delegateType, deser);
+                              }
+                              return this;
+                          }
+                          // Otherwise: figure out what is the fully generic delegate type, then find deserializer
+                          JavaType delegateType = ctxt.getTypeFactory().constructCollectionLikeType(Collection.class, 
+                                  property.getType().getBindings().getBoundType(0));
+                          return withDelegate(_converter, delegateType,
+                                  ctxt.findContextualValueDeserializer(delegateType, property));
+                      }
+
+                      @Override
+                      protected StdDelegatingDeserializer<ImmutableBag> withDelegate(
+                              Converter<Object, ImmutableBag> converter, JavaType delegateType, 
+                              JsonDeserializer<?> delegateDeserializer) {
+                          return new StdDelegatingDeserializer<>(converter, delegateType, delegateDeserializer);
+                      }
+                  });
+
+          }
+      });
+```
+
+Comment:
+Thank you for reporting this: seems like a bug.
+
+
+Comment:
+Interesting. I can reproduce the issue as presented, and the problem seems to be with Jackson's special handling for `String`-valued `Collection`s -- there's a minor performance benefit for case where default `String` deserializer call can be avoided. But in this case it probably need to skip that since there is custom Creator involved.
+
+Comment:
+Interesting. This may be due to #1010 which added separation between "regular" and "array delegator" creators -- that would have been 2.7.0. We occasionally find places where only former is supported (since earlier there wasn't array variant).
+
+Comment:
+@cowtowncoder, thanks, I appreciate the quick turnaround. Please let me know if you need any help with validating the fix. 
+
+Meanwhile here is slightly improved (although longer) version of the workaround that handles edge cases (like raw types and situations where the collection argument type cannot infer from context) better:
+
+```
+public abstract class GenericCollectionDeserializer<T, C extends Collection<? super T>>
+        extends StdDeserializer<C>
+        implements ResolvableDeserializer, ContextualDeserializer {
+
+        protected GenericCollectionDeserializer(Class<? extends Collection> classOfC) {
+            super(classOfC);
+            this.delegatedCollectionInfo = null;
+        }
+
+        @Override
+        public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
+            if (this.delegatedCollectionInfo == null || !this.delegatedCollectionInfo.isSpecific()) {
+                // recalculate the delegated collection info, attempt to infer the types from the property
+                this.delegatedCollectionInfo = new DelegatedCollectionInfo(ctxt, property);
+            }
+            final JavaType theCollectionType = this.delegatedCollectionInfo.collectionType;
+            return new StdDelegatingDeserializer<>(new Converter<Object, C>() {
+                @Override
+                public C convert(Object value) {
+                    return GenericCollectionDeserializer.this.convert((Collection) value);
+                }
+
+                @Override
+                public JavaType getInputType(TypeFactory typeFactory) {
+                    return rawCollectionType;
+                }
+
+                @Override
+                public JavaType getOutputType(TypeFactory typeFactory) {
+                    return theCollectionType;
+                }
+            }, theCollectionType, this.delegatedCollectionInfo.collectionDeserializer);
+        }
+
+        @Override
+        public C deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+            // Since we always return contextually created deserializer, this should never
+            // be called, consider this a fallback implementation.
+            final Collection inner;
+            if (delegatedCollectionInfo != null) {
+                inner = delegatedCollectionInfo.collectionDeserializer.deserialize(p, ctxt);
+            } else {
+                inner = ctxt.readValue(p, rawCollectionType);
+            }
+            return convert(inner);
+        }
+
+        @Override
+        public void resolve(DeserializationContext ctxt) throws JsonMappingException {
+            // attempt to infer the underlying collection type from context.
+            rawCollectionType = ctxt.getTypeFactory().constructRawCollectionType(Collection.class);
+            delegatedCollectionInfo = new DelegatedCollectionInfo(ctxt, null);
+        }
+
+        protected abstract C convert(Collection input);
+
+        private class DelegatedCollectionInfo {
+            public final JsonDeserializer<? extends Collection> collectionDeserializer;
+            public final JavaType collectionType;
+            public final JavaType collectionArgType;
+
+            DelegatedCollectionInfo(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
+                JavaType collectionType = null;
+                JavaType argType = null;
+                JsonDeserializer deserializer = null;
+                if (property != null) {
+                    argType = getFirstTypeParameter(property.getType());
+                } else {
+                    argType = getFirstTypeParameter(ctxt.getContextualType());
+                }
+
+                if (argType != null) {
+                    collectionType = ctxt.getTypeFactory().constructCollectionType(Collection.class, argType);
+                    deserializer = ctxt.findRootValueDeserializer(collectionType);
+                } else {
+                    collectionType = rawCollectionType;
+                    deserializer = ctxt.findRootValueDeserializer(collectionType);
+                }
+
+                if (deserializer == null) {
+                    throw JsonMappingException.from(ctxt, String.format(
+                            "Cannot find deserializer to read collection type '%s'.", collectionType)
+                    );
+                }
+                this.collectionType = collectionType;
+                this.collectionArgType = argType;
+                this.collectionDeserializer = deserializer;
+
+                assert(this.collectionType != null);
+                assert(this.collectionDeserializer != null);
+            }
+
+            public boolean isSpecific() {
+                return this.collectionArgType != null;
+            }
+
+            private JavaType getFirstTypeParameter(JavaType expr) {
+                if (expr != null) {
+                    TypeBindings argBindings = expr.getBindings();
+                    if (argBindings != null && !argBindings.isEmpty()) {
+                        return argBindings.getBoundType(0);
+                    }
+                }
+                return null;
+            }
+        }
+
+        private DelegatedCollectionInfo delegatedCollectionInfo;
+        private JavaType rawCollectionType;
+    }
+```
+
+This can be used as follows:
+```
+   @JsonDeserialize(using = ImmutableBag.Deserializer.class)
+    public static class ImmutableBag<T> extends AbstractCollection<T> implements Bag<T>  {
+
+        public static class Deserializer<T> extends GenericCollectionDeserializer<T,ImmutableBag<T>> {
+            public Deserializer() { super (ImmutableBag.class); }
+            @Override public ImmutableBag<T> convert(Collection value) {
+                return new ImmutableBag<T>(value);
+            }
+        }
+       ...
+   }
+```
+
+Comment:
+Ok. Just to make sure: I don't think you should need to do any of this, as long as deserializer is accessed via `Deserializers`, method `findCollectionDeserializer()`: `CollectionType` given will have fully resolved type accessible. It should be necessary to try to access type via `BeanProperty` from `createContextual(): that should only be needed if access to other annotations is needed.

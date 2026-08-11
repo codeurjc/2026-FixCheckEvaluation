@@ -1,0 +1,15 @@
+Title: Fix StackOverflowError on resolving types with TypeVariable recursion
+
+Body:
+Sample failing code:
+  private static class TestType<X> {
+    TestType<? super X> superType;
+  }
+  ...
+  new Gson().getAdapter(TestType.class);
+
+Comment:
+👍 
+
+Comment:
+Thank you for a test that demonstrates the problem!

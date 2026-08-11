@@ -1,0 +1,19 @@
+Summary: goog.scope doesn't properly check declared functions
+
+Description:
+The following code is a compiler error:
+
+goog.scope(function() {
+  var x = function(){};
+});
+
+but the following code is not:
+
+goog.scope(function() {
+  function x() {}
+});
+
+Both code snippets should be a compiler error, because they prevent the goog.scope from being unboxed.
+
+Comment:
+This issue was closed by revision r1993.

@@ -1,0 +1,216 @@
+Summary: IE8 error: Object doesn't support this action
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Use script with fragment like
+    if (e.onchange) {
+      e.onchange({
+        _extendedByPrototype: Prototype.emptyFunction,
+        target: e
+      });
+    }
+2. Compile with Compiler (command-line, latest version)
+3. Use in IE8
+
+What is the expected output?
+Script:
+if(b.onchange){b.onchange({_extendedByPrototype:Prototype.emptyFunction,target
+:b})}
+
+What do you see instead?
+Script:
+b.onchange&amp;&amp;b.onchange({_extendedByPrototype:Prototype.emptyFunction,target
+:b})
+IE8:
+Error message &quot;Object doesn't support this action&quot;
+
+<b>What version of the product are you using? On what operating system?</b>
+Version: 20100917 (revision 440)
+Built on: 2010/09/17 17:55
+
+Comment:
+Can you provide more details here?  I'm unable to reproduce a problem in IE8 with "b.onchange && b.onchange(..."
+
+Comment:
+I use third-party javascript library, which assigns event handler to element.onchange property (e.g. $('id').onchange=function(event){...}). In other part of library this onchange handler is invoked directly after changing content of element, using fake event object:
+
+  e.value = 'some value';
+  if (e.onchange) {
+    e.onchange({
+      _extendedByPrototype: Prototype.emptyFunction,
+      target: e
+    });
+  }
+
+So IE7 and IE8 (and maybe IE6) executes script
+  if (e.onchange) {e.onchange(...);}
+but fires error "Object doesn't support this action" on optimized script
+  e.onchange&&e.onchange(...);
+
+Comment:
+Can you provide a small program that demonstrates this?
+"e.onchange()" should not be called in either case.  Maybe the problem is elsewhere?
+
+Here is what I used to try to reproduce the problem:
+
+
+<html>
+<head>
+<script>
+setTimeout(function () {
+
+var e = document.getElementById('foo');
+if (e) {
+  alert('ok')
+}
+
+if (e.onchange && e.onchange({ext: function(){}, target: e})) {
+  alert('unexpected');
+} else {
+  alert('ok');
+}
+
+e.onchange = function() {return true};
+if (e.onchange && e.onchange({ext: function(){}, target: e})) {
+  alert('ok');
+} else {
+  alert('unexpected');
+}
+
+}, 100);
+</script>
+</head>
+<body>
+
+<div id="foo"></div>
+
+Some text.
+
+</body>
+</html>
+
+Comment:
+Comment deleted
+
+Comment:
+Comment 4 by lior.berry, Today (16 minutes ago)
+
+I encountered a similar error in IE 8, when trying to use swfobject.js (http://ajax.googleapis.com/ajax/libs/swfobject/2.1/swfobject.js) that I compiled with the closure compiler.
+
+I am getting the following error in IE8 only: 
+
+Message: Unexpected call to method or property access.
+Line: 10
+Char: 285
+Code: 0
+URI: http://myserveraddress/swfobject_2_1-compiled.js
+
+If I use the non-compiled version of the script it works fine. In addition, compiling version 2.2 of swfobject.js also works fine, so maybe diffing the two versions can help you narrow down the problem
+
+This is the html code I use:
+
+<html>
+<head>
+<script src="./swfobject_2_1-compiled.js" type="text/javascript"></script>
+</head>
+<body>
+<h1>testing ...</h1>
+<script type="text/javascript"> 
+swfobject.embedSWF("player.swf","player_placeholder", "480", "360", "9.0.115", false,
+{}, {},{});
+</script>
+</body>
+</html>
+
+Comment:
+Here is an example (clicking on 'Test' button causes error in IE6-8):
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>onchange</title>
+    <script type="text/javascript">
+      function testOnchange() {
+        var s = document.getElementById("select");
+        s &&
+        s.onchange({
+          ext: function() {
+          },
+          target: s
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <form id="form" action="#">
+      <select id="select">
+        <option>1</option>
+        <option>2</option>
+      </select>
+      <input type="button" value="Test" onclick="testOnchange();"/>
+    </form>
+    <script type="text/javascript">
+      var s = document.getElementById("select");
+      s.onchange = function(e) {
+        alert("Changed to " + e.target.value);
+      };
+    </script>
+  </body>
+</html>
+
+Comment:
+Maybe specific to the "select" element in IE.
+
+Comment:
+And what to do now?
+
+Use older versions of compiler (and wait for new release)?
+
+Do not use compiler at all (you'll never fix it)?
+
+Or somehow tell him not to "optimize" expressions of type "if (object.method){object.method();}"?
+
+Comment:
+By the way, it happens not only on select fields - also on text inputs (input type="text").
+
+Comment:
+I'm not convinced that it's as simple as escaping that one optimization. I think we need to have a better handle on why IE does this, so we know how to work around it in other cases.
+
+Comment:
+i've narrowed vkhomyackov's testOnchange down to this:
+    <script type="text/javascript">
+      function testOnchange() {
+        var s = document.getElementById("select");
+        1 && s.onchange({});
+      }
+    </script>
+
+the "1 &&" and the object literal are both necessary. removing the bug go away. Notably, the bug does not appear if you have:
+
+        1 && (s.onchange({}), 0);
+
+Somehow it's contingent on the return value of s.onchange being consumed by another expression. The bug also reproduces if you have:
+
+        return s.onchange({});
+
+Comment:
+after a few more tests, here's my half-assed theory of what's happening:
+
+In IE, Nodes are implemented as COM objects. I assume that these COM objects have some special logic for event handler properties (like 'onchange'), because foo.onchange = "some string"; will convert the string into a function. So perhaps they have some internal pointers to those functions.
+
+Let's also suppose that COM objects have some logic for doing overloaded method dispatch.
+
+For some reason, calling s.onchange({}) and using its return value triggers a bug in the overloaded method dispatcher, which makes it call native method, instead of the method on the internal pointer.
+
+Again, this is all very much guess-work, and is probably wrong on some key points (if not all of them). But the explanation is consistent with the behavior I'm seeing. It only happens when both the return value and parameter are used (regardless of what they are or how they're used), and I can't repro with any methods that aren't event handlers.
+
+It may be enough to add a shim to check for this specific case.
+
+Fortunately, the bug is not in IE9. But if I ever run into one of the IE engineers i may ask them about it.
+
+Comment:
+This issue was closed by revision r631.
+
+Comment:
+Issue 371 has been merged into this issue.

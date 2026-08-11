@@ -1,0 +1,53 @@
+Title: Unwanted POJO's embedded in tree via serialization to tree
+
+Body:
+I have a class, more or less:
+
+```
+   class X<T> {
+       String s;
+       List<T> items;
+  };
+```
+
+It has a custom serializer.
+
+When I serialize to a tree, the entire list ends up as a
+VALUE_EMBEDDED_OBJECT: the ArrayList itself.
+
+Here's the serializer class, note the use of writeObjectField.
+
+```
+public class ListAttributeSerializer extends JsonSerializer<ListAttribute> {
+    @Override
+    public void serialize(ListAttribute value, JsonGenerator jgen,
+SerializerProvider provider) throws IOException {
+        jgen.writeStartObject();
+        jgen.writeStringField("itemType", value.getItemJsonKey());
+        jgen.writeObjectField("items", value.getItems());
+        jgen.writeEndObject();
+    }
+
+    @Override
+    public void serializeWithType(ListAttribute value, JsonGenerator
+jgen, SerializerProvider provider, TypeSerializer typeSer) throws
+IOException {
+        typeSer.writeTypePrefixForObject(value, jgen);
+        jgen.writeStringField("itemType", value.getItemJsonKey());
+        jgen.writeObjectField("items", value.getItems());
+        typeSer.writeTypeSuffixForObject(value, jgen);
+}
+}
+```
+
+And Tatu wrote me:
+
+Ok. valueToTree() uses TokenBuffer as target, so it probably then simply retains Object passed as-is, to defer conversion/serialization, for common use case of buffering. But in your case you would rather get actual serialization into JsonNodes.
+
+You will probably want to write conversion out then, something like:
+
+byte[] json = mapper.writeValueAsBytes(referenceText);
+JsonNode tree = mapper.readTree(json);
+
+This is just the work-around on short term.
+But this is one thing where configurability might be needed; or possibly different methods. One that forces full serialization into JSON with no POJONodes, other that leaves things as is.

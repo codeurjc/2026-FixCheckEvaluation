@@ -1,0 +1,35 @@
+Summary: bad type inference for != undefined
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// ==/ClosureCompiler==
+
+/** @param {string} x */
+function g(x) {}
+
+/** @param {undefined} x */
+function f(x) {
+  if (x != undefined) { g(x); }
+}
+
+<b>What is the expected output? What do you see instead?</b>
+
+JSC_DETERMINISTIC_TEST: condition always evaluates to false
+left : undefined
+right: undefined at line 6 character 6
+if (x != undefined) { g(x); }
+      ^
+JSC_TYPE_MISMATCH: actual parameter 1 of g does not match formal parameter
+found   : undefined
+required: string at line 6 character 24
+if (x != undefined) { g(x); }
+                        ^
+
+the second warning is bogus.
+
+Comment:
+This issue was closed by revision r265.

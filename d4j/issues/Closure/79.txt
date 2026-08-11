@@ -1,0 +1,130 @@
+Summary: RuntimeException when compiling with extern prototype
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+1. java -jar compiler.jar --compilation_level ADVANCED_OPTIMIZATIONS --externs prototype.js --js bootloader.js
+
+<b>What is the expected output? What do you see instead?</b>
+
+java.lang.RuntimeException: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+null
+  Node(FUNCTION ): prototype.js:213:11
+  function Str(key, holder, stack) {
+  Parent(BLOCK): prototype.js:160:12
+(function() {
+
+	at com.google.javascript.jscomp.Compiler.runCallable(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.runInCompilerThread(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.doRun(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.run(Unknown Source)
+	at com.google.javascript.jscomp.CommandLineRunner.main(Unknown Source)
+Caused by: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+null
+  Node(FUNCTION ): prototype.js:213:11
+  function Str(key, holder, stack) {
+  Parent(BLOCK): prototype.js:160:12
+(function() {
+
+	at com.google.common.base.Preconditions.checkState(Preconditions.java:129)
+	at com.google.javascript.jscomp.Normalize$DuplicateDeclarationHandler.onRedeclaration(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.declareVar(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanRoot(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.createScope(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.getScope(Unknown Source)
+
+
+<b>What version of the product are you using? On what operating system?</b>
+Version: 706
+Built on: 2011/01/19 19:53
+
+Mac OS X 10.6.0
+
+Comment:
+John, mind taking a look?
+
+Comment:
+Comment deleted
+
+Comment:
+I have the same problem using prototype 1.6.1 (using prototype 1.7 the error is the same as the first report)
+The problem appears only when prototype.js is used as --externs parameter
+
+java -jar compiler.jar --js source.js --js_output_file output.js --externs prototype-1.6.1.js --compilation_level ADVANCED_OPTIMIZATIONS 
+
+0 error(s), 3369 warning(s)
+java.lang.RuntimeException: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+null
+  Node(FUNCTION ): prototype-1.6.1.js:3310:17
+  match: function(element) {
+  Parent(STRING match): prototype-1.6.1.js:3310:2
+  match: function(element) {
+
+	at com.google.javascript.jscomp.Compiler.runCallable(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.runInCompilerThread(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.doRun(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.run(Unknown Source)
+	at com.google.javascript.jscomp.CommandLineRunner.main(Unknown Source)
+Caused by: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+null
+  Node(FUNCTION ): prototype-1.6.1.js:3310:17
+  match: function(element) {
+  Parent(STRING match): prototype-1.6.1.js:3310:2
+  match: function(element) {
+
+	at com.google.common.base.Preconditions.checkState(Preconditions.java:129)
+	at com.google.javascript.jscomp.Normalize$DuplicateDeclarationHandler.onRedeclaration(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.declareVar(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanVars(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.scanRoot(Unknown Source)
+	at com.google.javascript.jscomp.SyntacticScopeCreator.createScope(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.getScope(Unknown Source)
+	at com.google.javascript.jscomp.Normalize$ScopeTicklingCallback.enterScope(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.pushScope(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseFunction(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseRoots(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseRoots(Unknown Source)
+	at com.google.javascript.jscomp.Normalize.removeDuplicateDeclarations(Unknown Source)
+	at com.google.javascript.jscomp.Normalize.process(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.process(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.normalize(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.optimize(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compileInternal(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.access$000(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$1.call(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$1.call(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$2.run(Unknown Source)
+	at java.lang.Thread.run(Unknown Source)
+Caused by: java.lang.IllegalStateException
+	... 32 more
+
+Comment:
+I have a fix pending for this.
+
+Comment:
+This issue was closed by revision r844.

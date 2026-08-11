@@ -1,0 +1,6 @@
+Summary: Calling SevenZFile.read() on empty SevenZArchiveEntry throws IllegalStateException
+
+Description:
+I'm pretty sure COMPRESS-340 breaks reading empty archive entries. When calling getNextEntry() and that entry has no content, the code jumps into the first block at line 830 (SevenZFile.class), clearing the deferredBlockStreams. When calling entry.read(...) afterwards an IllegalStateException ("No current 7z entry (call getNextEntry() first).") is thrown. IMHO, there should be another check for entry.getSize() == 0.
+
+This worked correctly up until 1.10.

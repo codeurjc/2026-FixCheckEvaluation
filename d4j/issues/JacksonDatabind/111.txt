@@ -1,0 +1,102 @@
+Title: Deserialize null, when java type is "TypeRef of TypeRef of T", does not provide "Type(Type(null))"
+
+Body:
+**Dependency**
+
+    jackson = '2.9.7'
+    compile "com.fasterxml.jackson.core:jackson-databind:$jackson"
+
+**Short explanation**
+
+In Kotlin, I got an issue when I deserialize the value in the context of a reference type that include another reference type. I provide here a reproduction scenario in Java based on AtomicReference (I don't think there is a real use-case that use an AR of AR of Integer, but with a kind of DSL, it may happen to have a similar inclusion...)
+
+So, when we deserialize an 22, we get an AR of AR of 22 as expected. But when we deserialize the null value, we get an AR of null (instead of AR of AR of null).
+
+I think there is 2 issues:
+
+(1) the getNull method of AtomicReference always returns "new AtomicReference()". I think it should be smarter and use contextual information such fullType or simply call _valueDeserializer.getNull() -- but _valueDeserializer was null during my tests because of (2).
+
+(2) the bean propertyCreator has distinct deserializer and nullProvider. In the case of ReferenceTypeDeserializer, a new contextual deserializer is created, which is able to deserialize its content. Then the deserializer of the bean propertyCreator is updated, but not its nullProvider
+
+**To reproduce**
+
+    class MyBean {
+        private AtomicReference<AtomicReference<Integer>> refRef;
+        public AtomicReference<AtomicReference<Integer>> getRefRef() {
+            return refRef;
+        }
+        public void setRefRef(AtomicReference<AtomicReference<Integer>> refRef) {
+            this.refRef = refRef;
+        }
+    }
+
+    @Test
+    void myTest() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectReader objectReader = objectMapper.readerFor(MyBean.class);
+
+        MyBean intRef = objectReader.readValue(" {\"refRef\": 2 } ");
+        Assertions.assertNotNull(intRef.refRef); // succeeds
+        Assertions.assertNotNull(intRef.refRef.get()); // succeeds
+        Assertions.assertEquals(intRef.refRef.get().get(), new Integer(2)); // succeeds
+
+        MyBean nullRef = objectReader.readValue(" {\"refRef\": null } ");
+        Assertions.assertNotNull(intRef.refRef); // succeeds
+        Assertions.assertNotNull(intRef.refRef.get()); // fails
+        Assertions.assertNull(intRef.refRef.get().get()); // fails
+    }
+
+
+
+Comment:
+Thank you for reporting this, providing excellent analysis of likely cause. I think you are right on both accounts. I'll this on my WIP page (https://github.com/FasterXML/jackson-future-ideas/wiki/Jackson-Work-in-Progress), but it may take a while until I get to look into it.
+
+Comment:
+Looking into this. Also, targeting 2.10 since I think there's non-zero risk of downside with any fix, just because test coverage for the case is (obviously) not there.
+
+Comment:
+I can reproduce the issue as reported, can see the NPE. Now trying to track down the path where there is the discrepancy wrt value deserializer not getting passed... not yet seeing it. `SettableBeanProperty` should be copying `NullValueProvider` in all paths. Although there has been at least one bug wrt copy constructors before so anything that is not tested is possible.
+
+
+Comment:
+Hmmh. Ok, I can finally see where the deviation comes from: value deserializer and null value provider are not kept in sync, as both should remain same if they were set the same originally.
+
+Comment:
+Found a fix and I think it's safe enough to go in 2.9(.9) after all.
+
+
+Comment:
+Ok so will be in 2.9.9.
+
+A related question is handling of `getEmptyValue()`: I wonder if it should delegate to `getEmptyValue()` similarly, or just use `getNullValue()` result... @mcoolive I'd be interested in your opinion if you have one on that.
+
+Comment:
+Hi cowtowncoder,
+
+Sorry for the late answer. I would use getNullValue(). What you did if I correctly read your commit. 
+
+For information, I worked around the issue by implementing my custom deserializer getNullValue as follow (Kotlin syntax): 
+
+    override fun getNullValue(ctxt: DeserializationContext): Optional<*>? {
+        val referencedNullValue = this._fullType.referencedType
+            ?.let { ctxt.findRootValueDeserializer(it) }
+            ?.let { it.getNullValue(ctxt) }
+        return referenceValue(referencedNullValue)
+    }
+
+@cowtowncoder I think we can provide a default implementation of getNullValue in ReferenceTypeDeserializer<T>. Here my proposal:
+
+    @Override
+    public T getNullValue(DeserializationContext ctxt) {
+         return referenceValue(_valueDeserializer.getNullValue(ctxt))
+    }
+
+I would be able to simplify my code later. Thank you for the fix.
+
+Comment:
+Ugh. So this caused:
+
+https://github.com/FasterXML/jackson-modules-java8/issues/154
+
+for non-nested case... which is not optimal either.
+The only minor plus thing is that I am glad I did not do this in 2.9.x patch. My gut feeling was right in that this is pretty fragile area.

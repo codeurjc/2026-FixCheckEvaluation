@@ -1,0 +1,24 @@
+Summary: Namespace definition in Prototype is broken
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Namespace definition in prototype.js (Prototype library) looks like:
+if (!Node) var Node = { };
+2. Compile with latest command line compiler (Version: 20100917 (revision 440) Built on: 2010/09/17 17:55), with default options
+3. Open html which uses this script in IE8 - IE will show error message (something like &quot;Node - definition is missing&quot;, I use localized version and cannot write exact english message).
+
+What is the expected output?
+Something like:
+if(!Node)var Node={};
+
+What do you see instead?
+Node||(Node={});
+
+<b>What version of the product are you using? On what operating system?</b>
+Command line compiler (Version: 20100917 (revision 440) Built on: 2010/09/17 17:55), with default options, OS Linux Mint 7.
+
+Comment:
+thanks for the report
+
+Comment:
+This issue was closed by revision r614.

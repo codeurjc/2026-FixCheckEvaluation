@@ -1,0 +1,37 @@
+Summary: Base64InputStream causes NullPointerException on some input
+
+Description:
+Certain (malformed?) input to {{Base64InputStream}} causes a {{NullPointerException}} in {{Base64.decode}}.
+
+The exception occurs when {{Base64.decode}} is entered with the following conditions:
+
+* {{buffer}} is {{null}}
+* {{modulus}} is {{3}} from a previous entry.
+* {{inAvail}} is {{-1}} because {{Base64InputStream.read}} reached EOF on line 150.
+
+Under these conditions, {{Base64.decode}} reaches line 581 with {{buffer}} still {{null}} and throws a {{NullPointerException}}.
+
+Here is some input data that will trigger it:
+
+{noformat}
+H4sIAAAAAAAAAFvzloG1uIhBKiuxLFGvODW5tCizpFIvODM9LzXFPykrNbmE8//eDC2bq/+ZGJij
+GdiT8/NKUvNKShiYop2iGTiLgQoTS0qLUgsZ6hgYfRh4SjJSE3PS84GmZOSWMAj5gMzVz0nMS9cP
+LinKzEu3rigoLQJpXvNZ/AcbR8gDJgaGigIGBqbLayAuMUxNKdVLTyxJTc7QS07WSyzKLC7JL8lJ
+1StJLErMKynNSdTLyUxOzStO1fOB0AwQwMjEwOrJwJMbn+mSWFkclpiTmeID4joml2SWpYZk5qaW
+MEj45Bel62flpyTqlwAF9F2A9oBkrMEqnYtSoXyob1hy4z1dShgEIL4oLcnM0Q8N9XQBqubKjYfa
+DjTV1AfoZn2Im/WTk/XhbtaHu1kf6mZ9T5g2YED8BwKgj8WAbtIDuUkP5CY9mJt22FSkZEXf/QkK
+oCIGeVRFSYlA/zsBCZjq//9/PvSP1VvMxMDkxcCe6ZuZk5NZ7MPAnemcUZSfl5+Tn15ZwiCF5n2E
+nDUoDhjVfhrpNABdpI5qWTJYmZ5nsD9Cg0pwSWnSyhOCaYXmAerMoDgsxnAkzG1R+XmpYPXL9Bln
+1RhJPQarL+dgYNM1MLUyMKioKAYFOCvIBb8vl8qCOFxA4/jAiRIU7HqgYN8zk/n7jNxWfbAXeXJS
+E4tLgOnUKbOk2IuBOzcfzqso6M1QmrzKkedPzcYO3QZu129As4xITlZI6QqYFNhz44v9EkFpCGua
+LmEQdkktS83JL8gF5g4FqBGlIJ+wAI1gKJtZEvTws/j3FluPu4lcr7ra9OfHKXIZNTa4FPd8n33J
+QXPFLte9AZe5uBaJvGrKVl+rbrTaXDZO6NwU7gnHOVgzzsmnGX2Y5GDqrst8wcTear0Ab1yj6PrD
+F977vL/5iUMg773My5qLLK8OVAu6Tz7Xcyjy9Uym02Z/+xY7m85nYo/t4E93FXFKOf9/a3X78neS
+jE5Tu066K3Mdf17m66mbpXN9y34ZZ3ErRobfn+RfzVBIWj0vc82vY7YPvM5eLHHOulV77M6CoB4h
+xb/FjHWHRR+ldb6QmSP1ROGwGs+nx2quwitN7+mIpsRFhU37JPRoZe2ZjiX/70j7CS1tz51YP/3W
+/xfnV2i/4rAoYeAN9nA0NTQqBxYMQcGOAG5
+{noformat}
+
+Say this is read from file with a {{byte[]}} of size {{1024}} using {{Base64InputStream.read(byte[])}}.  In the first iteration, all {{1190}} bytes get read into {{buf}}, then it enters {{Base64.setInitialBuffer}} and assigns the {{byte[1024]}} to {{buffer}} and does a round of decoding.  When it then enters {{Base64.readResults}} on line {{162}} in {{Base64InputStream}}, it sets {{buffer}} to {{null}}, {{modulus}} has the left-over value {{3}}, and the NPE occurs the next iteration.
+
+{{Base64InputStream}} could avoid this by returning right away on EOF ({{-1}}), but I think the real fix needs to happen in {{Base64}} since it this same situation could be created by direct use.  My guess is either more needs to happen in the body of the {{if}} on line {{542}} (set {{modulus}} to {{0}}?) or the condition on line {{573}} is flawed and needs adjusting.

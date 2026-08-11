@@ -1,0 +1,81 @@
+Summary: @const dumps type cast information
+
+Description:
+The following code compiles fine:
+
+/**
+* Class defining an interface with two numbers.
+* @interface
+*/
+function TwoNumbers() {}
+
+/** @type number */
+TwoNumbers.prototype.first;
+
+/** @type number */
+TwoNumbers.prototype.second;
+
+var SOME_DEFAULT =
+  /** @type {TwoNumbers} */ ({first: 1, second: 2});
+
+/**
+ * Class with a two number member.
+ * @constructor
+ */
+function HasTwoNumbers() {
+  /** @type {TwoNumbers} */
+  this.twoNumbers = this.getTwoNumbers();
+}
+
+/**
+ * Get the default two numbers.
+ * @return {TwoNumbers}
+ */
+HasTwoNumbers.prototype.getTwoNumbers = function() {
+  return SOME_DEFAULT;
+};
+
+Now realizing that SOME_DEFAULTS is actually a preset constant which should not change I would like to say for that line (just adding an @const)
+
+/** @const */ var SOME_DEFAULT =
+  /** @type {TwoNumbers} */ ({first: 1, second: 2});
+
+However that starts throwing warnings as adding the @const makes the compiler dump the type. (Does the value get inlined without the typecast?)
+
+Expected:
+Compiles fine.
+
+Error can be reproduced on:
+http://closure-compiler.appspot.com/home
+copy-past the attached file in there, it throws a warning and does not compile.
+
+Comment:
+1) I assume you are using ADVANCED mode
+2) It does compile, there is just nothing left after dead code removal.
+3) It produces two warnings (not errors):
+
+JSC_TYPE_MISMATCH: initializing variable
+found   : (TwoNumbers|null)
+required: {first: number, second: number} at line 15 character 27
+/** @type {TwoNumbers} */ ({first: 1, second: 2});
+                           ^
+JSC_TYPE_MISMATCH: inconsistent return type
+found   : {first: number, second: number}
+required: (TwoNumbers|null) at line 31 character 7
+return SOME_DEFAULT;
+
+I assume it is the last that you are asking about?
+
+Comment:
+1) Yes advance mode
+2 & 3) that is correct, however our project compiles in strict mode (this is just a simplified version) so for our project this will stop compilation.
+
+Both of them right? One is from A -> B and the other form B -> A while it is an A used as A, so it should be all fine, like it is without the @const
+
+Or am I missing something?
+
+Comment:
+Thanks for the clarification.
+
+Comment:
+This issue was closed by revision r2076.

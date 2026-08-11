@@ -1,0 +1,7 @@
+Title: Implicit constructor property names are not renamed properly with `PropertyNamingStrategy`
+
+Body:
+(note: spin-off from https://github.com/FasterXML/jackson-modules-java8/issues/67)
+
+Looks like something with linking of creator properties (constructor arguments for annotated/discovered constructor) to "regular" properties does not work when using `PropertyNamingStrategy`. Apparently this was working better until 2.9.1, but broke with 2.9.2.
+

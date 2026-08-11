@@ -1,0 +1,132 @@
+Joda - Time / Bugs / #107 Incorrect date parsed when week and month used together
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+Joda - Time
+Bugs
+Incorrect date parsed when week and month used together
+Project moved to GitHub
+Brought to you by:
+broneill
+,
+scolebourne
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Code
+Svn
+Tickets ▾
+Bugs
+Feature Requests
+News
+Discussion
+Donate
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+v1.0_(example)
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#107 Incorrect date parsed when week and month used together
+Status:
+closed
+Owner:
+Stephen Colebourne
+Labels:
+Joda-Time (76)
+Priority:
+5
+Updated:
+2014-02-06
+Created:
+2011-01-19
+Creator:
+Aman MANOCHA
+Private:
+No
+I have following code snippet :
+DateTimeFormatter dtf = DateTimeFormat.forPattern("xxxxMM'w'ww");
+DateTime dt = dtf.parseDateTime("201101w01");       
+System.out.println(dt);
+It should print 2011-01-03 but it is printing 2010-01-04.
+Please let me know if I am doing something wrong here.
+Discussion
+Stephen Colebourne
+-
+2011-01-20
+Not sue what you think you are parsing/printing here. The parse is taking the year, month and week-of-weekyear (see ISO8601 week based dates). Since you haven't specified a day, I think Joda-Time will choose Monday.
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Aman MANOCHA
+-
+2011-01-20
+But it is giving year as 2010 instead of 2011.  Is it correct?
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Stephen Colebourne
+-
+2011-02-15
+This certainly isn't ideal as the parsing isn't giving you very much that is sensible. However, I've had a look at the parsing and its nigh on impossible to change it to give the right answer. The problem is the mixture of weekyear based and month based, which the code simply can't handle without a significant rewrite. So, I've checked in an improvement that handles this case, but not every case. Better, but not fixed.
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

@@ -1,0 +1,28 @@
+Summary: peephole constants folding pass is trying to fold [][11] as if it were a property lookup instead of a property assignment
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1.Try on line CC with Advance
+2.On the following 2-line code
+<b>3.</b>
+
+<b>What is the expected output? What do you see instead?</b>
+// ==ClosureCompiler==
+// @output_file_name default.js
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// ==/ClosureCompiler==
+
+
+var Mdt=[];
+Mdt[11] = ['22','19','19','16','21','18','16','20','17','17','21','17'];
+
+The error:
+JSC_INDEX_OUT_OF_BOUNDS_ERROR: Array index out of bounds: NUMBER 11.0
+2 [sourcename: Input_0] : number at line 2 character 4
+
+
+<b>What version of the product are you using? On what operating system?</b>
+The online version on 201.07.27
+
+Comment:
+This issue was closed by revision r1315.

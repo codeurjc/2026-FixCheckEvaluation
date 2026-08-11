@@ -1,0 +1,46 @@
+Title: Fix for #1154
+
+Body:
+Fix for #1154. Partially rolls back to pre-#1111 behavior.
+We just make sure that the STRING shape is chosen when Shape.ANY (the default) is set on the annotation, but some other annotation attribute was also set (pattern, locale or timezone).
+This way of fixing the issue has the added benefit of respecting the user config regarding the default serialization of ~~strings~~ dates when @JsonFormat(shape = Shape.ANY) is set on a property.
+
+
+Comment:
+Looks pretty good, but would it be possible to have a unit test that would fail before fix, pass after? Would be great to have something to guard against regression.
+
+I may want to change the logic a little bit, however; if shape is explicitly defined as `NUMBER`, textual representation should not be enabled even if `Locale` (etc) happen to be specified: explicit shape value should have precedence. I can make that change, or you can do it, either way is fine.
+I'll also need to merge this again 2.7 branch instead of master, to get in 2.7.3.
+
+
+Comment:
+I'll add a test.
+
+Regarding the "NUMBER" shape, from what I see it's already handled [just a few lines above](https://github.com/fenrhil/jackson-databind/blob/patch-1/src/main/java/com/fasterxml/jackson/databind/ser/std/DateTimeSerializerBase.java#L58).
+
+
+Comment:
+Here you go. I took the opportunity to rebase in order to:
+- make the test case appear first (so you can easily test before/after the fix)
+- squash my two fix commits
+
+
+Comment:
+Excellent! I'll be happy to merge this fix then.
+
+One practical thing before merging your first contribution: we need filled Contributor License Agreement (CLA), from:
+
+https://github.com/FasterXML/jackson/blob/master/contributor-agreement.pdf
+
+It is the only piece of process we require, and once that one-pager is received nothing more is needed for any contributions to Jackson projects.
+The simplest way usually is to print it, fill & sign, scan and email to `info` at fasterxml dot com.
+
+Thank you once again, looking forward to merging this & including in 2.7.3 patch (which should get out within about week).
+
+
+Comment:
+Done: I just sent the CLA.
+
+
+Comment:
+Thank you again for the contribution! This will be included in 2.7.3.

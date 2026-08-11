@@ -1,0 +1,40 @@
+Title: JsonFormat.Shape.NUMBER_INT does not work when defined on enum type in 2.8
+
+Body:
+Before 2.8 the following worked for years. Now this annotation is not applied and enum is serialized as string. It would work if annotating the field. I am not sure if this is an expected change or not, could you please check?
+
+```java
+public class Test {
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER_INT)
+    enum Color {
+        RED,
+        YELLOW,
+        GREEN
+    }
+
+    static class Foo {
+        public final Color color;
+
+        Foo(Color color) {
+            this.color = color;
+        }
+    }
+
+    public static void main(String[] args) throws JsonProcessingException {
+        final ObjectMapper mapper = new ObjectMapper();
+        System.out.println(mapper.writeValueAsString(new Foo(Color.GREEN)));
+    }
+}
+```
+
+Comment:
+@panchenko Good question. If this did work until 2.7 (which I think is what you are saying), I think it should still work. Things do get bit complicated with 2.8 and later due to all the levels at which configuration works (esp. regarding new "config overrides", see `ObjectMapper.configOverrides()).
+But I think annotation-based per-type overrides have their place so I hope this can be fixed.
+
+
+
+Comment:
+@cowtowncoder Yes, I mean it worked in versions `[2.1.*, 2.7.*]`
+
+Comment:
+Yes, there was a subtle bug in there which lead to class annotation's effects be (accidentally) overwritten by default config overrides. Thank you for reporting this; fix will be in `2.8.8`.

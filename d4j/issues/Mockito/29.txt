@@ -1,0 +1,111 @@
+Summary: @Mock fields in super test class are not injected on @InjectMocks fields
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Consider there are 2 Junit 4 tests, one is BaseTest and the other is ImplicitTest like bellow:
+   @Ignore
+   public abstract class BaseTest {
+     @Mock
+     protected DaoA dao;
+     
+   }
+
+   
+   public class ImplicitTest extends BaseTest {
+     @InjectMocks
+     private SystemUnderTest sut = new SystemUnderTest();
+
+     @Before
+     public void setup() {
+       MockitoAnnotations.initMocks(this);
+     }
+    
+     @Test
+     public void test1() {
+        sut.businessMethodA();
+     }     
+   }
+
+   public class SystemUnderTest {
+     private DaoA dao;
+     public void setDao(DaoA dao) {
+       this.dao = dao;
+     }
+     
+     public void businessMethodA() {
+        dao.doQuery();
+     }
+   }
+
+
+   public class DaoA {
+     public void doQuery(){
+     }
+   }
+2. when I run &quot;test1()&quot; method, a NullPointException will throw out as bellow:
+   java.lang.NullPointerException
+	at SystemUnderTest.businessMethodA(SystemUnderTest.java:9)
+	at ImplicitTest.test1(ImplicitTest.java:17)
+
+3. when I add one more line code in &quot;test1()&quot; then the case can pass, the &quot;test1()&quot; method when the case pass is :
+    @Test
+    public void test1() {
+        sut.setDao(dao);
+        sut.businessMethodA();
+    }
+
+
+<b>What is the expected output? What do you see instead?</b>
+expected: I can inject the mock object defined by @Mock in super class
+actual :  The mock object defined by @Mock annotation in super class can NOT inject into the SUT defined in child class.
+
+<b>What version of the product are you using? On what operating system?</b>
+Mockito Version: mockito-all-1.8.5.jar
+Operation System: windows vista
+java -version :
+java version &quot;1.6.0_20&quot;
+Java(TM) SE Runtime Environment (build 1.6.0_20-b02)
+Java HotSpot(TM) Client VM (build 16.3-b01, mixed mode, sharing)
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+Perfect bug report! I reproduced it in a matter of seconds.
+I will look into it!
+
+Comment:
+Hello I am using mockito 1.9 and I seem to be having this exact issue.
+
+public abstract class AbstractClass {
+@Autowired(required=true) Dependency dependency;
+protected void protectedMethod(){dependency.doSomething();}
+}
+
+@Service
+public class ImplClass extends AbstractClass {
+public void methodIWantToTest(){ protectedMethod();}
+}
+
+@RunWith(PowerMockRunner.class)
+public class ImplClassTest(){
+	@InjectMocks
+	ImplClass service;
+	@Mock
+	Dependency dependency;
+@Test 
+public void testMethodIwantToTest(){
+  service.methodIWantToTest();
+}
+}
+I am getting a NullPointerException on dependency.doSomething because dependency does not get mocked.
+
+Comment:
+Hi the sample you showed me uses PowerMockRunner which is not part of this project, maybe that's the issue.
+
+Comment:
+Comment deleted
+
+Comment:
+i had similar issue true @mock not injects if its a super class one so for your @injectMocks object super class add a setter and set mock in u r test case it will work 
+
+SystemUnderTest.setDao()

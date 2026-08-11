@@ -1,0 +1,161 @@
+Title: Deserialization from "{}" to java.lang.Object causes "out of END_OBJECT token" error
+
+Body:
+Hi, I've faced with a problem that is too similar this one #941. I expect that "{}" will be parsed correctly to empty Map when I'm using `@JsonCreator`
+
+I've found that this case is invalid https://github.com/FasterXML/jackson-databind/blob/jackson-databind-2.6.3/src/main/java/com/fasterxml/jackson/databind/deser/std/UntypedObjectDeserializer.java#L272, but why?
+
+Here is the minimum code to reproduce:
+
+```
+import java.io.IOException;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class Main {
+    public static void main(String[] args) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.readValue("[]", SomeObjectThatCanBeAggregated.class);
+        mapper.readValue("[{}]", SomeObjectThatCanBeAggregated.class);
+        mapper.readValue("{\"key\":null}", SomeObjectThatCanBeAggregated.class);
+        mapper.readValue("{}", SomeObjectThatCanBeAggregated.class);
+    }
+}
+class SomeObjectThatCanBeAggregated {
+
+    @JsonCreator
+    public SomeObjectThatCanBeAggregated(Object obj) {
+        System.out.println(obj + " //" + obj.getClass());
+    }
+}
+```
+
+Output: 
+
+```
+[] //class java.util.ArrayList
+[{}] //class java.util.ArrayList
+{key=null} //class java.util.LinkedHashMap
+Exception in thread "main" com.fasterxml.jackson.databind.JsonMappingException: Can not deserialize instance of java.lang.Object out of END_OBJECT token
+ at [Source: {}; line: 1, column: 2]
+...
+```
+
+
+Comment:
+With Jackson 2.6, or some other version?
+
+
+Comment:
+I've updated the first message with a link to source, yes, I'm using 2.6.3
+
+
+Comment:
+Thanks! I'll have a look.
+
+
+Comment:
+If someone need a hot fix, currently I've found this solution, but it's a little complicated with an extra custom deserializator
+
+```
+import java.io.IOException;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
+public class Main {
+    public static void main(String[] args) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.readValue("[]", SomeObjectThatCanBeAggregated.class);
+        mapper.readValue("[{}]", SomeObjectThatCanBeAggregated.class);
+        mapper.readValue("{\"key\":null}", SomeObjectThatCanBeAggregated.class);
+        mapper.readValue("{}", SomeObjectThatCanBeAggregated.class);
+    }
+}
+
+@JsonDeserialize(using = MyDeserializer.class)
+class SomeObjectThatCanBeAggregated {
+    @JsonIgnore
+    private Object data;
+    //    @JsonCreator
+    //    using custom deserialization instead of com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer
+    public SomeObjectThatCanBeAggregated(Object obj) {
+        this.data = obj;
+        System.out.println(obj + " //" + obj.getClass());
+    }
+    @JsonValue
+    public Object getData() {
+        return data;
+    }
+}
+class MyDeserializer extends JsonDeserializer {
+    @Override
+    public SomeObjectThatCanBeAggregated deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
+        Object data = jp.readValueAs(Object.class);
+        return new SomeObjectThatCanBeAggregated(data);
+    }
+}
+```
+
+
+Comment:
+Hmmh. This sounds quite familiar actually... like #941.
+
+
+Comment:
+Yes, it's look like the same, but ObjectNode expects just "{...}" some object structure, and it doesn't accept any array or just text value.
+
+
+Comment:
+What I meant is that the underlying problem is the same: due to buffering needed by `@JsonCreator`, token seen by delegate deserializer does not have current token `JsonToken.START_OBJECT` or `JsonToken.FIELD_NAME`. This needs special handling by deserializers that handle JSON Objects. And that was missing from `JsonNode` deserializer, was fixed, but now needs similar fix for "untyped" deserializer.
+
+
+Comment:
+Thank you for reporting this! Just fixed, will be included in 2.6.4, 2.7.0
+
+
+Comment:
+@cowtowncoder Thank you too!
+
+
+Comment:
+I believe I'm still having this issue, though with the SmileFactory.
+
+
+Comment:
+@sgmiller it's resolved in [2.6.4](https://github.com/FasterXML/jackson-databind/blob/jackson-databind-2.6.4/src/main/java/com/fasterxml/jackson/databind/deser/std/UntypedObjectDeserializer.java#L539)
+
+
+Comment:
+Not for me, even on 2.6.4, but it may be a different case.  Let me find a stack trace:
+
+```
+com.fasterxml.jackson.core.JsonParseException: Invalid type marker byte 0xfa for expected field name (or END_OBJECT marker)
+ at [Source: file:/var/lib/tomcat8/webapps/ROOT/WEB-INF/classes/layoutData/layouts.smile; line: -1, column: 3700060]
+        at com.fasterxml.jackson.core.JsonParser._constructError(JsonParser.java:1581)
+        at com.fasterxml.jackson.core.base.ParserMinimalBase._reportError(ParserMinimalBase.java:533)
+        at com.fasterxml.jackson.dataformat.smile.SmileParser._handleFieldName(SmileParser.java:1571)
+        at com.fasterxml.jackson.dataformat.smile.SmileParser.nextToken(SmileParser.java:587)
+        at com.fasterxml.jackson.databind.deser.std.MapDeserializer._readAndBindStringMap(MapDeserializer.java:484)
+        at com.fasterxml.jackson.databind.deser.std.MapDeserializer.deserialize(MapDeserializer.java:341)
+        at com.fasterxml.jackson.databind.deser.std.MapDeserializer.deserialize(MapDeserializer.java:26)
+        at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3736)
+        at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2698)
+```
+
+
+Comment:
+FWIW, the same file loads fine in 2.5.5.  It's a large generic Map<String,Object>.
+
+
+Comment:
+I'm not a developer of these projects, but you have a problem with another library [jackson-dataformat-smile](https://github.com/FasterXML/jackson-dataformat-smile). 
+I guess it's related to wrong encoding in that library [source](https://github.com/FasterXML/jackson-dataformat-smile/blob/jackson-dataformat-smile-2.6.4/src/main/java/com/fasterxml/jackson/dataformat/smile/SmileParser.java#L707)
+
+
+Comment:
+Thanks, I'll file an issue there.

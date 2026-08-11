@@ -1,0 +1,73 @@
+Title: Invalid HTTP-Response header leads to exception
+
+Body:
+In particular case a HTTP-Webpage responses with a invalid HTTP-Charset field (delivered UFT8 instead of UTF8).
+This leads to an UnsupportedCharsetException in org.jsoup.helper.DataUtil at around Line 93(?) where :
+
+``` Java
+  Validate.notEmpty(charsetName, "Must set charset arg to character set of file to parse. Set to null to attempt to detect from HTML");
+  docData = Charset.forName(charsetName).decode(byteData).toString();
+```
+
+I fixed it by wrapping a try catch statement around these two lines such that:
+
+``` Java
+try{
+  Validate.notEmpty(charsetName, "Must set charset arg to character set of file to parse. Set to null to attempt to detect from HTML");
+  docData = Charset.forName(charsetName).decode(byteData).toString();
+} catch(UnsupportedCharsetException e){
+  return parseByteData(byteData,(String)null,baseUri,parser);
+}
+```
+
+It now falls back to the none charset argument assigned clause, and tries to detect the character set via HTML.
+
+
+Comment:
+Thanks!
+
+
+Comment:
+how to use the new library with this modification in a java project ??
+
+It seems the downloads in http://jsoup.org/download has not been updated
+
+thanks
+
+
+Comment:
+you can checkout the repository, and use it instead of using the provided zip archive. The current head should contain a modified version. 
+
+
+Comment:
+yes, i downloaded the master copy from github but i dont know how to get it working.
+i imported it as a library but it gives error that file not found.
+
+
+Comment:
+then learn how to use eclipse or netbeans or whatever ... you can not import it as a project ... link source or create a new project using the checkout as source may helps you ...
+
+
+Comment:
+will this also solve this issue : Charset used is : NONE
+
+Exception in thread "main" java.nio.charset.UnsupportedCharsetException: NONE
+    at java.nio.charset.Charset.forName(Charset.java:505)
+    at org.jsoup.helper.DataUtil.parseByteData(DataUtil.java:92)
+    at org.jsoup.helper.HttpConnection$Response.parse(HttpConnection.java:469)
+    at org.jsoup.helper.HttpConnection.get(HttpConnection.java:147)
+    at htmltoplaintext1.HtmlToPlainText1.main(HtmlToPlainText1.java:30)
+
+
+Comment:
+As far as I can see the current head does not contain my modification.
+I had the same problem, at this line, that's why I provided a patch for this.
+Obviously the maintainer/developer/whatever does not include it.
+
+If you have the source code you can simply go to line 92 and replace this line with the lines I provided.
+This should do the trick for all invalid character sets only valid will apply...
+
+
+Comment:
+i modified the source code which you have provided but when i use the library, it always uses the .class file. How do i generate the class file for this?
+I tried generating the class file by compiling but it gives errors.

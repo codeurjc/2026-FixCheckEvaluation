@@ -1,0 +1,33 @@
+Summary: Cannot see version with --version
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Download sources of latest (r698) command-line version of closure compiler.
+2. Build (with ant from command line).
+3. Run compiler (java -jar compiler.jar --version).
+
+What is the expected output?
+Closure Compiler (http://code.google.com/closure/compiler)
+Version: 698
+Built on: 2011/01/17 12:16
+
+What do you see instead?
+Опция &quot;--version&quot; требует операнд
+(Option &quot;--version&quot; requires operand)
+and full list of options with description.
+
+<b>What version of the product are you using? On what operating system?</b>
+Latest source of command-line compiler from SVN (r698). OS Linux Mint 7, Sun Java 1.6.0_22.
+
+<b>Please provide any additional information below.</b>
+When running compiler with
+java -jar compiler.jar --version ?
+it shows error message, then version info, then full list of options.
+
+Comment:
+thanks for the report.
+
+it should work if there are additional arguments after --version.
+
+Comment:
+This issue was closed by revision r700.

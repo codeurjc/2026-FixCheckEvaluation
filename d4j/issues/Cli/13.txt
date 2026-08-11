@@ -1,0 +1,13 @@
+Summary: [cli] argument defaults prevent commandline usage.
+
+Description:
+I have found a bug in the following scenario:
+
+You have an option which can take a single argument which in turn has a default
+value. You supply a value on the command line which is intended to override
+this default however as the CommandLine already has a value for this Option,
+this second value is not allowed and the command line cannot be parsed.
+
+I have created a patch which adds a method to WritableCommandLine and its Impl
+which allows you to retrieve the undefaulted values for an Option. I have then
+changed ArgumentImpl to use this method to determine the argument count

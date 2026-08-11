@@ -1,0 +1,48 @@
+Title: Method nextElementSibling() returns null after adding an element to a document that was cloned
+
+Body:
+If I clone a document, and add an element by the method `after()`, and try to get the new element by the method `nextElementSibling()` I get null. In the same time the method `nextSibling()` successfully returns this element.
+If I do the same with the original document everything is fine.
+
+Code:
+
+    String html = "<!DOCTYPE html><html lang=\"en\"><head></head><body><div>Initial element</div></body></html>";
+    Document original = Jsoup.parse(html);
+    Document clone = original.clone();
+
+    Element originalElement = original.body().child(0);
+    originalElement.after("<div>New element</div>");
+    Element originalNextElementSibling = originalElement.nextElementSibling();
+    Element originalNextSibling = (Element) originalElement.nextSibling();
+    System.out.println("originalNextElementSibling:\n" + originalNextElementSibling);
+    System.out.println("originalNextSibling:\n" + originalNextSibling);
+    System.out.println();
+
+    Element cloneElement = clone.body().child(0);
+    cloneElement.after("<div>New element</div>");
+    Element cloneNextElementSibling = cloneElement.nextElementSibling();
+    Element cloneNextSibling = (Element) cloneElement.nextSibling();
+    System.out.println("cloneNextElementSibling:\n" + cloneNextElementSibling);
+    System.out.println("cloneNextSibling:\n" + cloneNextSibling);
+
+Output:
+
+    originalNextElementSibling:
+    <div>
+     New element
+    </div>
+    originalNextSibling:
+    <div>
+     New element
+    </div>
+
+    cloneNextElementSibling:
+    null
+    cloneNextSibling:
+    <div>
+    New element
+    </div>
+
+
+Comment:
+Thanks for the detail in your report. Fixed!

@@ -1,0 +1,143 @@
+Title: `NullPointerException` in `SubTypeValidator.validateSubType` when validating Spring interface
+
+Body:
+In jackson-databind-2.8.11 jackson-databind-2.9.3 and  jackson-databind-2.9.4-SNAPSHOT `SubTypeValidator.validateSubType` fails with a `NullPointerException` if the `JavaType.getRawClass()` is an interface that starts with `org.springframework.` For example, the following will fail:
+
+```java
+package org.springframework.security.core;
+
+import java.util.*;
+
+public class Authentication {
+	private List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>();
+
+	public List<GrantedAuthority> getAuthorities() {
+		return this.authorities;
+	}
+
+	public void setAuthorities(List<GrantedAuthority> authorities) {
+		this.authorities = authorities;
+	}
+}
+```
+
+```java
+package org.springframework.security.core;
+
+public interface GrantedAuthority {
+	String getAuthority();
+}
+```
+
+```java
+@Test
+public void validateSubTypeFailsWithNPE() throws Exception {
+	ObjectMapper mapper = new ObjectMapper();
+	mapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY);
+
+	String json = "{\"@class\":\"org.springframework.security.core.Authentication\",\"authorities\":[\"java.util.ArrayList\",[]]}";
+
+	Authentication authentication = mapper.readValue(json, Authentication.class);
+}
+```
+
+with the following stacktrace:
+
+```
+java.lang.NullPointerException
+	at com.fasterxml.jackson.databind.jsontype.impl.SubTypeValidator.validateSubType(SubTypeValidator.java:86)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory._validateSubType(BeanDeserializerFactory.java:916)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.createBeanDeserializer(BeanDeserializerFactory.java:135)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createDeserializer2(DeserializerCache.java:411)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createDeserializer(DeserializerCache.java:349)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCache2(DeserializerCache.java:264)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCacheValueDeserializer(DeserializerCache.java:244)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache.findValueDeserializer(DeserializerCache.java:142)
+	at com.fasterxml.jackson.databind.DeserializationContext.findContextualValueDeserializer(DeserializationContext.java:444)
+	at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.createContextual(CollectionDeserializer.java:183)
+	at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.createContextual(CollectionDeserializer.java:27)
+	at com.fasterxml.jackson.databind.DeserializationContext.handlePrimaryContextualization(DeserializationContext.java:651)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.resolve(BeanDeserializerBase.java:471)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCache2(DeserializerCache.java:293)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCacheValueDeserializer(DeserializerCache.java:244)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache.findValueDeserializer(DeserializerCache.java:142)
+	at com.fasterxml.jackson.databind.DeserializationContext.findRootValueDeserializer(DeserializationContext.java:477)
+	at com.fasterxml.jackson.databind.ObjectMapper._findRootDeserializer(ObjectMapper.java:4178)
+	at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3997)
+	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2992)
+```
+In prior versions, the test works.   
+
+Comment:
+That sounds like a very interesting behavior. :)
+Thank you for reporting this, will see what gives.
+
+
+Comment:
+Ah. Probably not due to package name, but due to interface. Will verify.
+
+
+Comment:
+I left out an analysis on the original report, but perhaps this will help....
+
+As far as I can tell, it must be both interface and start with `org.springframework.`
+
+If it does not start with `org.springframework.` it will not enter this [if block](https://github.com/FasterXML/jackson-databind/blob/2dff214e36ca5c63b2d2c108e7ff327887bda6e2/src/main/java/com/fasterxml/jackson/databind/jsontype/impl/SubTypeValidator.java#L84).
+
+The `NullPointerException` is caused at [this line due](https://github.com/FasterXML/jackson-databind/blob/2dff214e36ca5c63b2d2c108e7ff327887bda6e2/src/main/java/com/fasterxml/jackson/databind/jsontype/impl/SubTypeValidator.java#L85) to the fact that interfaces do not extend `Object`. One way to resolve the issue is to change the line:
+
+```java
+for (Class<?> cls = raw; cls != Object.class; cls = cls.getSuperclass()) {
+```
+
+to
+
+```java
+for (Class<?> cls = raw; cls != Object.class && cls != null; cls = cls.getSuperclass()) {
+```
+
+
+Comment:
+Actually correction, both. Guard statement for spring packages. So nicely isolates problem to the area being ... patched. :-/
+
+I think this alone would warrant micro-patch, so there's I guess that upside. I'll backport the other fix and then could use help verifying there aren't other issues.
+
+
+Comment:
+As always...Thanks for the fast response!
+
+I am tracking what I believe is one last issue I am having with 2.9.4-SNAPSHOT, but not sure if I will get anything reported until Monday. I want to spend some time isolating the problem and ensuring the problem is not on my end.
+
+Comment:
+@rwinch Your help is much appreciated. I do want to make as sure as possible that we can close this branch of problems before 2.9.4 and 2.8.11.1, and will coordinate with you before going with release.
+Monday (or next week in general) is fine from my perspective since although I do want to get 2.9.4 out, I don't want to rush things. Plus there may be couple of other things I could perhaps solve by then.
+
+
+Comment:
+Thanks for your responsiveness!
+
+On a related note... It appears that [2.9.4-SNAPSHOT](https://oss.sonatype.org/content/repositories/snapshots/com/fasterxml/jackson/core/jackson-databind/2.9.4-SNAPSHOT/) hasn't been updated since December. Any chance you could fix that? I believe it is related to that it appears that [Travis is not building 2.9 branch](https://travis-ci.org/FasterXML/jackson-databind/branches), but may be wrong on that.
+
+PS: At this point I am fairly certain at this point that the remaining issue with updating Jackson in Spring Security is on my end. I will be sure to validate 2.9.4 and 2.8.11.1 before the end of Monday.  
+
+Comment:
+@rwinch Yes, I'll do mvn deploy from home. I thought settings used should allow build of `master` and `2.9` (from `.travis.yml` of `master`) but... not quite sure why 2.9 wouldn't be enabled.
+
+
+Comment:
+Found it. I think I didn't fully understand branch whitelisting (applies to each commit separately), plus, 2.9 settings were wrong wrt that.
+
+Comment:
+@cowtowncoder 
+
+> I do want to make as sure as possible that we can close this branch of problems before 2.9.4 and 2.8.11.1, and will coordinate with you before going with release.
+Monday (or next week in general) is fine from my perspective since although I do want to get 2.9.4 out, I don't want to rush things. Plus there may be couple of other things I could perhaps solve by then.
+
+Thanks for waiting and sorry for my delayed response. My delay was due to deliberating on an additional issue. I ended up reporting #1880 
+
+Initially I was thinking perhaps this is just a bug fix which broke passivity (in which case it wasn't an issue), but the more I thought about it I thought it was a bug.
+
+Thanks again for all your help.
+
+Comment:
+Fix included in `2.8.11.1` / `2.9.4`.

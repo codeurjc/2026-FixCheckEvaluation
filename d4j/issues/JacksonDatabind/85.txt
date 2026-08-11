@@ -1,0 +1,111 @@
+Title: `DateTimeSerializerBase` ignores configured date format when creating contextual 
+
+Body:
+`DateTimeSerializerBase#createContextual` creates a new serializer with `StdDateFormat.DATE_FORMAT_STR_ISO8601` format instead of re-using the actual format that may have been specified on the configuration. See the following code:
+
+```
+final String pattern = format.hasPattern()
+                                    ? format.getPattern()
+                                    : StdDateFormat.DATE_FORMAT_STR_ISO8601;
+```
+
+Using the `@JsonFormat` annotation on a field will therefore reset the format to Jackson's default even if the annotation doesn't specify any custom format.
+
+
+`DateBasedDeserializer#createContextual` behaves differently and tries to re-use the configured format:
+
+```
+DateFormat df = ctxt.getConfig().getDateFormat();
+// one shortcut: with our custom format, can simplify handling a bit
+if (df.getClass() == StdDateFormat.class) {
+   ...
+   StdDateFormat std = (StdDateFormat) df;
+   std = std.withTimeZone(tz);
+   ...
+} else {
+  // otherwise need to clone, re-set timezone:
+  df = (DateFormat) df.clone();
+  df.setTimeZone(tz);
+}
+```
+
+Shouldn't the serializer follow the same approach ?
+
+
+Comment:
+That sounds like a bug.
+
+Would it be possible to create a stand-alone unit test to reproduce the problem? That would help verify the fix, and guard against future regression.
+
+
+Comment:
+Yes, this definitely looks like a problem to me; code should not be by-passing contextual default.
+
+Comment:
+@cowtowncoder Maybe I should open another issue, but here is an interesting scenario...
+Imagine I register a custom *serialiser* for `java.util.Date` (by means of a module for instance) instead of changing the date format itself on the mapper.
+
+```
+mapper.registerModule(
+	new SimpleModule().addSerializer(
+		new DateSerializer(
+			Boolean.FALSE, 
+			new SimpleDateFormat("yyyy/MM/dd'T'HH:mm:ss.SSSXXX"))));
+```
+
+Now suppose I annotate my pojo as follows:
+```
+public class Pojo {
+   @JsonFormat(timezone="GMT+4")
+   private Date date;
+...
+```
+
+The annotation doesn't change the format but only the timezone - so I expect my custom format will be used. It won't be the case unfortunately: the handling of the annotation is such that it reverts to the format specified on the mapper itself and will bypass my custom module entirely.
+
+See what I mean ?
+
+Comment:
+Hmmh. To be honest, I did not design `DateSerializer` to be extensible/sub-classable, so its functioning (if any) is serendipitous... :-)
+
+Now, I am not against trying to make it work (I don't see usage necessarily as wrong), but the better way, in my opinion, is to try to use "config overrides" functionality, added in 2.8, as it allows things like:
+
+```java
+        mapper.configOverride(Date.class)
+            .setFormat(JsonFormat.Value.forPattern("yyyy.dd.MM"));
+```
+
+and is designed to work with default handlers.
+
+So... I don't mind your filing a separate issue for using `DateSerializer` if you wish.
+But I would recommend using config overrides approach for actual usage, as it is better supported and likely more robust approach.
+
+
+
+Comment:
+I'll try the latter approach.
+In short, you tell me a Module isn't necessary the best option to override the behaviour of types handled natively by Jackson - which is basically the case of my example.
+
+How is you approach different from `objectMapper.setDateFormat(new SimpleDateFormat(...))` ?
+
+
+Comment:
+@brenuart Well, use of custom (de)serializers should typically be the last resort, if other approaches are not available or don't work. Config Overrides were added to support equivalent of couple of annotations (specifically `@JsonInclude`, `@JsonFormat`), but through configuration. Since Jackson itself controls application (although custom (de)serializers can easily access these too), it can take care to make things work more reliably together, that's all.
+Use of `Module` may still make sense, although there's no real benefit wrt configuring date format: it may make sense as packaging unit for projects.
+
+Now: as to `DateFormat`... that will work ok with `Date` case, and it may well be what you want to use.
+It is bit more limited just because it won't work with Joda Date or Java 8 date/time types: problem being that JDK's old `DateFormat` is ... not a very good API, and can not really be reused (due to multiple reasons) by Joda/Java 8. But since Jackson's Date support started before explicit support for either of those, I chose to just date `DateFormat`.
+In retrospect, it might have made sense to instead just take String pattern -- and this is what `@JsonFormat` and config overrides do. This makes it more feasible to use general/centralized configuration.
+
+So, long story short: if setting `DateFormat` works, nothing wrong with it.
+
+
+Comment:
+@cowtowncoder Thanks for the very detailed info.
+
+For your background, we had to adapt the serialization/deserialization of `java.util.Date` slightly for the following reasons:
+- make sure dates have their timezone offset serialized with a column (`:`)  - i.e. the format `yyyy-MM-dd'T'HH:mm:ss.SSSXXX` - which is not the case by default. The primary reason is to guarantee interoperability with applications making use of Java8 Zoned/OffsetDateTime (and also other platforms like iOS)
+- Java8 is likely to send Time info with nano second precision. Joda can handle them - it drops the extra digits and keep only the millis. We wanted same behaviour for java.util.Date as well.
+- provide a fix for parsing the 'zulu' dates
+
+Maybe you'll find some of the reasons interesting enough ;-)

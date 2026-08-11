@@ -1,0 +1,4 @@
+Summary: Comparing with NaN is incorrect
+
+Description:
+'NaN' > 'NaN' is true, but should be FALSE

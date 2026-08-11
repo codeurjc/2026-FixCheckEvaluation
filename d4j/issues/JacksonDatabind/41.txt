@@ -1,0 +1,28 @@
+Title: Problems with deprecated `TypeFactory.constructType(type, ctxt)` methods if `ctxt` is `null`
+
+Body:
+(note: continuation of #1079)
+
+Looks like earlier fix was incomplete, and there is one more edge case to handle: if passed-in context is `null`, attempt to resolve that will fail. This should not occur since previously passing of `null` would simply have used "empty" bindings. Code needs to take care to handle this as version 2.6 did.
+
+
+Comment:
+never mind - swagger + jackson 2.7 issue goes deeper than this. I pulled the latest Jackson snapshot and it is still failing with Swagger 1.5.7. Turns out Swagger 1.5.7 is incompatible, but 1.5.6 seems to be ok with Jackson 2.7.1 so I'll file a bug on that side
+
+**\* any ETA for 2.7.2? Looks like Swagger docs are still broken in 2.7.1 with a large # of values in swagger.json ending up null
+
+
+Comment:
+@todd-richmond This is the only fix so far, so not imminent. Looks like nobody pretty much tried out any of Release Candidates, so I have not been aware of any significant breakages. Yet with 2.7.1 push, there's now a torrent of reports. Go figure.
+
+At this point what would help a lot would be isolated test cases outlining specific issues: I should be able to resolve the issues. But I do not yet have good reproductions of what is failing. It could even be there would be a single issue that explains multiple reports.
+
+
+Comment:
+thx - it turns out that Swagger rewrote their JSON handling in 1.5.7 and so I was fighting conflicting bugs. The Jackson fix in 2.7.1 is good enough for Swagger 1.5.6 so I'm now working the other side to determine a workaround or fix for those changes
+
+
+Comment:
+@todd-richmond Ok good. 2.7.1 fixes were definitely needed, over 2.7.0. That makes sense.
+
+But I am definitely interested in possible/likely follow-up issues; DropWizard devs indicate they have some open problems. But of course it would be nice nice if those were less prevalent than ones fixed in 2.7.1.

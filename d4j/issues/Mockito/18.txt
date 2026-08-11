@@ -1,0 +1,20 @@
+Title: Return empty value for Iterables
+
+Body:
+http://code.google.com/p/mockito/issues/detail?id=175
+
+I expect an Iterable to be mocked by default with an empty Iterable. I understand from the initial issue this behavior would be introduced in Mockito 2, but beta-8 still returns null.
+
+Could we return null for Iterables ?
+
+Should we have the same behavior for Iterator ?
+
+Thanks
+
+
+Comment:
+Yes it should, thanks for the reminder :)
+
+
+Comment:
+Fixed by 8ceb04a

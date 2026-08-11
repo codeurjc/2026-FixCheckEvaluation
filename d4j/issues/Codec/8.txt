@@ -1,0 +1,28 @@
+Summary: ArrayIndexOutOfBoundsException when doing multiple reads() on encoding Base64InputStream
+
+Description:
+When encoding a sizable stream byte by byte (so, just calling Base64InputStream.read()), after 10920 successful read()s, this happens: 
+
+java.lang.ArrayIndexOutOfBoundsException: 2
+        at org.apache.commons.codec.binary.Base64.encode(Base64.java:502)
+        at org.apache.commons.codec.binary.Base64InputStream.read(Base64InputStream.java:157)
+        at org.apache.commons.codec.binary.Base64InputStream.read(Base64InputStream.java:109)
+
+Based on this, the necessary conditions seem to be that buffer = null and modulus = 2. Then, if a read() is done, a single-byte buffer is used, whose length is doubled by resizeBuffer(), but that still doesn't make it big enough to hold the 4 bytes written to it because modulus was just incremented to 0. 
+
+Here's some sample code:
+
+import org.apache.commons.codec.binary.Base64InputStream;
+
+public class TestReads {
+    public static void main(String[] args) {
+        Base64InputStream b64stream = new Base64InputStream(System.in, true, 0, null);
+        int n = 0;
+        try {
+            while (b64stream.read() != -1) n++;
+        } catch (Exception x) {
+            System.out.println(n);
+            x.printStackTrace();
+        }
+    }
+}

@@ -1,0 +1,25 @@
+Summary: StringUtils.newStringxxx(null) should return null, not NPE
+
+Description:
+Method calls such as StringUtils.newStringIso8859_1(null) should return null, not NPE.
+
+It looks like this capability was lost with the fix for CODEC-136, i.e.
+http://svn.apache.org/viewvc?rev=1306366&view=rev
+
+Several methods were changed from
+
+{code}
+return StringUtils.newString(bytes, CharEncoding.xxx);
+to
+return new String(bytes, Charsets.xxx);
+{code}
+
+The new code should have been:
+
+{code}
+return newString(bytes, Charsets.xxx);
+{code}
+
+The newString method handles null input.
+
+There were no tests for null input so the change in behaviour was missed.

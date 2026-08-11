@@ -1,0 +1,52 @@
+Summary: Type refining of 'this' raises IllegalArgumentException
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. goog.isFunction(this) or goog.isObject(this) or goog.isNull(this) etc.
+
+<b>What is the expected output? What do you see instead?</b>
+
+Expected: normal compilation, checking the type of this
+Actual output:
+
+23: java.lang.IllegalArgumentException: Node cannot be refined. 
+THIS 1 [source_file: Input_0] : global this
+
+	at com.google.javascript.jscomp.type.ChainableReverseAbstractInterpreter.declareNameInScope(ChainableReverseAbstractInterpreter.java:172)
+	at com.google.javascript.jscomp.type.ClosureReverseAbstractInterpreter.restrictParameter(ClosureReverseAbstractInterpreter.java:240)
+	at com.google.javascript.jscomp.type.ClosureReverseAbstractInterpreter.getPreciserScopeKnowingConditionOutcome(ClosureReverseAbstractInterpreter.java:221)
+	at com.google.javascript.jscomp.TypeInference.branchedFlowThrough(TypeInference.java:239)
+	at com.google.javascript.jscomp.TypeInference.branchedFlowThrough(TypeInference.java:59)
+	at com.google.javascript.jscomp.DataFlowAnalysis$BranchedForwardDataFlowAnalysis.flow(DataFlowAnalysis.java:448)
+	at com.google.javascript.jscomp.DataFlowAnalysis.analyze(DataFlowAnalysis.java:213)
+	at com.google.javascript.jscomp.DataFlowAnalysis.analyze(DataFlowAnalysis.java:181)
+	at com.google.javascript.jscomp.TypeInferencePass.inferTypes(TypeInferencePass.java:90)
+	at com.google.javascript.jscomp.TypeInferencePass$TypeInferringCallback.enterScope(TypeInferencePass.java:106)
+	at com.google.javascript.jscomp.NodeTraversal.pushScope(NodeTraversal.java:581)
+	at com.google.javascript.jscomp.NodeTraversal.traverseWithScope(NodeTraversal.java:345)
+	at com.google.javascript.jscomp.TypeInferencePass.inferTypes(TypeInferencePass.java:81)
+	at com.google.javascript.jscomp.TypeInferencePass.process(TypeInferencePass.java:74)
+	at com.google.javascript.jscomp.DefaultPassConfig$24$1.process(DefaultPassConfig.java:1119)
+	at com.google.javascript.jscomp.PhaseOptimizer$PassFactoryDelegate.processInternal(PhaseOptimizer.java:296)
+	at com.google.javascript.jscomp.PhaseOptimizer$NamedPass.process(PhaseOptimizer.java:273)
+	at com.google.javascript.jscomp.PhaseOptimizer.process(PhaseOptimizer.java:187)
+	at com.google.javascript.jscomp.Compiler.check(Compiler.java:768)
+	at com.google.javascript.jscomp.Compiler.compileInternal(Compiler.java:683)
+	at com.google.javascript.jscomp.Compiler.access$000(Compiler.java:79)
+	at com.google.javascript.jscomp.Compiler$1.call(Compiler.java:586)
+	at com.google.javascript.jscomp.Compiler$1.call(Compiler.java:583)
+	at com.google.javascript.jscomp.Compiler$2.run(Compiler.java:628)
+	at com.google.javascript.jscomp.Compiler.runCallable(Compiler.java:651)
+	at com.google.javascript.jscomp.Compiler.runInCompilerThread(Compiler.java:601)
+	at com.google.javascript.jscomp.Compiler.compile(Compiler.java:583)
+
+<b>What version of the product are you using? On what operating system?</b>
+
+Any version (local and http://closure-compiler.appspot.com/).
+
+<b>Please provide any additional information below.</b>
+
+A workaround is to assign 'this' to a variable. &quot;var a=this;goog.isNull(a)&quot; works.
+
+Comment:
+This issue was closed by revision r2072.

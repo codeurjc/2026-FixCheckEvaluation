@@ -1,0 +1,26 @@
+Summary: compiler assumes that 'arguments' can be shadowed
+
+Description:
+The code:
+function name() {
+   var arguments = Array.prototype.slice.call(arguments, 0);
+}
+
+gets compiled to:
+function name(){ var c=Array.prototype.slice.call(c,0); }
+
+Thanks to tescosquirrel for the report.
+
+Comment:
+Original report at:
+http://groups.google.com/group/closure-compiler-
+discuss/browse_thread/thread/37a4e7a3ab97238d#
+
+Comment:
+Comment deleted
+
+Comment:
+http://groups.google.com/group/closure-compiler-discuss/browse_thread/thread/37a4e7a3ab97238d#
+
+Comment:
+This issue was closed by revision r117.

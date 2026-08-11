@@ -1,0 +1,17 @@
+Title: Allow deserialization of a Number represented as a String
+
+Body:
+This works:
+```
+gson.fromJson("\"15\"", int.class)
+```
+
+This doesn't:
+```
+gson.fromJson("\"15\"", Number.class)
+```
+
+This PR makes it so the second case works too.
+
+Comment:
+👍 

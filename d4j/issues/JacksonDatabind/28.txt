@@ -1,0 +1,87 @@
+Title: Deserialization from "{}" to ObjectNode field causes "out of END_OBJECT token" error
+
+Body:
+I found that deserializing from an empty object (`{}`) to ObjectNode field in a class field fails.
+
+Here is the minimum code to reproduce:
+
+``` java
+public class Main
+{
+    public static class MyValue
+    {
+        private final ObjectNode object;
+
+        @JsonCreator
+        public MyValue(ObjectNode object) { this.object = object; }
+
+        @JsonValue
+        public ObjectNode getObject() { return object; }
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        ObjectMapper om = new ObjectMapper();
+
+        ObjectNode object = new ObjectNode(JsonNodeFactory.instance);
+
+        String json = om.writeValueAsString(object);
+        System.out.println("json: "+json);
+
+        ObjectNode de1 = om.readValue(json, ObjectNode.class);  // this works
+        System.out.println("Deserialized to ObjectNode: "+de1);
+
+        MyValue de2 = om.readValue(json, MyValue.class);  // but this throws exception
+        System.out.println("Deserialized to MyValue: "+de2);
+    }
+}
+```
+
+Result is:
+
+```
+json: {}
+Deserialized to ObjectNode: {}
+Exception in thread "main" com.fasterxml.jackson.databind.JsonMappingException: Can not deserialize instance of com.fasterxml.jackson.databind.node.ObjectNode out of END_OBJECT token
+ at [Source: {}; line: 1, column: 2]
+        at com.fasterxml.jackson.databind.JsonMappingException.from(JsonMappingException.java:148)
+        at com.fasterxml.jackson.databind.DeserializationContext.mappingException(DeserializationContext.java:854)
+        at com.fasterxml.jackson.databind.DeserializationContext.mappingException(DeserializationContext.java:850)
+        at com.fasterxml.jackson.databind.deser.std.JsonNodeDeserializer$ObjectDeserializer.deserialize(JsonNodeDeserializer.java:104)
+        at com.fasterxml.jackson.databind.deser.std.JsonNodeDeserializer$ObjectDeserializer.deserialize(JsonNodeDeserializer.java:83)
+        at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.deserializeFromObjectUsingNonDefault(BeanDeserializerBase.java:1095)
+        at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserializeFromObject(BeanDeserializer.java:294)
+        at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:131)
+        at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3731)
+        at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2724)
+        at Main.main(Main.java:35)
+```
+
+If the object is not empty (e.g. `{"k":"v"}`), it works:
+
+``` java
+        ...
+        ObjectNode object = new ObjectNode(JsonNodeFactory.instance);
+        object.put("k", "v");  // added
+        ...
+```
+
+```
+json: {"k":"v"}
+Deserialized to ObjectNode: {"k":"v"}
+Deserialized to MyValue: io.digdag.cli.Main$MyValue@17550481
+```
+
+Environment:
+- jackson-core 2.6.2
+- jackson-databind 2.6.2
+- Java 8 (`Java(TM) SE Runtime Environment (build 1.8.0_20-b26)`)
+
+
+Comment:
+Interesting. Thank you for reporting this, will try to fix it.
+
+
+Comment:
+Ok. This is due to a lesser-known aspect of deserialization of JSON Objects; parser may be positioned over first content token, and this in turn may actually be `END_OBJECT`. Fixed `ObjectNode` deserializer to handle that correctly.

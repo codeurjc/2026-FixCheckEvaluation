@@ -1,0 +1,14 @@
+Title: `ObjectReader.readValues()` ignores offset and length when reading an array
+
+Body:
+ObjectReader.readValues ignores offset and length when reading an array. If _dataFormatReaders it will always use the full array:
+
+https://github.com/FasterXML/jackson-databind/blob/2.7/src/main/java/com/fasterxml/jackson/databind/ObjectReader.java#L1435
+
+
+Comment:
+I'll be. Right you are. Thank you for reporting this!
+
+
+Comment:
+Fixed for 2.7.8/2.8.3 (earlier branches are closed)

@@ -1,0 +1,40 @@
+Title: Removing nodes from forms using jsoup
+
+Body:
+I'm having a problem removing nodes from forms using jsoup v1.7.3. The following code works as expected:
+
+```
+Connection.Response response = Jsoup.connect("myURL").execute();
+
+Document doc = response.parse();
+
+//prints HTML including "input[name=alpha]"
+System.out.println(doc.toString());
+
+doc.select("input[name=alpha]").first().remove();
+
+//prints HTML excluding "input[name=alpha]"
+System.out.println(doc.toString());
+
+FormElement form = (FormElement)doc.select("form").first();
+
+//prints HTML excluding "input[name=alpha]"
+System.out.println(form.toString());
+```
+
+However, the following code appears to highlight a bug:
+
+```
+List<Connection.KeyVal> data = form.formData();
+
+//prints a list including "alpha"
+System.out.println(data.toString());
+```
+
+I would expect "alpha" to have been removed from the form data, but it hasn't. Is this a bug? Or am I doing something wrong?
+
+[Previously reported on [Stack Overflow](http://stackoverflow.com/questions/24104910/removing-nodes-from-forms-using-jsoup/24110967)]
+
+
+Comment:
+Thanks for the report, and for the fix!

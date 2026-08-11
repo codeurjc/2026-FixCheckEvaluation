@@ -1,0 +1,48 @@
+Title: Reference-chain hints use incorrect class-name for inner classes
+
+Body:
+``` java
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.jupiter.api.Assertions.expectThrows;
+
+public class ReferenceChainTest {
+    // illustrates that jackson's "reference chain" help-text uses incorrect class-names for inner classes
+    @Test public void incorrectReferenceChain() throws IOException {
+        JsonMappingException jsonMappingException = expectThrows(JsonMappingException.class, () -> {
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.readValue(objectMapper.writeValueAsBytes(new Outer()), Outer.class);
+        });
+        JsonMappingException.Reference reference = jsonMappingException.getPath().get(0);
+        assertThat(reference.toString()).isEqualTo("ReferenceChainTest$Outer[\"inner\"]");
+    }
+
+    static class Outer {
+        public Inner inner = new Inner();
+    }
+
+    static class Inner {
+        public int x;
+
+        @JsonCreator public static Inner create(@JsonProperty("x") int x) {
+            throw new RuntimeException("test-exception");
+        }
+    }
+}
+
+```
+
+
+Comment:
+Yup, the problem was with use of `getSimpleName()` with `getPackage()`, dropping enclosing class name. The original reason was to avoid ugly notation used by JDK for array types, but I rewrote it to be able to just use `getName()` after unwrapping array type.
+
+Decided to fix for 2.8, to minimize risk for 2.7 maintenance branch; while unlikely to cause problems I suspect there may be unit tests out there that use straight comparison of error messages (jackson itself had couple) and while not fatal it seems better to avoid possible hassle.
+
+Fix will be in 2.8.4, as well as 2.9.0 whenever that is released.

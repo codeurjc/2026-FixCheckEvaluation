@@ -1,0 +1,4 @@
+Summary: SetUniqueList.addAll(int index, Collection coll) adds to end of list instead of at specified index
+
+Description:
+When you call SetUniqueList.addAll(int index, Collection coll), it incorrectly adds the new elements to the end of the list instead of at the specified index.

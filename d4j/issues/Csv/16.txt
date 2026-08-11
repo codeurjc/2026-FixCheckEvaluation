@@ -1,0 +1,180 @@
+Summary: Some multi-iterator parsing peek sequences incorrectly consume elements
+
+Description:
+Repeated calls to CSVParser Iterable return new Iterators that each reference the same underlying parser lexer. Within the scope of a single Iterator, row peeking with Iterator.hasNext() works as intended. When row peeking with Iterator.hasNext() under circumstances that create a new Iterator, an element is consumed by the iterator which cannot be accessed by subsequent, newly created Iterators and Iterator.next()s. Effectively, the record Iterator and the lexer get out of sequence. See snippet below.
+
+The "right thing" is keeping the Iterator in sequence with the lexer, and since this is reading from a buffer, there seem to me to be only two resolutions:
+ # One lexer, one Iterator.
+ # New Iterators, but peeking with hasNext doesn't advance the lexer.
+
+ 
+
+If there's a consensus on one of these, I can put up a PR.
+
+ 
+{code:java}
+  @Test
+
+  public void newIteratorSameLexer() throws Exception {
+
+
+
+    String fiveRows = "1\n2\n3\n4\n5\n";
+
+
+
+    System.out.println("Enhanced for loop, no peeking:");
+
+    CSVParser parser =
+
+        new CSVParser(new BufferedReader(new StringReader(fiveRows)), CSVFormat.DEFAULT);
+
+    int recordNumber = 0;
+
+    for (CSVRecord record : parser) {
+
+      recordNumber++;
+
+      System.out.println(recordNumber + " -> " + record.get(0));
+
+      if (recordNumber >= 2) {
+
+        break;
+
+      }
+
+    }
+
+    // CSVParser.iterator() returns a new iterator, but the lexer isn't reset so we can pick up
+
+    // where we left off.
+
+    for (CSVRecord record : parser) {
+
+      recordNumber++;
+
+      System.out.println(recordNumber + " -> " + record.get(0));
+
+    }
+
+    // Enhanced for loop, no peeking:
+
+    // 1 -> 1
+
+    // 2 -> 2
+
+    // 3 -> 3
+
+    // 4 -> 4
+
+    // 5 -> 5
+
+
+
+
+
+    System.out.println("\nEnhanced for loop, with peek:");
+
+    parser = new CSVParser(new BufferedReader(new StringReader(fiveRows)), CSVFormat.DEFAULT);
+
+    recordNumber = 0;
+
+    for (CSVRecord record : parser) {
+
+      recordNumber++;
+
+      System.out.println(recordNumber + " -> " + record.get(0));
+
+      if (recordNumber >= 2) {
+
+        break;
+
+      }
+
+    }
+
+    // CSVParser.iterator() returns a new iterator, but we call hasNext before next, so we queue
+
+    // one element for consumption. This element is discarded by the new iterator, even though the
+
+    // lexer has advanced a row, so we've consumed an element with the peek!
+
+    System.out.println("hasNext(): " + parser.iterator().hasNext());
+
+    for (CSVRecord record : parser) {
+
+      recordNumber++;
+
+      System.out.println(recordNumber + " -> " + record.get(0));
+
+    }
+
+    // Enhanced for loop, with peek:
+
+    // 1 -> 1
+
+    // 2 -> 2
+
+    // hasNext(): true
+
+    // 3 -> 4
+
+    // 4 -> 5
+
+
+
+
+
+    System.out.println("\nIterator while, with peek:");
+
+    parser = new CSVParser(new BufferedReader(new StringReader(fiveRows)), CSVFormat.DEFAULT);
+
+    recordNumber = 0;
+
+    Iterator<CSVRecord> iter = parser.iterator();
+
+    while (iter.hasNext()) {
+
+      CSVRecord record = iter.next();
+
+      recordNumber++;
+
+      System.out.println(recordNumber + " -> " + record.get(0));
+
+      if (recordNumber >= 2) {
+
+        break;
+
+      }
+
+    }
+
+    // When we use the same iterator, iterator and lexer are in sequence.
+
+    System.out.println("hasNext(): " + iter.hasNext());
+
+    while (iter.hasNext()) {
+
+      CSVRecord record = iter.next();
+
+      recordNumber++;
+
+      System.out.println(recordNumber + " -> " + record.get(0));
+
+    }
+
+    // Iterator while, with peek:
+
+    // 1 -> 1
+
+    // 2 -> 2
+
+    // hasNext(): true
+
+    // 3 -> 3
+
+    // 4 -> 4
+
+    // 5 -> 5
+
+  }{code}

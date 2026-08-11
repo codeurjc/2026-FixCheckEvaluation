@@ -1,0 +1,10 @@
+Summary: MultiValueMap put and putAll do not return the correct values
+
+Description:
+MultiValueMap put and putAll do not return the correct values.
+
+putAll(Object, Collection) should return true if the map is changed. But if the key is new then this behaviour fails.
+
+put(Object, Object) should return the added value if the map is changed. But if the key is new then this behaviour fails.
+
+This was hidden because the test case referred to MultiHashMap and not MultValueMap.

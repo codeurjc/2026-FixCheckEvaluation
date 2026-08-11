@@ -1,0 +1,111 @@
+Summary: Add option to turn off string escaping
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+1. I'm having large files with strings (patterns for hyphenation, see http://code.google.com/p/hyphenator/) and no-ASCII-characters.
+2. Minifying with closure compiler makes them bigger
+    ru.js (orig): 41'216 Bytes
+    ru.js (orig, gzip): 17'124 Bytes
+    ru.js (mini): 110'770 Bytes
+    ru.js (mini, gzip): 18'860 Bytes
+
+What is the expected output?
+I'd like to be able to turn OFF the string escaping mechanism.
+
+Thanks
+
+Comment:
+Can you be more specific? What types of strings are being escaped that do not need to be?  Can you provide a small sample? As this show the compiled results as 20.26KB (7.62KB gzipped). Which is significantly smaller than what you are showing.
+
+http://closure-compiler.appspot.com/home
+
+// ==ClosureCompiler==
+// @compilation_level SIMPLE_OPTIMIZATIONS
+// @output_file_name default.js
+// @code_url http://hyphenator.googlecode.com/svn/trunk/Hyphenator.js
+// ==/ClosureCompiler==
+
+Comment:
+I'm guessing that you just want non-ascii characters to be encoded in a compact way.
+
+Are you looking for the --charset flag?
+
+Comment:
+Thanks for your quick responses.
+
+@concavelenz
+I meant the pattern files: http://hyphenator.googlecode.com/svn/trunk/patterns/ru.js for example. Unicode characters are escaped: б becomes \u0431
+That's not necessary (at least in my case).
+
+@Nicholas.J.Santos
+--charset is for input files. I'm looking for something similar for the output.
+
+Comment:
+i think --charset also sets the charset for output files? 
+
+it looks like it funnels UTF_8 to ascii, but I don't know why. Robert is our encoding expert, but he is on vacation. :\
+
+Comment:
+For the large files with strings, you might specify a charset that compresses better for your files. You might choose a different charset encoding for input and output - either UTF_8 if that's what you're starting with, or one of the Russian charsets (if that's your contents, as suggested by the "ru.js" name).  Note that the --charset command line option specifies a single choice for input and output, so you may need to change the charset of your source file.
+
+Historically, the Closure Compiler has accepted UTF-8 encoded input files, and has output 7 bit US-ASCII
+(with explicit escaping of Unicode characters.)  We generate US-ASCII because we've hit bugs over the years
+where some proxy servers and firewalls would either corrupt our JavaScript or wouldn't pass the JavaScript
+files through.  Within Google, we traded off the increased file size for ensuring our applications ran in as
+many environments as possible.  I'd also guess that literal strings are a very small part of our JavaScript source
+code, so escaping Unicode characters hasn't been considered much of a size gain.
+
+Comment:
+@mathiasnater
+Were you attempting to use UTF-8 as an output charset? Or did you have another issue?
+
+Comment:
+@bowdidge
+I prefer to use UTF.
+Thanks for the explanation. It's good to know why.
+Nevertheless it would be great to be able to turn this feature off.
+
+@concavelenz
+No both files, input and output are UTF-8 encoded. It's not an encoding issue. My problem is that non ascii strings are escaped, thus the file size (in the pattern files with several KB of strings) is bigger even after gzipping. It would be great to be able to turn this feature off.
+
+Comment:
+This issue was closed by revision r344.
+
+Comment:
+you should now be able to use the --charset "UTF-8" flag to encode your files properly.
+
+Comment:
+Hi
+
+While it's great to set the encoding of the output file (thanks for that;-), my primary issue ('Add option to turn off string escaping') isn't fixed.
+Strings (or chars) that aren't ascii are still escaped and that's not necessary if we are in utf-8.
+
+Or am I missing something?
+
+Comment:
+i'll look into it some more tomorrow.
+
+Comment:
+Hmmm...it looks fixed to me. Did you actually checkout the compiler at head, rebuild it, and recompile with the command
+java -jar build/compiler.jar --js ru.js --charset "UTF-8"
+
+?
+
+When I run that command, the strings are encoded correctly and the file size comes out to ~41kb.
+
+Comment:
+Is there a way to get UTF output from the Closure Compiler Service? When using the REST API I'm seeing all the Unicode characters being explicitly escaped.
+
+Comment:
+This is not fixed.
+On the Closure Compiler Service and API, strings are always escaped into ascii characters and charset parameter is omitted.
+This parameter is not documented anywhere.
+
+Comment:
+It looks like there's an option being set on the command line that isn't getting passed through in all cases.  It looks like this isn't fixed when calling from ant task either.
+
+Comment:
+We do not plan to add a charset option to the webservice API.
+
+If you are having problems with the command-line API, then please file a bug with specific details about how you are invoking the compiler, what you see, and what you expect to see. we'd be happy to look into it.

@@ -1,0 +1,43 @@
+Summary: @define does not support strings
+
+Description:
+$ java -jar compiler.jar --compilation_level ADVANCED_OPTIMIZATIONS --define='test.VERSION=1.0.0' --js_output_file 
+test-min.js --js test.js
+java.lang.RuntimeException: --define flag syntax invalid: test.VERSION=1.0.0
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.createDefineReplacements(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.initOptionsFromFlags(Unknown Source)
+	at com.google.javascript.jscomp.CommandLineRunner.createOptions(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.doRun(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.run(Unknown Source)
+	at com.google.javascript.jscomp.CommandLineRunner.main(Unknown Source)
+
+test.js:
+/** @define {string} */
+test.VERSION = &quot;&quot;;
+
+
+I have tried both of these:
+--define='test.VERSION=1.0.0'
+--define='test.VERSION=&quot;1.0.0&quot;'
+
+Both generate the same error.
+
+Comment:
+What OS and shell are you using? Can you escape your quotes? Something like this:
+
+java -jar compiler.jar --compilation_level ADVANCED_OPTIMIZATIONS
+--define=\'test.VERSION=1.0.0\' --js_output_file
+
+Comment:
+These work:
+--define=test.VERSION=\'1.0.0\'
+--define="test.VERSION='1.0.0'"
+
+I didn't expect it to require single-quotes instead of double-quotes around the 
+string. ;-)
+
+Comment:
+This issue was closed by revision r173.
+
+Comment:
+Thanks for the update to support both single and double quotes. ;-)

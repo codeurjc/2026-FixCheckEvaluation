@@ -1,0 +1,124 @@
+Title: Wrong constructor picked up when deserializing object
+
+Body:
+I discovered an issue with Jackson 2.7.8 (and Jackson 2.8.4) when several constructors have parameters annotated with `@JsonProperty` but only one is annotated with `@JsonCreator`.
+
+Here's a test case to reproduce it:
+```
+import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
+
+import org.junit.Test;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class TestJackson {
+  public static final class SimplePojo {
+    private final int intField;
+    private final String stringField;
+
+    public SimplePojo(@JsonProperty("intField") int intField) {
+      this(intField, "empty");
+    }
+
+    public SimplePojo(@JsonProperty("stringField") String stringField) {
+      this(-1, stringField);
+    }
+
+    @JsonCreator
+    public SimplePojo(@JsonProperty("intField") int intField, @JsonProperty("stringField") String stringField) {
+      this.intField = intField;
+      this.stringField = stringField;
+    }
+
+    public int getIntField() {
+      return intField;
+    }
+
+    public String getStringField() {
+      return stringField;
+    }
+  }
+
+  @Test
+  public void testJackson() throws JsonParseException, IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    SimplePojo pojo = mapper.readValue("{ \"intField\": 1, \"stringField\": \"foo\" }", SimplePojo.class);
+
+    assertEquals(1, pojo.getIntField());
+    assertEquals("foo", pojo.getStringField());
+  }
+}
+```
+
+This test throws an the following exception:
+```
+com.fasterxml.jackson.databind.JsonMappingException: Could not find creator property with name 'stringField' (in class org.apache.drill.TestJackson$SimplePojo)
+ at [Source: { "intField": 1, "stringField": "foo" }; line: 1, column: 1]
+	at com.fasterxml.jackson.databind.JsonMappingException.from(JsonMappingException.java:270)
+	at com.fasterxml.jackson.databind.DeserializationContext.reportMappingException(DeserializationContext.java:1234)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.addBeanProps(BeanDeserializerFactory.java:551)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.buildBeanDeserializer(BeanDeserializerFactory.java:226)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.createBeanDeserializer(BeanDeserializerFactory.java:141)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createDeserializer2(DeserializerCache.java:403)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createDeserializer(DeserializerCache.java:349)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCache2(DeserializerCache.java:264)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCacheValueDeserializer(DeserializerCache.java:244)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache.findValueDeserializer(DeserializerCache.java:142)
+	at com.fasterxml.jackson.databind.DeserializationContext.findRootValueDeserializer(DeserializationContext.java:476)
+	at com.fasterxml.jackson.databind.ObjectMapper._findRootDeserializer(ObjectMapper.java:3899)
+	at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3794)
+	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2842)
+	at TestJackson.testJackson(TestJackson.java:45)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:606)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:50)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:47)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:325)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:78)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:57)
+	at org.junit.runners.ParentRunner$3.run(ParentRunner.java:290)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:71)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:288)
+	at org.junit.runners.ParentRunner.access$000(ParentRunner.java:58)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:268)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:363)
+	at org.eclipse.jdt.internal.junit4.runner.JUnit4TestReference.run(JUnit4TestReference.java:86)
+	at org.eclipse.jdt.internal.junit.runner.TestExecution.run(TestExecution.java:38)
+	at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:459)
+	at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:678)
+	at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.run(RemoteTestRunner.java:382)
+	at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.main(RemoteTestRunner.java:192)
+```
+
+After some debugging, it looks like that `BasicDeserializerFactory#_addDeserializerConstructors(...)` is looping over all the constructors, and is not favoring an explicit constructor over a non-explicit one. 
+
+I actually don't know what should be the expected behavior: should jackson fail when two constructors are annotated, or should jackson favor the one annotated with `@JsonCreator`. Both options look reasonable to me (and I'm actually removing one of the constructors).
+
+Comment:
+@laurentgo  Thank you for reporting this. I think explicit `@JsonCreator` should have priority; this is what is done with most other accessors: implicit discovery may be overridden by explicit annotation.
+
+Should be fixed for 2.8.6; but may take a while since I will be on vacation starting tomorrow (until january).
+
+
+Comment:
+Sounds good. Would it be backported to 2.7.x branch, or is this branch definitively closed?
+
+Comment:
+@laurentgo 2.7 is not yet closed so unless fix is particularly intrusive will probably backport for 2.7.9 as well.
+
+Comment:
+Interesting. So, I can reproduce with code exactly as is. But almost any change (like commenting out just one of 1-arg constructors; or replacing getters with public fields) will make test pass...
+
+
+
+Comment:
+Thanks for fixing this. Yes, I agree that the test case is very fragile but that I was the best I could come up with at that time :)

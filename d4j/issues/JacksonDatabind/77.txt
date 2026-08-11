@@ -1,0 +1,178 @@
+Title: Jackson Deserializer security vulnerability via default typing (CVE-2017-7525)
+
+Body:
+I have send email to info@fasterxml.com
+
+**EDIT**: (23-Apr-2024)
+
+Fix in:
+
+* 2.7.9.1
+* 2.8.9
+* 2.9.0 and all later 2.x releases
+
+
+Comment:
+I have received this and am investigating possible patch. Problem is quite specific, but some aspects are more general.
+
+Comment:
+Fixed in 2.7, 2.8 and `master` (to the best of my knowledge): will be in `2.8.9` and `2.7.9.1`, as well as `2.9.0.pr3`.
+
+
+Comment:
+nice~
+
+Comment:
+when do you want to release 2.7.10,2.8.9 and 2.9.0.pr3?
+
+Comment:
+when do you want to release 2.7.10,2.8.9 and 2.9.0.pr3?
+
+Comment:
+I don't think blacklist is a good mechanism to prevent this issue, because there are other Java Deserialized Gadgets or ClassLoaders can arise this problem including `com.sun.org.apache.xalan` which is in your list. 
+
+Comment:
+I suggest you to use black list like this
+	
+"^bsh[.].*", "^com[.]google[.]inject[.].*", "^com[.]mchange[.]v2[.]c3p0[.].*", "^com[.]sun[.]jndi[.].*", "^com[.]sun[.]corba[.].*", "^com[.]sun[.]javafx[.].*", "^com[.]sun[.]org[.]apache[.]regex[.]internal[.].*", "^java[.]awt[.].*", "^java[.]rmi[.].*", "^javax[.]management[.].*", "^javax[.]naming[.].*", "^javax[.]script[.].*", "^javax[.]swing[.].*", "^org[.]apache[.]commons[.]beanutils[.].*", "^org[.]apache[.]commons[.]collections[.]functors[.].*", "^org[.]apache[.]myfaces[.].*", "^org[.]apache[.]wicket[.].*", ".*org[.]apache[.]xalan.*", "^org[.]codehaus[.]groovy[.]runtime[.].*", "^org[.]hibernate[.].*", "^org[.]python[.].*", "^org[.]springframework[.](?!(\\p{Alnum}+[.])*\\p{Alnum}*Exception$).*", "^sun[.]rmi[.].*", "^javax[.]imageio[.].*", "^java[.]util[.]ServiceLoader$", "^java[.]net[.]URLClassLoader$”
+
+
+Comment:
+hello, everybody, I wait for new version, where can I get the version release 2.7.10,2.8.9 and 2.9.0.pr3?
+
+Comment:
+@cowtowncoder 
+When 2.8.9 will be released? I can't find it in mvn repo or git release...
+
+Comment:
+When 2.8.9 will be released? I wait for new version...
+
+Comment:
+@maluguos I do not release new version for every single bug fix. Have a look at release schedule:
+
+https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.7
+
+New version is unlikely to be released within next couple of weeks. Same goes for 2.8.9.
+If a new version is needed sooner, you will need to use a local snapshot build.
+
+
+Comment:
+waiting for version 2.8.9 release...
+
+Comment:
+@ayound I appreciate the list, but to be honest I think that restriction within core databind need to be focused on demonstratable security concerns. There are many types that could potentially be problematic, but I would hesitate to include very wide limits on, say, `org. springframework`, since there are utility types that may well be already in use by some users.
+For 2.8 I did include a few types as per:
+
+https://github.com/kantega/notsoserial
+
+so I am not against extending the list, but at this point prefer keeping static blacklist to minimum.
+
+
+
+
+Comment:
+Everyone: I did do `mvn deploy` for 2.8 branches, so snapshots via Sonatype snapshot repository (for 2.8.9-SNAPSHOT) should have initial protection for vulnerabilities indicated.
+
+Perhaps more importantly, I just pushed micro-patch `2.7.9.1` of `jackson-databind`: it should be available soon via Maven Central. I decided to do this because it is not clear whether there will be more 2.7 full releases (and if so, when), and due to criticality of this fix it seemed better to release micro-patch at this point.
+
+As to 2.8: set of fixes is rather short, still:
+
+https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.8.9
+
+so I'll think of whether I should similarly release `2.8.8.1` as full release may take time (although there will certainly still be `2.8.9` as 2.9 is not yet released).
+
+If anyone feels urgency wrt 2.8 please let me know.
+
+
+
+Comment:
+Everyone:  Any impact on version 2.1.0? 
+
+thank you in advanced
+
+Comment:
+@logan2013 Yes, if (and only if):
+
+1. Object model is using either "default typing", or `@JsonTypeInfo` with nominal base type of `java.lang.Object` (or one of small number of tag-on "tag" types like `java.io.Serializable` and perhaps `java.util.Comparable`)
+2. JSON content comes from untrusted source, that is, someone can craft specific JSON message.
+
+If so, there is at least one reproduction of an issue.
+
+Now: as to versions prior to 2.7: I have a plan to implement a new Jackson module which can be used with ALL 2.x versions, including 2.1.0. This may take bit more time, but would be more useful than handling within `jackson-databind`.
+
+I hope this helps.
+
+
+
+
+Comment:
+@cowtowncoder Hello, our product used 2.8.1, we need to solve the problem urgently.How can we do? We hope your help! 
+Thank you in advance
+
+Comment:
+Everyone: Any impact on version 1.x?
+thank you in advanced
+
+Comment:
+@cowtowncoder any impact on jackson 2.7.5 + JDK 1.7 and above?
+
+Comment:
+@alexchenfeiyu Do you know the vulnerability and that it affects you? I appreciate your general concern, but the vulnerability is quite specific and does not apply to majority of users.
+Anyway: I will go ahead now and release `2.8.8.1`: it will be available within couple of hours.
+
+@ycrxun In theory yes, versions 1.5 and above.
+
+@paulwong888 As per above, not very specific to Jackson version: but you may want to use `jackson-databind` `2.7.9.1` since it's the first one to have the fix.
+However: it is possible JDK version matters; might not work on later JDK versions -- but I don't have specific knowledge that it would be prevent by particular version. Using latest JDK from given line could be safer (depends on embedded version of XSL engine JDK bundles).
+
+As to vulnerability, this only applies to polymorphic type handling via default typing (or especially annotated `@JsonTypeInfo` on `java.lang.Object` type property) -- and obviously JSON crafted by untrusted third party.
+
+
+Comment:
+@cowtowncoder  I did not find the 2.8.8.1 url ，please provide this url, thank you!
+
+Comment:
+I found it。
+Because we do not know the way of repair, we need diff。
+
+
+Comment:
+Hello,everyone:Any impact on version 2.5.x and 2.9.0.prx?
+thank you in advanced
+
+Comment:
+@shellb0y Have you found the 2..8.8.1 url ? Please provide this url , thank you very much!
+
+Comment:
+Is it possible to make fix for 2.6.x as well?
+
+Comment:
+@mrniko Eventually yes, via separate module. 2.6 branch and older are closed for general releases however.
+
+But if anyone wants to take time for PR (from 2.7 or whatever) I could merge too, push micro-patch 2.6.7.1.
+
+
+
+Comment:
+@hcc218  https://github.com/FasterXML/jackson-databind/releases/tag/jackson-databind-2.8.8.1
+
+Comment:
+2.8.8.1 Plus the filter：
+s = new HashSet<>()
+String full = type.getRawClass().getName();
+if **(_cfgIllegalClassNames.contains(full)**) {
+}
+
+Comment:
+How about we can configure a whitelist instead of a blacklist, i.e. a list of _accepted_ deserialization objects?
+
+Comment:
+@greuff Perhaps white-listing would make sense for "security module" that I mentioned above.
+I don't think it is good as a default, due to existing usage (and as it works fine for many users), but as an additional option I am sure it would be useful.
+
+Further aspect to consider:
+
+1. It may be that limitations for some namespaces (java.*, for example) should be stricter than others (so perhaps allow some level of configuration wrt Java packages under which rule is opt-in)
+2. Since problem only (or mostly?) concerns POJO-serialization -- it comes from calling setters and/or directly setting fields -- , and not `Collection`s or `Map`s, so most likely these types should not be checked (so that things like, say, Guava collections etc would not be blocked)
+     * ... although since constructors are called, theoretically there is a possibility of some exploit(s)
+3. Amount of configuration needed to white-list types grows by size of project, so this feature might have unfortunate property of becoming more PITA when project grows (low initial cost, high eventual)

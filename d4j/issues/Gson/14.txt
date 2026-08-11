@@ -1,0 +1,37 @@
+Title: $Gson$Types.resolve() shall collapse chains of super/extends type bounds to avoid StackOverflowError
+
+Body:
+While resolving recursive generic types, $Gson$Types.resolve() sometimes starts to generate chains of type bounds like  "super ? extends ? .... ? extends A" , causing infinite recursion and thus StackOverflowError's like 
+`java.lang.StackOverflowError
+	at com.google.gson.internal.$Gson$Types.resolveTypeVariable($Gson$Types.java:407)
+	at com.google.gson.internal.$Gson$Types.resolve($Gson$Types.java:330)
+	at com.google.gson.internal.$Gson$Types.resolve($Gson$Types.java:384)
+	at com.google.gson.internal.$Gson$Types.resolve($Gson$Types.java:379)
+	at com.google.gson.internal.$Gson$Types.resolve($Gson$Types.java:384)
+	at com.google.gson.internal.$Gson$Types.resolve($Gson$Types.java:379)
+	at com.google.gson.internal.$Gson$Types.resolve($Gson$Types.java:384)
+...
+`
+This can be reproduced on the following simple ccde:
+```java
+  private static class Foo1<A> {
+    Foo2<? extends A> foo2;
+  }
+  private static class Foo2<B> {
+    Foo1<? super B> foo1;
+  }
+  public void testRecursiveResolveSimple() {
+    new Gson().getAdapter(Foo1.class);
+  }
+```
+
+This is the root cause of StackOverflowError's described in Issue #440 and Issue #603.
+
+In order to fix them, such chains need to be collapsed using the following rules:
+- supertypeOf(supertypeOf(X)) == supertypeOf(X)
+- subtypeOf(subtypeOf(X)) == subtypeOf(X)
+- supertypeOf(subtypeOf(X)) == subtypeOf(Object.class)
+- subtypeOf(supertypeOf(X)) == subtypeOf(Object.class)
+
+Comment:
+The proposed change is implemented in the pull request above

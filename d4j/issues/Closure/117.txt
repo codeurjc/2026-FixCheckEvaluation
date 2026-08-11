@@ -1,0 +1,41 @@
+Summary: Wrong type name reported on missing property error.
+
+Description:
+/**
+ * @constructor
+ */
+function C2() {}
+
+/**
+ * @constructor
+ */
+function C3(c2) {
+  /**
+   * @type {C2} 
+   * @private
+   */
+  this.c2_;
+
+  use(this.c2_.prop);
+}
+
+Produces:
+
+Property prop never defined on C3.c2_
+
+But should be:
+
+Property prop never defined on C2
+
+Comment:
+this has bugged me too for a while
+
+Comment:
+posted here:
+https://codereview.appspot.com/13434043/
+
+Comment:
+This issue was closed by revision 871bca1f36c5.
+
+Comment:
+This issue was closed by revision 871bca1f36c5.

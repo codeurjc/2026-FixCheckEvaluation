@@ -1,0 +1,36 @@
+Summary: [cli] CommandLine.getOptionValue() behaves contrary to docs
+
+Description:
+Hi
+
+If I have:
+
+final String debugOpt = "debug";
+	Option debug = OptionBuilder
+	    .withArgName(debugOpt)
+	    .withDescription("turn on debugging")
+	    .withLongOpt(debugOpt)
+	    .create('d');
+
+and then later I do:
+
+String dbg = commandLine.getOptionValue(debugOpt);
+
+then dbg will be null. Instead, I have to use getOptionValue('d'). This seems
+contrary to the docs (see bottom of
+http://jakarta.apache.org/commons/cli/usage.html), which implies that I should
+be able to query the commandLine object using a full string, rather than just
+the string's first character.
+
+Can I suggest that the API of OptionBuilder be made clearer so that it is
+obvious that you can have long and short option names---perhaps make the
+create() method take no arguments (thus forcing long and short arg names to be
+set explicitly). (Also, there seems to be some confusion between the terms
+'argument' and 'option' in the API, but perhaps that is just me).
+
+Also, I would hop to be able to query commandLine by either a single char or an
+entire string, as suggested by the docs.
+
+Thanks,
+
+Chris

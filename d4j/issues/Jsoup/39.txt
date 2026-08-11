@@ -1,0 +1,29 @@
+Title: JSoup incorrectly moves content from the <head> section into <body> for sample URL
+
+Body:
+If you load the following URL:
+
+```
+http://jornutzon.sydneyoperahouse.com/home.htm
+```
+
+into:
+
+```
+http://try.jsoup.org/
+```
+
+then it will move the content from the "head" section into the "body" section. The URL
+being parsed validates using the W3C validator:
+
+http://validator.w3.org/check?uri=http%3A%2F%2Fjornutzon.sydneyoperahouse.com%2Fhome.htm&charset=%28detect+automatically%29&doctype=Inline&ss=1&group=0&user-agent=W3C_Validator%2F1.3+http%3A%2F%2Fvalidator.w3.org%2Fservices
+
+We are using JSoup 1.7.2
+
+
+Comment:
+That took me a while to figure out. There's a BOM at the start of the doc which jsoup isn't handling correctly. Grr arg! It's 65279
+
+
+Comment:
+Specifically, the character is not recognized as a BOM but as a regular character, to it moves the parser state into body mode

@@ -1,0 +1,22 @@
+Summary: Unsigned Shift Right (>>>) bug operating on negative numbers
+
+Description:
+<b>What steps will reproduce the problem?</b>
+i = -1 &gt;&gt;&gt; 0 ;
+
+<b>What is the expected output? What do you see instead?</b>
+Expected: i = -1 &gt;&gt;&gt; 0 ;  // or // i = 4294967295 ;
+Instead: i = -1 ;
+
+<b>What version of the product are you using? On what operating system?</b>
+The UI version as of 7/18/2001 (http://closure-compiler.appspot.com/home)
+
+<b>Please provide any additional information below.</b>
+-1 &gt;&gt;&gt; 0 == 4294967295 == Math.pow( 2, 32 ) - 1
+Test in any browser and/or See ECMA-262-5 11.7.3
+
+Comment:
+Thanks for the bug report!
+
+Comment:
+This issue was closed by revision r291.

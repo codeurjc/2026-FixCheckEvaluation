@@ -1,0 +1,45 @@
+Title: Should detect ?xml encoding charset
+
+Body:
+Hi,
+
+For example this is target URL: http://www.elacontecer.com.uy/rss/hoy.xml, its charset is `ISO-8859-1`.
+
+I use Jsoup like this:
+
+``` java
+final Document doc = Jsoup.connect("http://...").parser(Parser.xmlParser()).get();
+System.out.println("charset=" + doc.charset());
+```
+
+The result is: `java.nio.charset.CharsetICU[UTF-8]`
+
+Would you please check to see if it's a bug?
+
+Thanks,
+
+
+Comment:
+There's no charset defined in the HTTP header, so jsoup falls back its default of UTF8.
+
+
+Comment:
+@jhy Thank you.
+
+May I ask if it's named XML parser, it should handle XML charset?
+
+
+Comment:
+Oh, I'm sorry, I missed that it has a `<?xml version="1.0" encoding="ISO-8859-1"?>` start. Yeah we should add support for that.
+
+
+Comment:
+DataUtil around line 114 
+
+
+Comment:
+Thanks, that's great  `:-)`
+
+And thank you again for a great library.
+
+Have a nice day.

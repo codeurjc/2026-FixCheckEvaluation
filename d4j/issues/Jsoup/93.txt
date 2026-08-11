@@ -1,0 +1,26 @@
+Title: <input type="image"> is not special cased in formData method
+
+Body:
+The following code:
+
+```java
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.FormElement;
+
+class Scratch {
+    public static void main(String[] args) {
+        System.out.println(((FormElement) Jsoup.parse("<form id=f><input type=image name=x></form>").getElementById("f")).formData());
+    }
+}
+```
+
+Returns the following output:
+
+```
+[x=]
+```
+
+When either `[]` or `[x.x=0, x.y=0]` is expected (not sure which, but `[x=]` is definitely wrong).
+
+Comment:
+Thanks, fixed

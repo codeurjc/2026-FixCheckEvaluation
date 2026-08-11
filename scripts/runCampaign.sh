@@ -7,6 +7,7 @@
 # Usage:
 #   ./scripts/runCampaign.sh --projects JacksonXml,Csv,Codec       # pilot
 #   ./scripts/runCampaign.sh --projects all --minutes-per-bug 25   # everything
+#   ./scripts/runCampaign.sh --projects all --bug-id 1             # one bug each: smoke test
 #   ./scripts/runCampaign.sh --projects Closure --chunks 2         # split a big one
 #   ./scripts/runCampaign.sh --projects all --dry-run              # show, don't submit
 #
@@ -55,7 +56,7 @@ done
 # which bugs exist.
 PLAN=$(.venv/bin/python - "$PROJECTS" "$BUG_IDS" "$CHUNKS" "$MINUTES_PER_BUG" <<'PY'
 import sys
-from defects4j_bugs import PROJECTS, chunk, resolve_bug_ids
+from d4j.defects4j_bugs import PROJECTS, chunk, resolve_bug_ids
 
 selection, bug_selection, chunks, minutes = sys.argv[1:5]
 chunks, minutes = int(chunks), float(minutes)
@@ -64,8 +65,11 @@ names = list(PROJECTS) if selection == "all" else [p.strip() for p in selection.
 unknown = [n for n in names if n not in PROJECTS]
 if unknown:
     sys.exit(f"unknown project(s): {', '.join(unknown)}. Known: {', '.join(PROJECTS)}")
-if len(names) > 1 and bug_selection != "all":
-    sys.exit("--bug-id only makes sense with a single --projects value")
+# A bug selection applies to every named project, which is what makes
+# `--projects all --bug-id 1` a one-bug-per-project smoke test of the whole
+# campaign. resolve_bug_ids validates the ids against each project's own
+# active list, so asking for one a project does not have fails by name here
+# rather than after minutes of container time.
 
 for name in names:
     ids = resolve_bug_ids(name, None if bug_selection == "all" else [bug_selection])

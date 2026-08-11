@@ -1,0 +1,80 @@
+Title: Jsoup.clean sometimes will throw execution exception:java.lang.StackOverflowError
+
+Body:
+ [ ERROR ]  throw execution exception:java.lang.StackOverflowError
+java.util.concurrent.ExecutionException: java.lang.StackOverflowError
+Caused by: java.lang.StackOverflowError
+    at org.jsoup.safety.Whitelist.isSafeTag(Whitelist.java:323)
+    at org.jsoup.safety.Cleaner.copySafeNodes(Cleaner.java:115)
+    at org.jsoup.safety.Cleaner.copySafeNodes(Cleaner.java:127)
+    at org.jsoup.safety.Cleaner.copySafeNodes(Cleaner.java:127)
+    at org.jsoup.safety.Cleaner.copySafeNodes(Cleaner.java:127)
+    at org.jsoup.safety.Cleaner.copySafeNodes(Cleaner.java:127)
+
+clean the url:http://blog.sina.com.cn/s/blog_501a5b1f0102dx6z.html
+
+It's have to much **wbr** tags,when i search the page source ,found 24205.
+
+i look at  org.jsoup.safety.Cleaner source code and add code like this 
+
+``` java
+private int num = 1;
+    /**
+     * Iterates the input and copies trusted nodes (tags, attributes, text) into
+     * the destination.
+     * 
+     * @param source
+     *            source of HTML
+     * @param dest
+     *            destination element to copy into
+     * @return number of discarded elements (that were considered unsafe)
+     */
+    private int copySafeNodes(Element source, Element dest) {
+        List<Node> sourceChildren = source.childNodes();
+        int numDiscarded = 0;
+
+        for (Node sourceChild : sourceChildren) {
+            num++;
+            logger.info(num);
+            if (num > 2000) {
+                //break this tag.
+                break;
+            }
+            if (sourceChild instanceof Element) {
+                Element sourceEl = (Element) sourceChild;
+
+                if (whitelist.isSafeTag(sourceEl.tagName())) { // safe, clone
+                                                                // and copy safe
+                                                                // attrs
+                    ElementMeta meta = createSafeElement(sourceEl);
+                    Element destChild = meta.el;
+                    dest.appendChild(destChild);
+                    numDiscarded += meta.numAttribsDiscarded;
+                    numDiscarded += copySafeNodes(sourceEl, destChild); // recurs
+                } else { // not a safe tag, but it may have children (els or
+                            // text) that are, so recurse
+                    numDiscarded++;
+                    numDiscarded += copySafeNodes(sourceEl, dest);
+                }
+            } else if (sourceChild instanceof TextNode) {
+                TextNode sourceText = (TextNode) sourceChild;
+                TextNode destText = new TextNode(sourceText.getWholeText(),
+                        sourceChild.baseUri());
+                dest.appendChild(destText);
+            } // else, we don't care about comments, xml proc instructions, etc
+        }
+        return numDiscarded;
+    }
+```
+
+but the clean result will be wrong and The layout will be chaos.
+
+How can I solve this problem?
+
+
+Comment:
+What version of jsoup are you running? What is your VM stack size set to? I tried using jsoup 1.7.1 with an extremely low stack (-Xss128K) and the clean runs correctly, with no exceptions. Any lower (e.g. 100K) and I get VM initialization errors.
+
+There were some good memory improvements between 1.6 and 1.7 so upgrading may help. Also you might like to try increasing your stack size (as the problem here is running out of stack while recursively copying nodes down the tree).
+
+I will look at modifying the routine to use a traverser rather than a recurse function, which will prevent it recursing so deep that one gets a stack overflow.

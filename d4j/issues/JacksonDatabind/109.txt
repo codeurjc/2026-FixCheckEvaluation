@@ -1,0 +1,85 @@
+Title: `WRITE_BIGDECIMAL_AS_PLAIN` is ignored if `@JsonFormat` is used
+
+Body:
+I am trying to serialize BigDecimal as json string while avoiding scientific notation (kotlin):
+```kotlin
+data class Test(
+    @JsonFormat(shape= JsonFormat.Shape.STRING)
+    val value: BigDecimal
+)
+
+fun main() {
+    val mapper = jacksonObjectMapper()
+        .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
+    val test = Test(0.0000000005.toBigDecimal())
+    println(mapper.writeValueAsString(test))
+}
+```
+output `{"value":"5.0E-10"}`
+If  `JsonFormat` is removed, then `WRITE_BIGDECIMAL_AS_PLAIN` works and output is `{"value":0.00000000050}` (json number, not string), but trying to make it json string with `JsonFormat` results in `WRITE_BIGDECIMAL_AS_PLAIN` being ignored.
+
+Using latest version, jackson-bom:2.9.8
+
+Comment:
+Ok: I notice that code is not in plan Java but in... Kotlin? If so, it'd be good to ensure that behavior does not vary between Java and Kotlin. I can modify code to ensure it, but going forward it'd be good to isolate this first: reason being that sometimes Kotlin module has additional problems (for example annotation might be discovered in different way), so it is good to know where problem occurs.
+
+But for now I assume this is reproducible with just Java.
+
+
+
+
+Comment:
+Hi @cowtowncoder , thanks for looking into this.
+
+Sorry, I was under impression that it is generally acceptable to provide snippets in kotlin these days.
+
+Yes, it is reproducible with just Java
+
+```java
+public class Main {
+    public static void main(String[] args) throws JsonProcessingException {
+        var mapper = new ObjectMapper().configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+        var test = new Test(new BigDecimal("0.0000000005"));
+        System.out.println(mapper.writeValueAsString(test));
+    }
+}
+
+class Test {
+    private final BigDecimal value;
+    Test(BigDecimal value) {
+        this.value = value;
+    }
+
+    @JsonFormat(shape= JsonFormat.Shape.STRING)
+    public BigDecimal getValue() {
+        return value;
+    }
+}
+```
+
+Same outputs, `{"value":"5E-10"}` with `@JsonFormat` and `{"value":0.0000000005}` without
+
+Comment:
+Use of Kotlin is ok for demonstrating many aspects, but I can't include it directly (Jackson does not use Kotlin runtime so it can't run, and I don't want to add dependency just for tests). And at times Kotlin module adds special handling so it's often easier to use basic Java -- unless we have Kotlin-specific problem.
+
+Thank you again for reporting the problem & helping even more useful reproduction. I hope to work on this issue soon.
+
+
+Comment:
+must admit, I honestly never considered Kotlin as "the norm", especially not for test cases xD
+And I've never heard of it referenced as such
+It's the recommended for android yes, but not for standard use as far as I'm aware, so that's a pretty bold statement to make
+
+Comment:
+@cowtowncoder I have a similar scenario my side, will see what I can do today
+
+
+Comment:
+I can reproduce this fine from Java, so there is nothing Kotlin-specific.
+
+The reason for problem is that when forcing "serialize as String", most types will use default `ToStringSerializer`, which will then not do any additional processing on value.
+
+I'll see if I can fix this easily, or need to defer.
+
+Comment:
+Ok. Well, that was... more work than I thought, partially since there is actually one DoS aspect to consider with plain strings too. But it is implemented for 2.10; will not backport to 2.9.

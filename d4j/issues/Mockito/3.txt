@@ -1,0 +1,13 @@
+Title: ArgumentCaptor no longer working for varargs
+
+Body:
+I ran into the issue described here: http://stackoverflow.com/questions/27303562/why-does-upgrading-mockito-from-1-9-5-to-1-10-8-break-this-captor
+
+
+Comment:
+Hi sorry for the late reply.
+I reproduced the issue, not sure when I will be able to fix though.
+
+
+Comment:
+fixed by #211 

@@ -1,0 +1,46 @@
+Summary: invalid property not erroring in for loop in prototype function
+
+Description:
+I think this example can be simplified to use a typedef instead of externs, but using an extern for the repro case.
+
+Compile the attached with:
+java -jar build/compiler.jar --formatting=PRETTY_PRINT --jscomp_error=checkTypes --jscomp_error=externsValidation --compilation_level=SIMPLE_OPTIMIZATIONS --externs=inloop-externs.js inloop.js (pasted below for completeness)
+
+I would expect an error on the line in the for loop in the doIt function, but this compiles just fine. The commented out line above it properly errors, and if the same code is outside a prototype function, it errors. It does not error within the prototype function.
+
+Thanks
+
+
+/**
+ * @param {ns.Thing} thing
+ * @constructor
+ */
+ns.MyClass = function(thing) {
+  /** @type {ns.Thing} */ this.thing_ = thing;
+};
+
+ns.MyClass.prototype.doIt = function() {
+  var subthing = this.thing_.subthing;
+  // ERRORS:
+  // window.console.log(subthing.noprop);
+
+  // NO ERROR:
+  for (var i = 0; i &lt; subthing.noprop; i++) {
+    window.console.log(i);
+  }
+};
+
+var thing = /** @type {ns.Thing} */({subthing: {prop: 3}});
+
+/*
+  ERRORS:
+  var subthing = thing.subthing;
+  for (var i = 0; i &lt; subthing.noprop; i++) {
+    window.console.log(i);
+  } */
+
+var c = new ns.MyClass(thing);
+co.doIt();
+
+Comment:
+This issue was closed by revision r2121.

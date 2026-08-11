@@ -1,0 +1,32 @@
+Summary: Assigning object literals to obj.prototype in a immediately executed function not recognized.
+
+Description:
+/** @constructor */
+function foo() {}
+(function() {
+  foo.prototype = {
+    alert: function() {
+      alert(&quot;hello world&quot;);
+    }
+  };
+})()
+window.console.log(foo.prototype.alert); //undefined property warning
+
+Comment:
+This is a major issue for my jQuery build right now.
+
+Comment:
+This is just a warning issue? Not an optimization issue?
+
+Comment:
+Yep. I've got a fix for this. Oddly, this broke due to a hack we inserted a while back for type-casts, and we can remove it now that john fixed the type-cast stuff.
+
+Comment:
+for code review here:
+http://codereview.appspot.com/10360045
+
+Comment:
+Correct - But if I put out code that generates warnings, I get complaints :-)
+
+Comment:
+This issue was closed by revision 6d38965a1e0a.

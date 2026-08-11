@@ -1,0 +1,17 @@
+Summary: Invalid left-hand side of assignment not detected
+
+Description:
+<b>What steps will reproduce the problem?</b>
+Compile this:
+  var x=0,y=1;x||y=8
+
+<b>What is the expected output? What do you see instead?</b>
+I expect an error, because this is parsed as (x||y)=8, which is an invalid left-hand side of an assignment. Instead, I get
+  var x=0,y=1;x||y=8;
+which, like the input, is invalid code.
+
+Comment:
+related to 214
+
+Comment:
+This issue was closed by revision r685.

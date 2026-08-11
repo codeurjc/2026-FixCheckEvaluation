@@ -1,0 +1,150 @@
+{
+  "project": "Codec",
+  "updated_at": "2026-08-11T13:50:58.105525+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://issues.apache.org/jira/browse/CODEC-65",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 201,
+      "fetched_at": "2026-08-11T13:50:55.704716+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://issues.apache.org/jira/browse/CODEC-77",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 150,
+      "fetched_at": "2026-08-11T13:50:55.848648+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://issues.apache.org/jira/browse/CODEC-84",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2093,
+      "fetched_at": "2026-08-11T13:50:55.988898+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://issues.apache.org/jira/browse/CODEC-89",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2172,
+      "fetched_at": "2026-08-11T13:50:56.129568+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://issues.apache.org/jira/browse/CODEC-98",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2687,
+      "fetched_at": "2026-08-11T13:50:56.272935+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://issues.apache.org/jira/browse/CODEC-101",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 421,
+      "fetched_at": "2026-08-11T13:50:56.414055+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://issues.apache.org/jira/browse/CODEC-99",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1073,
+      "fetched_at": "2026-08-11T13:50:56.557903+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://issues.apache.org/jira/browse/CODEC-105",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1305,
+      "fetched_at": "2026-08-11T13:50:56.698913+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://issues.apache.org/jira/browse/CODEC-112",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 370,
+      "fetched_at": "2026-08-11T13:50:56.838882+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://issues.apache.org/jira/browse/CODEC-117",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 288,
+      "fetched_at": "2026-08-11T13:50:56.980757+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://issues.apache.org/jira/browse/CODEC-121",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 793,
+      "fetched_at": "2026-08-11T13:50:57.120878+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://issues.apache.org/jira/browse/CODEC-130",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1029,
+      "fetched_at": "2026-08-11T13:50:57.260224+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://issues.apache.org/jira/browse/CODEC-184",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 471,
+      "fetched_at": "2026-08-11T13:50:57.401389+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://issues.apache.org/jira/browse/CODEC-187",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 912,
+      "fetched_at": "2026-08-11T13:50:57.541634+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://issues.apache.org/jira/browse/CODEC-199",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 444,
+      "fetched_at": "2026-08-11T13:50:57.683575+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://issues.apache.org/jira/browse/CODEC-200",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 267,
+      "fetched_at": "2026-08-11T13:50:57.822713+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://issues.apache.org/jira/browse/CODEC-229",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 643,
+      "fetched_at": "2026-08-11T13:50:57.963971+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://issues.apache.org/jira/browse/CODEC-231",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 235,
+      "fetched_at": "2026-08-11T13:50:58.105424+00:00"
+    }
+  ]
+}

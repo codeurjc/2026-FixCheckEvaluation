@@ -1,0 +1,27 @@
+Title: Fix ArrayIndexOutofBoundsException found by LGTM.com
+
+Body:
+Seen on LGTM.com [here](https://lgtm.com/projects/g/FasterXML/jackson-core/alerts/?mode=tree)
+
+As `codes.length == maxCode` so if `i == maxCode` an `ArrayIndexOutOfBoundsException` is thrown. This happens when `ALLOW_UNQUOTED_FIELD_NAMES` is enabled and character `256` is found as part of a field name after needing to consume more data from the reader.
+
+A gist containing code to trigger this path can be found [here](https://gist.github.com/aeyerstaylor/90128cca75e69303254a0d5a5dbe6762). I could find any tests for this class but if there is a place to add tests I can add the example as a test.
+
+_(Full disclosure: I'm part of the company behind LGTM.com)_
+
+Comment:
+First of all, thank you for reporting this.
+
+But would it be possible to write a test that shows how this actually works? It would be great to have a regression test, to guard against this happening in future.
+
+
+Comment:
+The gist I posted was an example that I can make into a test but like I said, I wasn't sure where the test should go. I can't seem to find any general parsing tests.
+
+
+Comment:
+@aeyerstaylor ah sorry, I skimmed over issue text too fast. That should be enough, I can work with it.
+There are a few tests similar to this. I'll also need to patch this in `2.9` branch (then merge forward) so I might as well make these, cover both byte- and char-backed parsers.
+
+Comment:
+@aeyerstaylor I ended up merging this manually -- thank you very much for submitting the report, fix! And if you find other likely bugs via LGTM (I noticed there were couple of other warnings), looking forward to more reports!

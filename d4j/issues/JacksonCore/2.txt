@@ -1,0 +1,14 @@
+Title: Parser parsers numbers eagerly; does not report error with missing space
+
+Body:
+(note: moved from https://github.com/FasterXML/jackson-databind/issues/260)
+
+---
+
+If you give input like:
+
+```
+123true
+```
+
+it will first successfully parse integer 123, and then boolean `true`. This should instead result in a parse exception.

@@ -1,0 +1,31 @@
+Summary: CSS3 'writingMode' not recognised in advanced mode
+
+Description:
+element.style.writingMode was defined in CSS3 but later dropped. However it is supported by IE7 (possibly earlier). It's a useful way to achieve vertical text in IE.
+
+Closure Compiler will change references of element.style.writingMode to element.style.a, breaking implementation.
+
+I've attached a patch adding this to the IE css properties.
+
+Cheers,
+Jake.
+
+Comment:
+Jake have you signed a CLA as described here:
+http://code.google.com/p/closure-compiler/wiki/Contributors
+
+Comment:
+Just have.
+
+It's a very short fix, if it makes things easier I could delete the diff and you guys could treat this has a simple bug report.
+
+Comment:
+Comment deleted
+
+Comment:
+@john: for patches <10 lines, we can also just cc dan bentley for legal approval to accept it without a cla
+
+but it doesn't hurt to have a cla, since it will make bigger patches go faster in the future.
+
+Comment:
+This issue was closed by revision r279.

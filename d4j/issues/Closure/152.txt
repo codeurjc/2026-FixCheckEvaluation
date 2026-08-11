@@ -1,0 +1,79 @@
+Summary: resolveTypes: jstype.UnionType cannot be cast to jstype.ObjectType
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+1. Compile a bunch of JavaScript files that I can't release with these options: ['--create_name_map_files', 'true', '--jscomp_warning', 'missingProperties', '--jscomp_warning', 'undefinedVars', '--jscomp_warning', 'checkTypes', '--warning_level', 'VERBOSE', '--summary_detail_level', '3', '--process_closure_primitives', 'true', '--jscomp_error', 'strictModuleDepCheck', '--jscomp_error', 'invalidCasts', '--logging_level', 'ALL', '--compilation_level', 'ADVANCED_OPTIMIZATIONS']
+
+2. During this pass:
+
+        Oct 26, 2010 12:09:38 AM com.google.javascript.jscomp.PhaseOptimizer$NamedPass process
+        INFO: resolveTypes
+
+, compilation terminates with:
+
+        java.lang.RuntimeException: java.lang.ClassCastException: com.google.javascript.rhino.jstype.UnionType cannot be cast to com.google.javascript.rhino.jstype.ObjectType
+                at com.google.javascript.jscomp.Compiler.runInCompilerThread(Unknown Source)
+                at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+                at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+                at com.google.javascript.jscomp.AbstractCommandLineRunner.doRun(Unknown Source)
+                at com.google.javascript.jscomp.AbstractCommandLineRunner.run(Unknown Source)
+                at com.google.javascript.jscomp.CommandLineRunner.main(Unknown Source)
+        Caused by: java.lang.ClassCastException: com.google.javascript.rhino.jstype.UnionType cannot be cast to com.google.javascript.rhino.jstype.ObjectType
+                at com.google.javascript.rhino.jstype.FunctionType.resolveInternal(Unknown Source)
+                at com.google.javascript.rhino.jstype.JSType.resolve(Unknown Source)
+                at com.google.javascript.jscomp.TypedScopeCreator$DeferredSetType.resolve(Unknown Source)
+                at com.google.javascript.jscomp.TypedScopeCreator$AbstractScopeBuilder.resolveTypes(Unknown Source)
+                at com.google.javascript.jscomp.TypedScopeCreator.createScope(Unknown Source)
+                at com.google.javascript.jscomp.MemoizedScopeCreator.createScope(Unknown Source)
+                at com.google.javascript.jscomp.DefaultPassConfig$GlobalTypeResolver.process(Unknown Source)
+                at com.google.javascript.jscomp.PhaseOptimizer$PassFactoryDelegate.processInternal(Unknown Source)
+                at com.google.javascript.jscomp.PhaseOptimizer$NamedPass.process(Unknown Source)
+                at com.google.javascript.jscomp.PhaseOptimizer.process(Unknown Source)
+                at com.google.javascript.jscomp.Compiler.check(Unknown Source)
+                at com.google.javascript.jscomp.Compiler.compileInternal(Unknown Source)
+                at com.google.javascript.jscomp.Compiler.access$000(Unknown Source)
+                at com.google.javascript.jscomp.Compiler$1.call(Unknown Source)
+                at com.google.javascript.jscomp.Compiler$1.call(Unknown Source)
+                at com.google.javascript.jscomp.Compiler$2.run(Unknown Source)
+                at java.lang.Thread.run(Thread.java:662)
+
+
+<b>What version of the product are you using? On what operating system?</b>
+
+I'm using Closure Compiler r506.  The problem first appeared in r482.
+
+Comment:
+The traceback with line numbers:
+
+        java.lang.RuntimeException: java.lang.ClassCastException: com.google.javascript.rhino.jstype.UnionType cannot be cast to com.google.javascript.rhino.jstype.ObjectType
+                at com.google.javascript.jscomp.Compiler.runInCompilerThread(Compiler.java:590)
+                at com.google.javascript.jscomp.Compiler.compile(Compiler.java:528)
+                at com.google.javascript.jscomp.Compiler.compile(Compiler.java:487)
+                at com.google.javascript.jscomp.AbstractCommandLineRunner.doRun(AbstractCommandLineRunner.java:583)
+                at com.google.javascript.jscomp.AbstractCommandLineRunner.run(AbstractCommandLineRunner.java:252)
+                at com.google.javascript.jscomp.CommandLineRunner.main(CommandLineRunner.java:618)
+        Caused by: java.lang.ClassCastException: com.google.javascript.rhino.jstype.UnionType cannot be cast to com.google.javascript.rhino.jstype.ObjectType
+                at com.google.javascript.rhino.jstype.FunctionType.resolveInternal(FunctionType.java:856)
+                at com.google.javascript.rhino.jstype.JSType.resolve(JSType.java:894)
+                at com.google.javascript.jscomp.TypedScopeCreator$DeferredSetType.resolve(TypedScopeCreator.java:136)
+                at com.google.javascript.jscomp.TypedScopeCreator$AbstractScopeBuilder.resolveTypes(TypedScopeCreator.java:399)
+                at com.google.javascript.jscomp.TypedScopeCreator.createScope(TypedScopeCreator.java:178)
+                at com.google.javascript.jscomp.MemoizedScopeCreator.createScope(MemoizedScopeCreator.java:53)
+                at com.google.javascript.jscomp.DefaultPassConfig$GlobalTypeResolver.process(DefaultPassConfig.java:1053)
+                at com.google.javascript.jscomp.PhaseOptimizer$PassFactoryDelegate.processInternal(PhaseOptimizer.java:271)
+                at com.google.javascript.jscomp.PhaseOptimizer$NamedPass.process(PhaseOptimizer.java:248)
+                at com.google.javascript.jscomp.PhaseOptimizer.process(PhaseOptimizer.java:167)
+                at com.google.javascript.jscomp.Compiler.check(Compiler.java:694)
+                at com.google.javascript.jscomp.Compiler.compileInternal(Compiler.java:613)
+                at com.google.javascript.jscomp.Compiler.access$000(Compiler.java:64)
+                at com.google.javascript.jscomp.Compiler$1.call(Compiler.java:530)
+                at com.google.javascript.jscomp.Compiler$1.call(Compiler.java:528)
+                at com.google.javascript.jscomp.Compiler$2.run(Compiler.java:562)
+                at java.lang.Thread.run(Thread.java:662)
+
+Comment:
+thanks for the report!
+
+Comment:
+This issue was closed by revision r519.

@@ -1,0 +1,48 @@
+Summary: checkVars / undefinedVars diagnostics not working from command line
+
+Description:
+It seems that setting neither checkVars nor undefinedVars via the jscomp_warning command line argument does anything. The check(s) do work when &quot;warning_level VERBOSE&quot; is set though. Other diagnostic groups, such as globalThis, do work however.
+
+Here's what I'm seeing on the console:
+
+---------------------
+
+&gt;java -jar compiler.jar --js test.js
+foo={bar:function(){alert(this.baz)}};
+
+&gt;java -jar compiler.jar --js test.js --warning_level VERBOSE
+test.js:2: WARNING - dangerous use of the global this object
+
+test.js:1: ERROR - variable foo is undefined
+foo = {};
+^
+
+1 error(s), 1 warning(s)
+
+&gt;java -jar compiler.jar --js test.js --jscomp_warning globalThis
+test.js:2: WARNING - dangerous use of the global this object
+
+0 error(s), 1 warning(s)
+foo={bar:function(){alert(this.baz)}};
+
+&gt;java -jar compiler.jar --js test.js --jscomp_warning checkVars
+foo={bar:function(){alert(this.baz)}};
+
+&gt;java -jar compiler.jar --js test.js --jscomp_warning undefinedVars
+foo={bar:function(){alert(this.baz)}};
+
+---------------------
+
+My test.js file looks like this:
+
+---------------------
+
+foo = {};
+foo.bar = function() { alert(this.baz); };
+
+---------------------
+
+Tested against r1123 which was committed 5/20/11.
+
+Comment:
+This issue was closed by revision r1138.

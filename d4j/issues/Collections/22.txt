@@ -1,0 +1,15 @@
+Summary: Exception in ListOrderedMap#putAll if map contains null values
+
+Description:
+Dear apache developers, thanks for the great project. Recently, I encountered an IndexOutOfBoundsException in ListOrderedMap in the latest revision (r1495998) with the crash stack trace: 
+Exception in thread "main" java.lang.IndexOutOfBoundsException: Index: 2, Size: 1
+	at java.util.ArrayList.add(ArrayList.java:367)
+	at org.apache.commons.collections4.map.ListOrderedMap.put(ListOrderedMap.java:448)
+	at org.apache.commons.collections4.map.ListOrderedMap.putAll(ListOrderedMap.java:246)
+	at Test.main(Test.java:15)
+
+I've also attached a test case that can reproduce this crash.
+
+I think this test case actually reveals the bug reported in COLLECTIONS-411 (https://issues.apache.org/jira/browse/COLLECTIONS-411). However, it seems that the original patch for COLLECTIONS-411 missed a corner case.
+
+Could you please check if this is indeed a bug? Thanks!

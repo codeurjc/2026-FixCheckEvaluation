@@ -1,0 +1,47 @@
+Summary: Exception when emitting code containing getters
+
+Description:
+Consider the following source code: http://trac.webkit.org/browser/trunk/Source/WebCore/inspector/front-end/Settings.js#L123
+
+Following exception fires unless I remove the &quot;get name()&quot; getter from the code.
+
+java.lang.RuntimeException: java.lang.IllegalStateException: Expected function but was call Reference node CALL 128 [free_call: 1] [source_file: Settings.js]
+	at com.google.javascript.jscomp.Compiler.runCallable(Compiler.java:629)
+	at com.google.javascript.jscomp.Compiler.runInCompilerThread(Compiler.java:574)
+	at com.google.javascript.jscomp.Compiler.compile(Compiler.java:556)
+	at com.google.javascript.jscomp.Compiler.compile(Compiler.java:515)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.doRun(AbstractCommandLineRunner.java:662)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.run(AbstractCommandLineRunner.java:295)
+	at com.google.javascript.jscomp.CommandLineRunner.main(CommandLineRunner.java:758)
+Caused by: java.lang.IllegalStateException: Expected function but was call Reference node CALL 128 [free_call: 1] [source_file: Settings.js]
+	at com.google.javascript.jscomp.AstValidator$1.handleViolation(AstValidator.java:51)
+	at com.google.javascript.jscomp.AstValidator.violation(AstValidator.java:763)
+	at com.google.javascript.jscomp.AstValidator.validateNodeType(AstValidator.java:768)
+	at com.google.javascript.jscomp.AstValidator.validateFunctionExpression(AstValidator.java:359)
+	at com.google.javascript.jscomp.AstValidator.validateObjectLitGetKey(AstValidator.java:696)
+	at com.google.javascript.jscomp.AstValidator.validateObjectLitKey(AstValidator.java:677)
+	at com.google.javascript.jscomp.AstValidator.validateObjectLit(AstValidator.java:670)
+	at com.google.javascript.jscomp.AstValidator.validateExpression(AstValidator.java:252)
+	at com.google.javascript.jscomp.AstValidator.validateAssignmentExpression(AstValidator.java:603)
+	at com.google.javascript.jscomp.AstValidator.validateExpression(AstValidator.java:219)
+	at com.google.javascript.jscomp.AstValidator.validateExprStmt(AstValidator.java:476)
+	at com.google.javascript.jscomp.AstValidator.validateStatement(AstValidator.java:126)
+	at com.google.javascript.jscomp.AstValidator.validateScript(AstValidator.java:89)
+	at com.google.javascript.jscomp.AstValidator.validateCodeRoot(AstValidator.java:79)
+	at com.google.javascript.jscomp.AstValidator.process(AstValidator.java:63)
+	at com.google.javascript.jscomp.PhaseOptimizer$PassFactoryDelegate.processInternal(PhaseOptimizer.java:273)
+	at com.google.javascript.jscomp.PhaseOptimizer$NamedPass.process(PhaseOptimizer.java:250)
+	at com.google.javascript.jscomp.PhaseOptimizer.process(PhaseOptimizer.java:168)
+	at com.google.javascript.jscomp.Compiler.optimize(Compiler.java:1634)
+	at com.google.javascript.jscomp.Compiler.compileInternal(Compiler.java:664)
+	at com.google.javascript.jscomp.Compiler.access$000(Compiler.java:70)
+	at com.google.javascript.jscomp.Compiler$1.call(Compiler.java:559)
+	at com.google.javascript.jscomp.Compiler$1.call(Compiler.java:556)
+	at com.google.javascript.jscomp.Compiler$2.run(Compiler.java:601)
+	at java.lang.Thread.run(Thread.java:680)
+
+Comment:
+With advanced optimizations.
+
+Comment:
+This issue was closed by revision r1383.

@@ -1,0 +1,41 @@
+Summary: unicode characters in property names result in invalid output
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. use unicode characters in a property name for an object, like this:
+var test={&quot;a\u0004b&quot;:&quot;c&quot;};
+
+2. compile
+
+<b>What is the expected output? What do you see instead?</b>
+Because unicode characters are not allowed in property names without quotes, the output should be the same as the input. However, the compiler converts the string \u0004 to the respective unicode character, and the output is: 
+var test={ab:&quot;c&quot;}; // unicode character between a and b can not be displayed here
+
+<b>What version of the product are you using? On what operating system?</b>
+newest current snapshot on multiple os (OSX/linux)
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+Okay, I checked the source, and it appears this problem is not really unicode related.
+
+It appears that the function used to check for valid identifier names relies on isValidIdentifierName which in turn calls Character.isJavaIdentifierPart, and apparently that is true for \u0004 (EOT).
+huh?!
+
+Comment:
+Comment deleted
+
+Comment:
+I've created a patch that seems to resolve the issue; by using Character.isIdentifierIgnorable, the ascii control characters are detected and no longer incorrectly flagged as valid identifiers.
+Not entirely sure if any other functions need to be changed, or if this has any sideeffects, but for our projects it seems to work.
+
+Comment:
+Great, thanks for the report and patch!
+
+Comment:
+Could you sign a Contributor License Agreement to allow us to use your patch in the compiler?
+
+http://code.google.com/p/closure-compiler/source/browse/CONTRIBUTORS
+
+Comment:
+This issue was closed by revision 7f6700e2b54a.

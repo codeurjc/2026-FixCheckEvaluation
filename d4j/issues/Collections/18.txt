@@ -1,0 +1,71 @@
+Summary: performance problem in ListOrderedSet.retainAll()
+
+Description:
+Hi,
+
+I am encountering a performance problem in ListOrderedSet.retainAll().
+It appears in version 3.2.1 and also in revision 1365132.  I attached
+a test that exposes this problem and a patch that fixes it.  On my
+machine, for this test, the patch provides a 263X speedup.
+
+To run the test, just do:
+
+$ java Test
+
+The output for the un-patched version is:
+Time is 3682
+
+The output for the patched version is:
+Time is 14
+
+The problem is that the code for method
+"ListOrderedSet.retainAll(Collection<?> coll)" is:
+
+{code:java|borderStyle=solid}
+public boolean retainAll(Collection<?> coll) {
+    boolean result = collection.retainAll(coll);
+....
+}
+{code}
+
+because "collection.retainAll(coll)" has quadratic complexity if
+parameter "coll" is a List.  Conceptually, the solution is to call
+"coll.retainAll(collection)" which has linear complexity (not
+quadratic), because "collection" is always a HashSet (we know this,
+because "collection" is an inherited field of ListOrderedSet, and thus
+cannot have another type).  See the
+"java.util.AbstractCollection.retainAll()" code inlined below for why
+one call has quadratic complexity, and the other has linear
+complexity.
+
+Directly calling "coll.retainAll(collection)" would change the
+behavior of ListOrderedSet.retainAll(), which is why the patch seems a
+bit involved.  In reality, the patch simulates the behavior of
+"coll.retainAll(collection)" (which is just the intersection of two
+collections).  You can easily see this by looking at the patch and at
+the "java.util.AbstractCollection.retainAll()" code inlined below.
+
+"collection.retainAll(coll)" is "java.util.HashSet.retainAll()", which
+is "java.util.AbstractCollection.retainAll()", which has the code:
+
+{code:java|borderStyle=solid}
+public boolean retainAll(Collection<?> c) {
+    boolean modified = false;
+    Iterator<E> e = iterator();
+    while (e.hasNext()) {
+        if (!c.contains(e.next())) {
+            e.remove();
+            modified = true;
+        }
+    }
+    return modified;
+}
+{code} 
+
+
+Is this a bug, or am I misunderstanding the intended behavior?  If so,
+can you please confirm if the patch is correct?
+
+Thanks,
+
+Adrian

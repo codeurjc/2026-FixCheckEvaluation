@@ -1,0 +1,10 @@
+Title: Problem with Object Id and Type Id as Wrapper Object (regression in 2.5.1)
+
+Body:
+(note: originally from https://github.com/FasterXML/jackson-module-jaxb-annotations/issues/51)
+
+Looks like fix for #669 caused a regression for the special use case of combining type and object ids, with wrapper-object type id inclusion. The problem started with 2.5.1.
+
+
+Comment:
+Fixed for 2.6.5 (and, if ever released, 2.5.5-1 micro-patch), as well as `master` for 2.7.0 (-rc3, if one released).

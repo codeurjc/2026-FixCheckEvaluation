@@ -1,0 +1,145 @@
+Joda - Time / Bugs / #147 possibly a bug in org.joda.time.field.FieldUtils.safeMultipl
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+Joda - Time
+Bugs
+possibly a bug in org.joda.time.field.FieldUtils.safeMultipl
+Project moved to GitHub
+Brought to you by:
+broneill
+,
+scolebourne
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Code
+Svn
+Tickets ▾
+Bugs
+Feature Requests
+News
+Discussion
+Donate
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+v1.0_(example)
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#147 possibly a bug in org.joda.time.field.FieldUtils.safeMultipl
+Status:
+closed
+Owner:
+nobody
+Labels:
+Joda-Time (76)
+Priority:
+5
+Updated:
+2012-10-08
+Created:
+2012-04-23
+Creator:
+Colin Bartlett
+Private:
+No
+It seems to me that as currently written in joda-time-2.1.jar
+org.joda.time.field.FieldUtils.safeMultiply(long val1, int scalar)
+doesn't detect the overflow if the long val1 == Long.MIN_VALUE and the int scalar == -1.
+The attached file demonstrates what I think is the bug and suggests a patch.
+I looked at the Joda Time bugs list in SourceForge but couldn't see anything that looked relevant: my apologies if I've missed something, or if I'm making a mistake with this bug report.
+Colin Bartlett
+Discussion
+Colin Bartlett
+-
+2012-04-23
+demonstrates what I think may be a bug in org.joda.time.field.FieldUtils.safeMultiply(long, int)
+QJodaTimeSafeMultiply.java
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Colin Bartlett
+-
+2012-04-24
+I've just noticed this in the release notes for 2.1 in
+http://joda-time.sourceforge.net/upgradeto210.html
+release notes and advice for upgrading Joda-Time from version 2.0 to version 2.1.
+...
+Bug fixes since 2.0
+...
+Fix multiplication of Long.MIN_VALUE by -1 in safeMultiply()
+...
+Looking at the source code in FieldUtils.java for 2.0 and 2.1 this seems to refer to fixing
+safeMultiply(long val1, long val2)
+but not
+safeMultiply(long val1, int scalar)
+??
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Stephen Colebourne
+-
+2012-04-30
+Thanks, I've fixed the code in git
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

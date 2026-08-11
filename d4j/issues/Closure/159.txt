@@ -1,0 +1,78 @@
+Summary: Closure Compiler failed to translate all instances of a function name
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile the attached jQuery Multicheck plugin using SIMPLE optimization.
+
+<b>What is the expected output? What do you see instead?</b>
+You expect that the function preload_check_all() gets its name translated appropriately. In fact, the Closure Compiler breaks the code by changing the function declaration but NOT changing the call to the function on line 76.
+
+Comment:
+thanks for reporting this. this is an interesting bug to me.
+
+Comment:
+something's going wrong with the function inliner. it's trying to inline one of you functions, but botches the job. here's the simplest repro case i can come up with:
+
+(function($) {
+  $.fn.multicheck = function(options) {
+    initialize.call(this, options);
+  };
+
+  function initialize(options) {
+    options.checkboxes = $(this).siblings(':checkbox');
+    preload_check_all.call(this);
+  };
+
+  function preload_check_all() {
+    $(this).data('checkboxes');
+  };
+})(jQuery);
+
+Comment:
+// 1st: Only occur in an inline function like this.
+// Try to remove (function(){ and })() and problem is "solved"
+(function(){
+	// 2nd: Just for test, we need make this, instead,
+	// the preload_check_all don't will be renamed even
+	function problemOnRename() {
+		return alert(false);
+	};
+
+	// 3rd: We need it, because of 4th...
+	function initialize() {
+		// 5th: to bug works, we need use this in some part of code,
+		// like arg of "someMethod".
+		// Try to rename to problemOnRename and problem is "solved"
+		someMethod(this);
+		
+		// 6th: on end, we need use "this on this" on .call.
+		// Try to remove .call and problem is "solved"
+		problemOnRename.call(this);
+	}
+       
+	// 4th: only this exact method works, don't works:
+	// initialize() or initialize.call()...
+	// It say that problem is inline functions + this
+        // Try pass .call([this]) and problem is "solved"
+	initialize.call(this);
+})();
+
+The problem seems "live" on step 4th.
+
+Comment:
+@Nick: When I tried the original file at the command line, I got a runtime exception. Stack trace attached.
+
+Comment:
+That runtime exception will occur after you compile the code because Closure Compiler translates the name of the function in the declaration but not the call to the function. Other than that, the code is fine for me in several browsers uncompiled. Are you saying the uncompiled version is giving you an error?
+
+Comment:
+@chad:  this is the late var check doing its work.  The late var check is being skipped in some cases, Nick fixed that up this morning.
+
+Comment:
+@Nick the function inliner needs to be careful to resolved conflicts between inline candidates (so it doesn't inline a large function into a small function and then inline something that was small but is now large into many places). It is likely that code that is flawed.  I'll take a look in a bit if you haven't already.
+
+Comment:
+I have a fix under review for his.
+
+Comment:
+This issue was closed by revision r1011.

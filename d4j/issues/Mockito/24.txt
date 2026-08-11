@@ -1,0 +1,41 @@
+Summary: compareTo returns 1 for the same object
+
+Description:
+@Test
+    public void shouldCompareToTreatAsEqualMocksWithTheSameReferences() {
+        //given
+        Date today    = mock(Date.class);
+
+        //when
+        Set&lt;Date&gt; set = new TreeSet&lt;Date&gt;();
+        set.add(today);
+        set.add(today);
+
+        //then
+        assertEquals(1, set.size());
+    }
+
+<b>What is the expected output? What do you see instead?</b>
+Test passes
+
+<b>What version of the product are you using? On what operating system?</b>
+Windows/Linux x66 jdk1.7
+
+<b>Please provide any additional information below.</b>
+comapreTo should take into account reference equality
+
+Comment:
+Fix in https://github.com/mockito/mockito/pull/32
+Please review and merge if everything is ok.
+
+Comment:
+Looks good, once you've finished your modifications I'll merge it.
+
+Comment:
+Please close it as solution is alreadz merged into master
+
+Comment:
+Fixed in the PR, thanks by teh way ;)
+
+Comment:
+Issue 338 has been merged into this issue.

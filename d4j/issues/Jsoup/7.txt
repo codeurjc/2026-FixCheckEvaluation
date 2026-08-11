@@ -1,0 +1,18 @@
+Title: Page results in malformed tree
+
+Body:
+The page I will attach results in a Jsoup tree with two body elements, neither if which is a direct child of the html element.
+
+You will find the page in "git@github.com:bimargulies/Misc.git" under the jsoup-tc directory.
+
+
+Comment:
+Thanks, this is fixed now.
+
+
+Comment:
+Document normalisation now more correctly enforces document structure.
+- ensure only one head and one body element, both under html el
+- allow html/head/noscript/img for some site's analytic pattern
+
+Closed by 85ef3f67f589d6e520650fb6e2917677028cdbbb

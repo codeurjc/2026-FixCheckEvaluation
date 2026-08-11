@@ -1,0 +1,28 @@
+Summary: Online CC bug: report java error.
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. open http://closure-compiler.appspot.com/
+2. input js code:
+  function keys(obj) {
+    var a = [], i = 0;
+    for (a[i++] in obj)
+      ;
+    return a;
+  }
+3. press [compile] button.
+
+<b>What is the expected output? What do you see instead?</b>
+Except OK. See java error.
+
+<b>What version of the product are you using? On what operating system?</b>
+Online CC version.
+
+Comment:
+I never knew you can put an expression like this on the left hand side of the for-in loop.
+
+Comment:
+FYI, I checked in the fix. It'll not be a problem in the next release.
+
+Comment:
+This issue was closed by revision r1343.

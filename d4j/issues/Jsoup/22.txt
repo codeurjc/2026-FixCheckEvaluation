@@ -1,0 +1,20 @@
+Title: siblingElements in Element throws Null Pointer Exception
+
+Body:
+Hi,
+
+I have noticed that the sibling methods (nextSibling, previousSibling, siblingElements) rely on an element (underlying node) having a parent. If the node does not have a parent it throws null pointer exception.
+
+Would it be possible to modify the code so that it checks for parent nullness around Node.java:468? 
+
+In the event of nullness return null as in the javadoc?
+
+Confirmed in 1.6.2
+
+
+Comment:
+Thanks for pointing this out!
+
+
+Comment:
+Very cool. Thanks for the quick response again. Awesome project.

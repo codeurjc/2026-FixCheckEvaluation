@@ -1,0 +1,10 @@
+Title: abs: attribute prefix does not work on Elements.attr()
+
+Body:
+Elements.attr() iterates on its element to look for the first one with the given attrbute.
+
+If I try to get the attribute abs:href, the test element.hasAttr("abs:herf") fails, and the returned value is an empty string. 
+
+
+Comment:
+Thanks for pointing this out!

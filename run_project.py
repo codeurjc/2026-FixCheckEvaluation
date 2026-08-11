@@ -34,7 +34,7 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
-from defects4j_bugs import PROJECTS, resolve_bug_ids
+from d4j.defects4j_bugs import PROJECTS, resolve_bug_ids
 from experiment_runner import (
     add_experiment_flags,
     clean_checkout,

@@ -1,0 +1,12 @@
+Summary: Auto-identify void functions
+
+Description:
+function f() {
+}
+
+alert(f());
+
+should emit a warning
+
+Comment:
+This issue was closed by revision r249.

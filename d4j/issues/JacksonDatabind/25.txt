@@ -1,0 +1,74 @@
+Title: Exception deserializing a byte[] when the target type comes from an annotation
+
+Body:
+When trying to deserialize a `byte[]` from a `Map` when the deserialization type comes from an annotation, I'm seeing the following exception:
+
+```
+java.lang.IllegalArgumentException: Can not deserialize Class [B (of type array) as a Bean
+        at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.isPotentialBeanType(BeanDeserializerFactory.java:808)
+        at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.createBeanDeserializer(BeanDeserializerFactory.java:138)
+        at com.fasterxml.jackson.databind.deser.DeserializerCache._createDeserializer2(DeserializerCache.java:403)
+        at com.fasterxml.jackson.databind.deser.DeserializerCache._createDeserializer(DeserializerCache.java:352)
+        at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCache2(DeserializerCache.java:264)
+        at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCacheValueDeserializer(DeserializerCache.java:244)
+        at com.fasterxml.jackson.databind.deser.DeserializerCache.findValueDeserializer(DeserializerCache.java:142)
+        at com.fasterxml.jackson.databind.DeserializationContext.findContextualValueDeserializer(DeserializationContext.java:428)
+        at com.fasterxml.jackson.databind.deser.std.StdDeserializer.findDeserializer(StdDeserializer.java:947)
+        at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.resolve(BeanDeserializerBase.java:439)
+        at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCache2(DeserializerCache.java:296)
+        at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCacheValueDeserializer(DeserializerCache.java:244)
+        at com.fasterxml.jackson.databind.deser.DeserializerCache.findValueDeserializer(DeserializerCache.java:142)
+        at com.fasterxml.jackson.databind.DeserializationContext.findRootValueDeserializer(DeserializationContext.java:461)
+        at com.fasterxml.jackson.databind.ObjectMapper._findRootDeserializer(ObjectMapper.java:3804)
+        at com.fasterxml.jackson.databind.ObjectMapper._convert(ObjectMapper.java:3418)
+        at com.fasterxml.jackson.databind.ObjectMapper.convertValue(ObjectMapper.java:3351)
+```
+
+The below is a repro.
+
+``` java
+public class JacksonTest {
+
+    static class Foo {
+        @JsonProperty
+        @JsonDeserialize(as=byte[].class)
+        Object someBytes;
+    }
+
+    public void testFooFromMap() {
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("someBytes", "HelloWorld".getBytes());
+
+        ObjectMapper m = new ObjectMapper();
+        m.convertValue(map, Foo.class);
+    }
+}
+```
+
+I discovered this on 2.5.1, but I tried 2.6.0 and it's exhibiting the same behavior.
+
+Thanks!
+
+
+Comment:
+Interesting. I suspect this has to do with the way type overrides are passed, and the fact that `JavaType` for `byte[]` is an `ArrayType`. Looks like I can reproduce this without conversion, with plain deserialization.
+
+
+Comment:
+Yeah, it looks like when `BasicDeserializer.modifyTypeByAnnotation()` is called for the annotated field, it updates the field's `JavaType` (a `SimpleType` of Object.class) using `narrowBy()`.  
+
+But `SimpleType.narrowBy(byte[].class)` just creates a new `SimpleType` of the subclass, in this case a  `SimpleType` of `byte[].class`, when it should probably be returning the appropriate `ArrayType`.
+
+
+Comment:
+Right, the problem is that `JavaType` really has no way to change itself appropriately. But `TypeFactory` had `constructSpecializedType()` added at some point during 2.x, which was added to basically replace `JavaType.narrowBy()`. It is not perfect, but handles this particular case properly.
+
+
+Comment:
+Thanks for the quick fix!
+
+
+Comment:
+np, thank you for reporting! Surprising no one had encountered this before.
+Fix is in 2.6.1, which was released last night.

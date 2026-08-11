@@ -1,0 +1,32 @@
+Summary: [Zip] Local `Version Needed To Extract` does not match Central Directory
+
+Description:
+Hi,
+
+This is followup on an issue reported on Plexus Archiver - https://github.com/codehaus-plexus/plexus-archiver/issues/57
+
+Plexus Archiver uses {{ZipArchiveOutputStream}} to create zip archives. It constructs the {{ZipArchiveOutputStream}} using {{BufferedOutputStream}}. As a result the output do not provide random access and additional data descriptor records are added. Unfortunately this leads to different values being set for {{version needed to extract}} field in the local file header and in the central directory. It looks like that the root cause is the way the local header {{version needed to extract}} field value is calculated:
+{code:java}
+        if (phased &&  !isZip64Required(entry.entry, zip64Mode)){
+            putShort(INITIAL_VERSION, buf, LFH_VERSION_NEEDED_OFFSET);
+        } else {
+            putShort(versionNeededToExtract(zipMethod, hasZip64Extra(ze)), buf, LFH_VERSION_NEEDED_OFFSET);
+        }
+{code}
+
+As you can see the need for data descriptors is not taken into account. On other hand when the central directory is created the following is used to determine the minimum required version
+
+{code:java}
+    private int versionNeededToExtract(final int zipMethod, final boolean zip64) {
+        if (zip64) {
+            return ZIP64_MIN_VERSION;
+        }
+        // requires version 2 as we are going to store length info
+        // in the data descriptor
+        return (isDeflatedToOutputStream(zipMethod)) ?
+                DATA_DESCRIPTOR_MIN_VERSION :
+                INITIAL_VERSION;
+    }
+{code}
+
+As a side note: I'm not a zip expert by any means so I could be wrong, but my understanding is that if Deflate compression is used then the minimum required version should be 2.0 regardless if data descriptors are used or not.

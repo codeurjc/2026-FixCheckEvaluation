@@ -1,0 +1,48 @@
+Summary: @this emits warning when used with a typedef
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+1. Compile this with r520:
+
+goog.provide('bug');
+
+/**
+ * @this {bug.Thing}
+ */
+bug.sharedMethod = function() {};
+
+/**
+ * @constructor
+ */
+bug.A = function() {};
+
+/**
+ * @constructor
+ */
+bug.B = function() {};
+
+/**
+ * @type {bug.A|bug.B}
+ */
+bug.Thing = goog.typedef;
+
+2. Observe this warning:
+
+Oct 28, 2010 9:59:15 PM com.google.javascript.jscomp.PhaseOptimizer$NamedPass process
+INFO: sanityCheckVars
+Oct 28, 2010 9:59:15 PM com.google.javascript.jscomp.LoggerErrorManager println
+WARNING: /home/elf/JSPATH/compiler_bug_this_typedef.js:6: WARNING - @this type of a function must be an object
+Actual type: (bug.A|bug.B|null)
+bug.sharedMethod = function() {};
+
+
+Note that @this {!bug.Thing} doesn't work either, while @this {bug.A|bug.B} works.  This code did not emit a warning in r481.
+
+This code is what caused me to run into http://code.google.com/p/closure-compiler/issues/detail?id=268
+
+Comment:
+thanks for the report. the fix will get committed on monday.
+
+Comment:
+This issue was closed by revision r529.

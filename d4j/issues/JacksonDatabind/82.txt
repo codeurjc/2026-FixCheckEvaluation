@@ -1,0 +1,311 @@
+Title: `JsonIgnoreProperties.allowSetters` is not working in Jackson 2.8
+
+Body:
+```
+@JsonIgnoreProperties(value = { "password" }, ignoreUnknown = true, allowSetters = true)
+public class JsonTest {
+	private String username;
+	private String password;
+
+	public JsonTest() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+
+	public JsonTest(String username, String password) {
+		super();
+		this.username = username;
+		this.password = password;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public static void main(String[] args) {
+		ObjectMapper mapper = new ObjectMapper();
+
+		JsonTest json = new JsonTest("user", "password");
+
+		try {
+			System.out.println(mapper.writeValueAsString(json));
+		} catch (JsonProcessingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		String jsonString = "{ \"username\":\"username\",\"password\":\"password\" }";
+		try {
+			json = mapper.readValue(jsonString, JsonTest.class);
+
+			System.out.println(json.getPassword());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+}
+```
+
+the version is 2.8.7.
+the password cannot deserialize.
+the output is:
+{"username":"user"}
+null
+
+Comment:
+I can not reproduce the issue with 2.8.8; but maybe I don't understand what the problem is?
+Test should check for values; printing JSON out doesn't necessarily help as much.
+All I can see is output being printed as expected.
+
+One possibility is that fix for #1345 or #1575 (both included in 2.8.8) could maybe have resolved this issue.
+
+
+Comment:
+```
+		String jsonString = "{ \"username\":\"username\",\"password\":\"password\" }";
+		try {
+			json = mapper.readValue(jsonString, JsonTest.class);
+
+			System.out.println(json.getPassword());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+```
+I expect the output to be "password", but is "null"
+
+当allowSetters为true时,我认为应该是可以从String中反序列化的.
+但是这里可以看到没有从String中读取到password属性.
+
+
+
+
+Comment:
+@AnywnYu what I was saying was that this is not what I see with version 2.8.8: `password` seems to be correctly deserialized. So is it possible you may be running this against an earlier version?
+
+Comment:
+@cowtowncoder
+
+My version is 2.8.8,
+password can not be deserialized and the output is null
+
+
+Comment:
+@AnywnYu at this I can not reproduce this -- without functioning unit test there is nothing I can do. 
+I will be closing the issue soon.
+
+
+Comment:
+@cowtowncoder 
+I don't know what 'functioning unit test' you need?
+Could you tell me what is the output with the follow code? Please.
+I expect the output to be "password", but is "null".
+The  version is 2.8.8.
+```
+@JsonIgnoreProperties(value = { "password" }, allowSetters = true)
+public class JsonTest {
+	private String username;
+	private String password;
+
+	public JsonTest() {
+		super();
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public static void main(String[] args) {
+		ObjectMapper mapper = new ObjectMapper();
+
+		String jsonString = "{ \"username\":\"username\",\"password\":\"password\" }";
+		try {
+			JsonTest json = mapper.readValue(jsonString, JsonTest.class);
+
+			System.out.println(json.getPassword());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+}
+```
+我使用的是2.8.8版本.
+这个例子中,我希望能从字符串中反序列化password,运行结果输出:password.
+但是,没有能从字符串中反序列化password字段,输出的结果也是:null.
+
+我debug发现下面的代码并未区分allowSetters是否为true,所有JsonIgnoreProperties定义的字段都被忽略了.在循环处理的字段中没有包含password.
+com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.addBeanProps(DeserializationContext, BeanDescription, BeanDeserializerBuilder): Line 459~Line 466
+```
+        if (ignorals != null) {
+            boolean ignoreAny = ignorals.getIgnoreUnknown();
+            builder.setIgnoreUnknownProperties(ignoreAny);
+            // Or explicit/implicit definitions?
+            ignored = ignorals.getIgnored();
+            for (String propName : ignored) {
+                builder.addIgnorable(propName);
+            }
+        } else {
+            ignored = Collections.emptySet();
+        }
+```
+com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.filterBeanProps(DeserializationContext, BeanDescription, BeanDeserializerBuilder, List<BeanPropertyDefinition>, Set<String>): Line603
+
+
+![workspace](https://cloud.githubusercontent.com/assets/17541281/25273273/ae88d53a-26bd-11e7-8a4c-7bfd7a110ada.png)
+
+
+Comment:
+@AnywnYu  I am not going to spend any time running various things, except for one specific thing: failing unit test. That is, class that has a JUnit test case, and one that fails. If that is provided, please re-open.
+
+Comment:
+the issue exsits.
+allowSetters=true is not working in 2.8.8, since increased from 2.6.7.
+you should spend more time about how to run test.
+
+Comment:
+@runjia1987 我的英文不怎么样,没看太明白.
+你能否提供给@cowtowncoder一个能跑的test case?
+
+Comment:
+@AnywnYu, a simple case below, should surely reproduce this issue.
+_object class:_
+```
+@Setter
+@Getter
+@JsonIgnoreProperties(value = {"name"}, allowSetters = true)
+public class Simple {
+  private int id;
+  private String name;
+  private String creator;
+  private String business;
+}
+```
+_test class:_
+```
+@Test
+  public void testDeserialize2() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    Simple config = new Simple();
+    config.setId(123);
+    config.setName("jack");
+    config.setCreator("god");
+    config.setBusiness("cars");
+    String json = mapper.writeValueAsString(config);
+    System.out.println(json); // name is not serialized as expected
+    String original = "{\"id\":123,\"name\":\"jack\",\"creator\":\"god\",\"business\":\"cars\"}";
+    Simple des = mapper.readValue(original, Simple.class);
+    System.out.println(des.getName()); **// name is not deserialized as expected**
+  }
+```
+_build.gradle:_
+```
+    compile 'com.fasterxml.jackson.core:jackson-core:2.8.8'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.8.1'
+    compile 'com.fasterxml.jackson.core:jackson-annotations:2.8.8'
+    compile 'com.fasterxml.jackson.jaxrs:jackson-jaxrs-base:2.8.8'
+    compile 'com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:2.8.8'
+    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.8.8'
+//    compile 'com.fasterxml.jackson.core:jackson-core:2.6.7'
+//    compile 'com.fasterxml.jackson.core:jackson-databind:2.6.7'
+//    compile 'com.fasterxml.jackson.core:jackson-annotations:2.6.7'
+//    compile 'com.fasterxml.jackson.jaxrs:jackson-jaxrs-base:2.6.7'
+//    compile 'com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:2.6.7'
+//    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.6.7'
+```
+switch between the jackson versions in gradle, u will see the 2.8.x behaves wrong.
+
+Comment:
+@runjia1987 It is _almost_ unit test; all that it lacks are assertions. Printing values out is not a test.
+But I can add that.
+
+However: what are `@Setter` and `@Getter` annotations? Is this using something like Lombok?
+If so, I would also need expanded class; actual class used in runtime.
+
+
+
+Comment:
+@cowtowncoder 
+It is Lombok, and you may replace the annotations with IDE-generated getter/setter methods(eclipse / IDEA).
+Deserialization output is the same, we expect name field to be deserialized, but not.
+```
+@JsonIgnoreProperties(value = {"name"}, allowSetters = true)
+public class Simple {
+
+  private int id;
+
+  private String name;
+
+  private String creator;
+
+  private String business;
+
+  public int getId() {
+    return id;
+  }
+
+  public void setId(int id) {
+    this.id = id;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
+  }
+
+  public String getCreator() {
+    return creator;
+  }
+
+  public void setCreator(String creator) {
+    this.creator = creator;
+  }
+
+  public String getBusiness() {
+    return business;
+  }
+
+  public void setBusiness(String business) {
+    this.business = business;
+  }
+}
+```
+
+Comment:
+@runjia1987 Thank you. Lombok depedency is specifically not accepted for Jackson unit tests (due to it not working solely via Maven, requires add'l installation), and definition of stand-alone test is that code works as-is.
+
+At this point test seems almost complete. I hope to find time to look into this at some point.
+
+
+Comment:
+@AnywnYu @runjia1987 Thank you for reporting this: looks like it was a regression from 2.7 due to refactoring of annotation handling. Fix will be in 2.8.9 patch release.

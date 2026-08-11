@@ -1,0 +1,45 @@
+Summary: goog.isArray doesn't hint compiler
+
+Description:
+<b>What steps will reproduce the problem?</b>
+<b>1.</b>
+
+/**
+ * @param {*} object
+ * @return {*}
+ */
+var test = function(object) {
+  if (goog.isArray(object)) {
+    /** @type {Array} */ var x = object;
+    return x;
+  }
+};
+
+2. ADVANCED_OPTIMIZATIONS
+
+<b>What is the expected output? What do you see instead?</b>
+
+ERROR - initializing variable
+found   : *
+required: (Array|null)
+    /** @type {Array} */ var x = object;
+                                 ^
+<b>What version of the product are you using? On what operating system?</b>
+
+Closure Compiler (http://code.google.com/closure/compiler)
+Version: v20130411-90-g4e19b4e
+Built on: 2013/06/03 12:07
+
+<b>Please provide any additional information below.</b>
+
+goog.is* is supposed to help the compiler to check which type we're dealing with.
+
+Comment:
+fix posted here
+https://codereview.appspot.com/15490043/
+
+Comment:
+This issue was closed by revision 6f981f77e5bd.
+
+Comment:
+This issue was closed by revision 6f981f77e5bd.

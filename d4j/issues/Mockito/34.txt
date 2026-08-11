@@ -1,0 +1,46 @@
+Summary: Invocation.thenReturn() may fail with varargs (similar to issue 123)
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Has a class with a method like this: blah(Object... o)
+2. Stub it like this: when(mock.blah(anyVararg())).thenReturn(-1)
+3. Run test.
+
+<b>What is the expected output? What do you see instead?</b>
+It should return -1 on both calls, instead it threw an 
+ArrayIndexOutOfBoundsException on the second assert
+
+<b>What version of the product are you using? On what operating system?</b>
+1.8.1
+MacOS 10.5.8
+
+<b>Please provide any additional information below.</b>
+	class Foo {
+		int blah(Object... o) {
+			return 0;
+		}
+	}
+
+	@Test
+	public void shouldNotThrowAnyException() throws Exception {
+		Foo foo = mock(Foo.class);
+
+		when(foo.blah(anyVararg())).thenReturn(-1);
+		
+		assertEquals(-1, foo.blah(&quot;foo&quot;));
+		assertEquals(-1, foo.blah());
+	}
+
+Comment:
+This issue was closed by revision r1790.
+
+Comment:
+Ouch... Thanks a lot for reporting! 
+
+It's fixed in trunk, will try to get it out soon.
+
+Comment:
+looks great - looking forward to the release.  thanks for the quick fix!
+
+Comment:
+Released in 1.8.2 on 12-12-2009

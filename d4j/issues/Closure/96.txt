@@ -1,0 +1,38 @@
+Summary: Missing type-checks for var_args notation
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile this:
+//-------------------------------------
+// ==ClosureCompiler==
+// @compilation_level SIMPLE_OPTIMIZATIONS
+// @warning_level VERBOSE
+// @output_file_name default.js
+// @formatting pretty_print
+// ==/ClosureCompiler==
+
+/**
+* @param {...string} var_args
+*/
+function foo(var_args) {
+    return arguments.length;
+}
+
+foo('hello'); // no warning - ok
+foo(123); // warning - ok
+foo('hello', 123); // no warning! error.
+//-------------------------------------
+
+<b>What is the expected output? What do you see instead?</b>
+Should get a type-mismatch warning for the second parameter in the third foo() call.
+
+<b>What version of the product are you using? On what operating system?</b>
+Both online compiler and the 20100616 release.
+
+<b>Please provide any additional information below.</b>
+Seems like the type-checker treats 'var_args' as a single param and thus fails to type check the subsequent parameters.
+
+// Fredrik
+
+Comment:
+This issue was closed by revision r402.

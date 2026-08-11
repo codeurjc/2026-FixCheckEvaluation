@@ -1,0 +1,81 @@
+Title: Block more JDK types from polymorphic deserialization (CVE 2017-15095)
+
+Body:
+(note: follow-up for #1599)
+
+After initial set of types blocked new reports have arrived for more black-listing.
+Although eventual approach is likely to rely separate module (for more timely updates and wider version coverage), at this point addition in databind is needed.
+
+I will update specific list of additions once complete and release is out. Target versions are `2.8.10` and `2.9.1` -- it is possible to backport in 2.7 and even 2.6, but there is diminishing return on effort with those versions so it will not happen unless specifically requested (I'm happy to merge PRs).
+
+
+Comment:
+> Target versions are 2.8.10 and 2.9.1 -- it is possible to backport in 2.7 and even 2.6
+
+It would be really nice to have this for 2.7 as well since 2.8 requires JDK 7 and a library I maintain which depends on jackson-databind supports JDK 6 (for a little while longer).   I created #1857 to apply `ddfddfb` on 2.7, it would be really great if that could be included in a future 2.7 release, thanks!
+
+Comment:
+@tolbertam Thanks. I'll keep this in mind -- there are occasionally other updates in this area. There is some cost or us to maintain older versions, but 2.7 is probably ok for simple blacklist additions.
+Thank you for your help with backport.
+
+
+Comment:
+As per conversation it looks that this "CVE 2017-15095" does not fixed in 2.6.7.1 version . As mentioned that it is possible to backport in 2.6 as well,  it would be really nice to have this for 2.6. 
+Actually we are using 2.6.1 version & if we move 2.8.10, 2.9.1 then it gives us lot of dependency change in scala_module_2_11.  
+
+Comment:
+@poverma As a volunteer-based OSS project we do not have resources to maintain large number of backported versions; and since there is no revenue it is even counter-productive to do so. More that they are supported, more users postpone upgrades. So at this point it is unlikely that 2.6 version will get more fixes, at least for polymorphic deserialization problem that only affects certain group of users, and is not a general security issue.
+
+
+Comment:
+Thanks cowtowncoder. we have tried with jackson-databind 2.9.4 version for that we have to upgrade scala minor version to 11. but there is dependency issue 
+What we changed:
+    jackson:[[group: 'com.fasterxml.jackson.core', name:'jackson-core', version:'2.9.4'],
+             [group:'com.fasterxml.jackson.core', name:'jackson-annotations', version:'2.9.4'],
+             [group:'com.fasterxml.jackson.jaxrs', name:'jackson-jaxrs-json-provider', version:'2.9.4'],
+             [group:'com.fasterxml.jackson.jaxrs', name:'jackson-jaxrs-base', version:'2.9.4'],
+             [group:'com.fasterxml.jackson.core', name:'jackson-databind', version:'2.9.4'],
+             [group:'com.fasterxml.jackson.module', name:'jackson-module-scala_2.11', version:'2.9.4']],
+Error:
+* What went wrong:
+Execution failed for task ':apps:release:dependencies'.
+> Could not resolve all dependencies for configuration ':apps:release:resolve'.
+   > A conflict was found between the following modules:
+      - org.scala-lang:scala-reflect:2.11.11
+      - org.scala-lang:scala-reflect:2.11.7
+
+Comment:
+Problems with Scala version compatibility are unrelated, but you might want to upgrade to `2.8.11` instead, as the first step.
+
+As to conflict itself: that is something your build system (gradle?) would have to help with.
+
+
+Comment:
+For further info: https://medium.com/@cowtowncoder/on-jackson-cves-dont-panic-here-is-what-you-need-to-know-54cd0d6e8062
+
+
+Comment:
+In which release CVE-2017-15095 for jackson-databind-2.4.3 version?
+
+Comment:
+@samawarad please read this link - CVE-2017-15095
+
+Comment:
+> In which release [CVE-2017-15095](https://github.com/advisories/GHSA-h592-38cm-4ggp) for jackson-databind-2.4.3 version?
+
+Thanks for the quick reply. We have 3 vulnerabilities reported CVE-2017-7525, CVE-2017-17485 and 
+CVE-2017-15095 for jackson-databind 2.2.3 and 2.4.3 version. As per my understanding fix for CVE-2017-7525 is extended to CVE-2017-17485 and CVE-2017-15095.
+
+Can you please share me the pointers, about nearest minor version of jackson-databind where all 3 vulnerabilities are fixed?
+
+Comment:
+> > In which release [CVE-2017-15095](https://github.com/advisories/GHSA-h592-38cm-4ggp) for jackson-databind-2.4.3 version?
+> 
+> Thanks for the quick reply. We have 3 vulnerabilities reported [CVE-2017-7525](https://github.com/advisories/GHSA-qxxx-2pp7-5hmx), [CVE-2017-17485](https://github.com/advisories/GHSA-rfx6-vp9g-rh7v) and [CVE-2017-15095](https://github.com/advisories/GHSA-h592-38cm-4ggp) for jackson-databind 2.2.3 and 2.4.3 version. As per my understanding fix for [CVE-2017-7525](https://github.com/advisories/GHSA-qxxx-2pp7-5hmx) is extended to [CVE-2017-17485](https://github.com/advisories/GHSA-rfx6-vp9g-rh7v) and [CVE-2017-15095](https://github.com/advisories/GHSA-h592-38cm-4ggp).
+> 
+> Can you please share me the pointers, about nearest minor version of jackson-databind where all 3 vulnerabilities are fixed?
+
+Can you please read the CVEs? They contain the version numbers.
+
+Comment:
+Locking this issue to prevent time wasting by individual developers. All information should be available; and if not, a new discussion should be created with links to whatever asker has already found (we do have issues for CVEs; Mitre et al have theirs)

@@ -1,0 +1,50 @@
+Title: Jsoup 1.11.3: IndexOutOfBoundsException
+
+Body:
+Hi, I am using Jsoup 1.11.3. While trying to parse HTML content, I'm getting IndexOutOfBoundsException.
+
+I am using such Jsoup call as this is the only way to parse iframe content.
+
+Jsoup call:
+
+`Jsoup.parse(html, "", Parser.xmlParser())`
+
+HTML is here:  https://files.fm/u/v43yemgb. I can't add it to the body as it's huge.
+
+Comment:
+To reproduce:
+```
+String html = "<script> var a=\"<?\"; var b=\"?>\"; </script>";
+Document doc = Jsoup.parse(html, "", Parser.xmlParser());
+```
+I don't think XML parser is suitable for this page as it expects everything inside <script> to be XML. 
+Try using standard HTML parser:
+```
+Document doc = Jsoup.parse(html);
+```
+
+Comment:
+Hi, @krystiangorecki 
+
+I am using current parser to avoid iframe content encoding based on your answer to [this issue](https://github.com/jhy/jsoup/issues/1125). So, using default parser is not an option.
+
+Comment:
+I ran into the same issue with Jsoup 1.11.3 and hibernate-validator 6.0.10.Final. 
+The input value is 'rlJ2=<?t' and exception is:
+
+`Caused by: java.lang.IndexOutOfBoundsException: Index: 0, Size: 0
+	at java.util.ArrayList.rangeCheck(ArrayList.java:653)
+	at java.util.ArrayList.get(ArrayList.java:429)
+	at org.jsoup.nodes.Element.child(Element.java:254)
+	at org.jsoup.parser.XmlTreeBuilder.insert(XmlTreeBuilder.java:92)
+	at org.jsoup.parser.XmlTreeBuilder.process(XmlTreeBuilder.java:49)
+	at org.jsoup.parser.TreeBuilder.runParser(TreeBuilder.java:52)
+	at org.jsoup.parser.TreeBuilder.parse(TreeBuilder.java:45)
+	at org.jsoup.parser.Parser.parseInput(Parser.java:34)
+	at org.jsoup.Jsoup.parse(Jsoup.java:45)
+	at org.hibernate.validator.internal.constraintvalidators.hv.SafeHtmlValidator.getFragmentAsDocument(SafeHtmlValidator.java:90)
+	at org.hibernate.validator.internal.constraintvalidators.hv.SafeHtmlValidator.isValid(SafeHtmlValidator.java:80)
+	at org.hibernate.validator.internal.constraintvalidators.hv.SafeHtmlValidator.isValid(SafeHtmlValidator.java:31)`
+
+Comment:
+Thanks! Fixed

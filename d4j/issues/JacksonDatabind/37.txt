@@ -1,0 +1,171 @@
+Title: Field in base class is not recognized, when using `@JsonType.defaultImpl`
+
+Body:
+When deserializing JSON to Java POJOS, a field inherited from a base class is not recognized. Here is the stack:
+
+```
+com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field "name" (class org.apache.calcite.model.JsonMapSchema), not marked as ignorable (2 known properties: "functions", "tables"])
+ at [Source: {
+  version: '1.0',
+   schemas: [
+     {
+       name: 'FoodMart',
+       tables: [
+         {
+           name: 'time_by_day',
+           columns: [
+             {
+               name: 'time_id'
+             }
+           ]
+         },
+         {
+           name: 'sales_fact_1997',
+           columns: [
+             {
+               name: 'time_id'
+             }
+           ]
+         }
+       ]
+     }
+   ]
+}; line: 24, column: 7] (through reference chain: org.apache.calcite.model.JsonRoot["schemas"]->java.util.ArrayList[0]->org.apache.calcite.model.JsonMapSchema["name"])
+
+    at com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException.from(UnrecognizedPropertyException.java:62)
+    at com.fasterxml.jackson.databind.DeserializationContext.reportUnknownProperty(DeserializationContext.java:855)
+    at com.fasterxml.jackson.databind.deser.std.StdDeserializer.handleUnknownProperty(StdDeserializer.java:1083)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.handleUnknownProperty(BeanDeserializerBase.java:1389)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.handleUnknownVanilla(BeanDeserializerBase.java:1367)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.vanillaDeserialize(BeanDeserializer.java:266)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer._deserializeOther(BeanDeserializer.java:163)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:135)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer._deserializeTypedUsingDefaultImpl(AsPropertyTypeDeserializer.java:136)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer.deserializeTypedFromObject(AsPropertyTypeDeserializer.java:99)
+    at com.fasterxml.jackson.databind.deser.AbstractDeserializer.deserializeWithType(AbstractDeserializer.java:142)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:279)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:249)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:26)
+    at com.fasterxml.jackson.databind.deser.SettableBeanProperty.deserialize(SettableBeanProperty.java:490)
+    at com.fasterxml.jackson.databind.deser.impl.FieldProperty.deserializeAndSet(FieldProperty.java:101)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.vanillaDeserialize(BeanDeserializer.java:260)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:125)
+    at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3788)
+    at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2779)
+    at org.apache.calcite.test.ModelTest.testRead(ModelTest.java:58)
+    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.lang.reflect.Method.invoke(Method.java:483)
+    at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:50)
+    at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+    at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:47)
+    at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+    at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:325)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:78)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:57)
+    at org.junit.runners.ParentRunner$3.run(ParentRunner.java:290)
+    at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:71)
+    at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:288)
+    at org.junit.runners.ParentRunner.access$000(ParentRunner.java:58)
+    at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:268)
+    at org.junit.runners.ParentRunner.run(ParentRunner.java:363)
+    at org.junit.runner.JUnitCore.run(JUnitCore.java:137)
+    at com.intellij.junit4.JUnit4IdeaTestRunner.startRunnerWithArgs(JUnit4IdeaTestRunner.java:69)
+    at com.intellij.rt.execution.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:234)
+    at com.intellij.rt.execution.junit.JUnitStarter.main(JUnitStarter.java:74)
+    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.lang.reflect.Method.invoke(Method.java:483)
+    at com.intellij.rt.execution.application.AppMain.main(AppMain.java:144)
+```
+
+My `JsonMapSchema` class has a base class `JsonSchema` and it has a public field `name`. See https://github.com/apache/calcite/blob/master/core/src/test/java/org/apache/calcite/test/ModelTest.java.
+
+I have an application that worked in 2.6.3, fails in 2.7.0, so I suspect this is a regression. 
+
+
+Comment:
+That does seem wrong.
+
+Would it be possible to have a minimalistic test case? I assume much of this could be removed while still reproduce the exception.
+
+
+Comment:
+Here you go:
+
+``` java
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ModelTest2 {
+  public static void main(String[] args) throws IOException {
+    final ObjectMapper mapper = new ObjectMapper();
+    mapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
+    mapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
+    final String json = "{\n"
+        + "   schemas: [\n"
+        + "     {\n"
+        + "       name: 'FoodMart'\n"
+        + "     }\n"
+        + "   ]\n"
+        + "}";
+    mapper.readValue(json, JsonRoot.class);
+  }
+
+  public static class JsonRoot {
+    public final List<JsonSchema> schemas = new ArrayList<>();
+  }
+
+  @JsonTypeInfo(
+      use = JsonTypeInfo.Id.NAME,
+      property = "type",
+      defaultImpl = JsonMapSchema.class)
+  @JsonSubTypes({
+      @JsonSubTypes.Type(value = JsonMapSchema.class, name = "map"),
+      @JsonSubTypes.Type(value = JsonJdbcSchema.class, name = "jdbc") })
+  public static abstract class JsonSchema {
+    public String name;
+  }
+
+  public static class JsonMapSchema extends JsonSchema {
+  }
+  public static class JsonJdbcSchema extends JsonSchema {
+  }
+}
+```
+
+
+Comment:
+Thanks!
+
+
+Comment:
+Yes, I can reproduce this.
+
+Interesting enough, this only occurs when `defaultImpl` is used (explicit type id gives no trouble).
+And it is related to the only warning within code, related to construction of `JavaType` for `defaultImpl`, so this is related to refactoring of type resolution system in 2.7. All in all makes sense it's just for this case, as otherwise many other tests should be failing.
+Could be related to one other problem I fixed bit earlier, related to constructor in `SimpleType`.
+
+
+Comment:
+Ok... somewhat ironic; this was due to one thing I suspected could cause problems. And so it did.
+
+I was able to patch this to pass for tested case, and some others; but I'll file another issue for a bigger fix that may need to wait until 2.8. But patch should work for common cases until then.
+
+
+Comment:
+Glad I was able to help. Having just upgraded from 2.1.1, I'm perfectly happy with 2.6.3 for now and looking forward to trying YAML support.
+
+By the way, thank you for producing an excellent open source project. Jackson is a pleasure to use.
+
+
+Comment:
+@julianhyde Thank you -- glad you have enjoyed using it. And also for the bug report.

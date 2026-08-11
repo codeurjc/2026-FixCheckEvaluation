@@ -1,0 +1,12 @@
+Summary: Arbitrary remote code execution with InvokerTransformer
+
+Description:
+With {{InvokerTransformer}} serializable collections can be build that execute arbitrary Java code. {{sun.reflect.annotation.AnnotationInvocationHandler#readObject}} invokes {{#entrySet}} and {{#get}} on a deserialized collection. If you have an endpoint that accepts serialized Java objects (JMX, RMI, remote EJB, ...) you can combine the two to create arbitrary remote code execution vulnerability.
+
+I don't know of a good fix short of removing {{InvokerTransformer}} or making it not Serializable. Both probably break existing applications.
+
+This is not my research, but has been discovered by other people.
+
+https://github.com/frohoff/ysoserial
+
+http://foxglovesecurity.com/2015/11/06/what-do-weblogic-websphere-jboss-jenkins-opennms-and-your-application-have-in-common-this-vulnerability/

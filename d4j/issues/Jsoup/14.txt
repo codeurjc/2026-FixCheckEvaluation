@@ -1,0 +1,49 @@
+Title: Unclosed title tag causes JSoup to "eat up" rest of document
+
+Body:
+Hi:
+
+We've come across an issue with parsing a document with an unclosed title tag. JSoup
+seems to "eat up" the rest of the document in its parsing and thus no elements after
+the unclosed tag are available after the parse.
+
+While this is obviously not a valid document Firefox seems to handle it OK by displaying
+the document and saying "Untitled document" in its title bar.
+
+We come across a lot of badly formed documents in our web crawls so having a fix
+for this issue would be much appreciated. I've given some sample source below
+which demonstrates the bug (tested against JSoup 1.5.2).
+
+Many thanks,
+- Francis.
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
+public class UnclosedTitleTest {
+
+```
+public static void main(String args[]) throws Exception {
+    String html = "<html><head><title>First parse</head>"
+          + "<body><p>Parsed HTML into a doc.</p></body></html>";
+    Document doc = Jsoup.parse(html);
+
+    Elements elements = doc.select("p");
+
+    for (Element element : elements) {
+        System.out.println(element.outerHtml());
+    }
+}
+```
+
+}
+
+
+Comment:
+I've double checked the whatwg spec, and current versions of Chrome and Firefox, and these all parse the same way as jsoup does -- i.e. if there is no closing title tag, all of the rest of the HTML up to EOF is parsed as data content within the title tag. What browsers have you seen it behave differently in?
+
+I'm not sure what the best thing to do is with this -- I think I prefer to keep to the way browsers handle it. Titles are parsed as rawdata where &lt; symbols have no special meaning, so e.g. a &lt;/head&gt; is actually valid. 
+
+One fixup method might be to confirm that the doc does have a closing title tag, and if it doesn't, hop out of rawdata mode and ignore the title tag contents. But that would involve a big lookahead on each new title tag, which isn't ideal.

@@ -1,0 +1,6 @@
+Summary: String as default Option type
+
+Description:
+getParsedOptionValue returns null unless Option.type gets explicitly set. The user expects it to be String unless set to any other type.
+This coult be either fixed in the Option constructor or in CommandLine.getParsedOptionValue. Mentioning this behaviour in Javadoc would be advisable.
+

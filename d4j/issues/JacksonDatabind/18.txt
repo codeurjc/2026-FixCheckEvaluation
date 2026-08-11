@@ -1,0 +1,8 @@
+Title: Add basic error-recovery for `ObjectReader.readValues()`
+
+Body:
+(follow up for #733)
+
+In case of `JsonProcessingException`, `MappingIterator` will currently be left pointing right after whatever token was last tokenized (or character following tokenization error). While this is better than indeterminate state, ideally it should try to do some error recover. And although it may not be possible to recover successfully from all kinds of issues, it should be possible to do best effort given that iterator has some knowledge of state when it was opened; that is, it can try to heuristically match closing `END_OBJECT`, depending on nesting level it was created at.
+
+In addition it may make sense to add a switch to prevent using of any automated heuristics, for those users who want full control over recovery.

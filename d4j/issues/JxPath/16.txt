@@ -1,0 +1,19 @@
+Summary: node() implementation in DOM and JDOM model
+
+Description:
+I think that the code in DOMNodePointer.java, line 120 is wrong because considers only element and document to be matched by node().
+while instead it matches any node that pass from there.
+
+case Compiler.NODE_TYPE_NODE :
+                    return nodeType == Node.ELEMENT_NODE
+                            || nodeType == Node.DOCUMENT_NODE;
+
+should be changed to 
+
+case Compiler.NODE_TYPE_NODE :
+                    return true;
+
+Same in JDOMNodePointer, line 391
+
+                  return true;//(node instanceof Element) || (node instanceof Document);
+

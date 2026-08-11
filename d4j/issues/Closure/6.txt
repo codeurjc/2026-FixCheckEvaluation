@@ -1,0 +1,49 @@
+Summary: better 'this' type checking
+
+Description:
+/** @constructor */
+function F() {}
+F.prototype.bar = function() { this.baz(); };
+F.prototype.baz = function() { };
+
+/** @constructor */
+function G() {}
+G.prototype.bar = F.prototype.bar;
+
+We should notice that &quot;F.prototype.bar&quot; and &quot;G.prototype.bar&quot; have different &quot;this&quot; types, and emit a warning.
+
+Comment:
+Relatedly, new: types in @return should be checked against what's really returned:
+
+Below, constructorFactory returns a constuctor that doesn't match the
+declared return type, yet no warning ensues:
+
+/**
+ * @typedef {{
+ *   foo: function()
+ * }}
+ */
+var Type;
+
+/** @constructor */
+var T0 = function() {};
+
+T0.prototype.foo2 = function() {
+  window.alert('foo');
+};
+
+/**
+ * @return {function(new:Type)}
+ */
+var constructorFactory = function() {
+  return T0;
+};
+
+var T = constructorFactory();
+
+var t = new T;
+
+t.foo();
+
+Comment:
+Issue tracking has been migrated to github. Please make any further comments on this issue through https://github.com/google/closure-compiler/issues

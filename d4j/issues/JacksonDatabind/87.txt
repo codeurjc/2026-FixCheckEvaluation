@@ -1,0 +1,89 @@
+Title: `StdDateFormat` deserializes dates with no tz/offset as UTC instead of configured timezone
+
+Body:
+Prior to version `2.8.9`, dates without time zone or time offset (eg `1970-01-01T00:00:00.000`) were deserialised in the TimeZone set on the ObjectMapper. 
+Starting from `2.8.9`, these dates are deserialised in `UTC` - which is a major (breaking) change in behaviour...
+
+Example:
+```
+ObjectMapper mapper = new ObjectMapper();
+mapper.setTimeZone(TimeZone.getTimeZone("GMT+2");
+Date date = mapper.readValue("\"1970-01-01T00:00:00.000\"", java.util.Date.class);
+
+// date == "1970-01-01T00:00:00.000+02.00" with Jackson < 2.8.9
+// date == "1970-01-01T00:00:00.000+00.00" with Jackson  2.8.9
+
+``` 
+
+Comment:
+Hmmh. Date value with no specified timezone is... asking for trouble.
+I agree that most reasonable take would be to use mapper's configured timezone, defaulting to UTC, but using whatever override.
+
+Change between versions is unfortunate, but since no test failures were observed, this has been in effect unspecified behavior.
+
+
+
+Comment:
+Luckily we had tests for that on our side ;-)
+I must say this is a show stopper - and for many people I suppose.
+
+We relied on this behaviour since long to transfer so-called _Local DateTime_ values. Since dates were reconstructed in the local timezone set on the mapper, they could safely be used eventhough they had a TZ associated with them.
+
+Even if that use case doesn't seem 100% valid, this change will affect many people and most won't notice it before production.
+
+I suspect the change is caused by the fix related to the handling of the 'zulu' dates... I haven't check yet. God feeling is both cases go through the same path...
+
+
+Comment:
+@brenuart Yes, seems likely it is related to that fix unfortunately. JDK's `Date` and `DateFormat` are -- alas -- awful things... which compounds the issue.
+And I can see this as being a very nasty problem. Unexpected, too... fix only seemed to affect cases where `Z` is part of value, and nothing else. But with `StdDateFormat` also being a mess it is possible it composes string with `Z`, uses that format.
+
+One thing that could help here is that a test and fix could result in release of `2.8.9.1` of `jackson-databind` (micro-patch), since I am not sure if or when 2.8.10 would be released.
+Obviously if you have other related tests those would be great; or, at least maybe we could coordinate with fix for this one, then trying snapshot against your test suite? 
+
+
+Comment:
+I have to leave work now, but can be back in a couple of hours. I don't know about your timezone (lol)...
+
+A micro-patch would be great indeed. I can have a look at your existing tests and see if some of ours could be added... What timeframe do you expect ?
+
+Comment:
+@brenuart this does not affect me directly, and I have not seen reports by others yet, so I think timeline is really up to you. Typically adoption for later patches is kind of slow, too, which is good in this particular case.
+
+So, whenever you get a chance is great. My timezone is PST (Seattle, USA) fwtw.
+
+Btw, I appreciate your help: date/time handling is a royal PITA and it is not my area of expertise.
+So all the help is, well, hugely helpful. :)
+
+
+Comment:
+Do you already know how to fix this issue or should I have a look?
+I agree with you, date handling is a nightmare. I'm not an expert either (and certainly don't want to become one) - I just spent the last weeks fixing stuff so applications built with java util date, Joda or Java8 Time could work together without too much hassle... Hence the bunch of tests we have.
+
+Oh, and I'm in GMT+1...
+
+
+Comment:
+I just had a look at the Date deserialisation tests... They are nearly all built with the expected date in GMT, i.e. the default TZ of the mapper. None cover the case where the mapper may be configured with another time zone.
+
+Most should probably be rewritten to make use of an ObjectMapper configured with a timezone other than the default UTC. This way we would have the guarantee the configured timezone is actually taken into account in every scenarios.
+
+I'm working on this. Expect a first PR soon so we can continue the discussion on something more concrete. I need some sleep now...
+
+Comment:
+Oh shoot. Yes, I can see where this occurs, and had I spent bit more time with the patch this would have been obvious. Handling for no-timezone case does indeed just plop `Z` in there.
+
+Comment:
+@brenuart I found the problem, and as far as I can see, fixed it. I added one simpleish test, but obviously that's not great coverage yet.
+
+Also turns out that I almost got change right: comment I had added was correct, but timezone I passed wrong... however: trying to reuse same format for two cases is trying to be too clever and so I split it into 2 separate cases. This should avoid potential problems with thread-safety too, which were present after first change (due to lazy instantiation, first access would "win").
+
+
+Comment:
+PR https://github.com/FasterXML/jackson-databind/issues/1657 created with additional test cases.
+
+Comment:
+@cowtowncoder Any chance we could release `2.8.9.1` soon ?
+
+Comment:
+@brenuart I could do that relatively soon -- I am hoping for a fix or two, for some reason getting lots of reports now. Could do one before leaving for vacation on saturday.

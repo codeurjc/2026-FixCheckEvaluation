@@ -1,0 +1,365 @@
+Joda - Time / Bugs / #141 Bug on withLaterOffsetAtOverlap method
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+Joda - Time
+Bugs
+Bug on withLaterOffsetAtOverlap method
+Project moved to GitHub
+Brought to you by:
+broneill
+,
+scolebourne
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Code
+Svn
+Tickets ▾
+Bugs
+Feature Requests
+News
+Discussion
+Donate
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+v1.0_(example)
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#141 Bug on withLaterOffsetAtOverlap method
+Status:
+closed
+Owner:
+Stephen Colebourne
+Labels:
+Joda-Time (76)
+Priority:
+5
+Updated:
+2012-10-08
+Created:
+2012-01-20
+Creator:
+Hood Wilson Gusso Silva
+Private:
+No
+The method withLaterOffsetAtOverlap created to workaround the issue 3192457 seems to not be working at all.
+I won´t write many info about the problem to solve because the issue 3192457  have this info indeed.
+But If something is unclear I can answer on the comments.
+Problem demonstration:
+TimeZone.setDefault(TimeZone.getTimeZone("America/Sao_Paulo"));
+DateTimeZone.setDefault( DateTimeZone.forID("America/Sao_Paulo") );
+DateTime
+dtch
+;
+{
+dtch
+=
+new
+DateTime(2012,2,25,5,5,5,5).millisOfDay().withMaximumValue()
+;
+System.out.println(
+dtch
+)
+;
+//
+prints
+:
+2012-02-25
+T23
+:
+59
+:
+59.999
+-02
+:
+00
+//
+Were
+are
+at
+the
+first
+23
+:**
+of
+the
+day
+.
+//
+At
+this
+point
+dtch
+have
+the
+-03
+:
+00
+offset
+}
+{
+dtch
+=
+dtch.plus(60001)
+;
+System.out.println(
+dtch
+)
+;
+//
+prints
+:
+2012-02-25
+T23
+:
+01
+:
+00.000
+-03
+:
+00
+//
+Were
+are
+at
+the
+first
+minute
+of
+the
+second
+23
+:**
+of
+the
+day
+.
+Ok
+its
+correct
+//
+At
+this
+point
+dtch
+have
+the
+-03
+:
+00
+offset
+}
+{
+dtch
+=
+dtch.withEarlierOffsetAtOverlap()
+;
+System.out.println(
+dtch
+)
+;
+//
+prints
+:
+2012-02-25
+T23
+:
+01
+:
+00.000
+-02
+:
+00
+//
+Were
+are
+at
+the
+first
+minute
+of
+the
+first
+23
+:**
+of
+the
+day
+.
+Ok
+its
+correct
+//
+At
+this
+point
+dtch
+have
+the
+-02
+:
+00
+offset
+(
+because
+we
+called
+withEarlierOffsetAtOverlap
+()
+)
+//
+This
+method
+is
+working
+perfectly
+}
+{
+dtch
+=
+dtch.withLaterOffsetAtOverlap()
+;
+System.out.println(
+dtch
+)
+;
+//
+prints
+:
+2012-02-25
+T23
+:
+01
+:
+00.000
+-02
+:
+00
+//
+Were
+are
+at
+the
+first
+minute
+of
+the
+first
+23
+:**
+of
+the
+day
+.
+//
+Here
+is
+the
+problem
+we
+should
+have
+a
+-03
+:
+00
+offset
+here
+since
+we
+called
+withLaterOffsetAtOverlap
+()
+expecting
+to
+change
+to
+the
+second
+23
+:**
+of
+the
+day
+}
+On the last two brackets we can see that withLaterOffsetAtOverlap is not undoing withEarlierOffsetAtOverlap as it should ( and not even working at all )
+Discussion
+Hood Wilson Gusso Silva
+-
+2012-01-20
+On the first bracket I did a mistake on the comment as we can see in the print
+//At this point dtch have the -03:00 offset
+should be
+//At this point dtch have the -02:00 offset
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Stephen Colebourne
+-
+2012-02-02
+A bad test and an incomplete test failed to show the problem you saw. The code is now rewritten to handle the problem in a different way, which should work (raise another bug if not)
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

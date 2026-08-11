@@ -1,0 +1,29 @@
+Summary: Casting a function before calling it produces bad code and breaks plugin code
+
+Description:
+1. Compile this code with ADVANCED_OPTIMIZATIONS:
+console.log( /** @type {function(!string):!string} */ ((new window.ActiveXObject( 'ShockwaveFlash.ShockwaveFlash' ))['GetVariable'])( '$version' ) );
+
+produces:
+
+'use strict';console.log((0,(new window.ActiveXObject(&quot;ShockwaveFlash.ShockwaveFlash&quot;)).GetVariable)(&quot;$version&quot;));
+
+2. Compare with this code:
+console.log( /** @type {!string} */ ((new window.ActiveXObject( 'ShockwaveFlash.ShockwaveFlash' ))['GetVariable']( '$version' )) )
+
+produces:
+
+'use strict';console.log((new window.ActiveXObject(&quot;ShockwaveFlash.ShockwaveFlash&quot;)).GetVariable(&quot;$version&quot;));
+
+
+Notice the (0,...) wrapping around the GetVariable function in the first example. This causes the call to fail in every browser (this code is IE-only but it's just for a minimal example). The second version produces a warning that the type of GetVariable could not be determined (I enabled type warnings), and it wouldn't be possible to define these in an externs file without making a horrible mess.
+
+This applies to all cases where functions are cast, but only causes problems (other than bloat) with plugins like this. It seems to serve no purpose whatsoever, so I assume it is a bug.
+
+Running on a mac, not sure what version but it reports Built on: 2013/02/12 17:00, so will have been downloaded about that time.
+
+Comment:
+Well drat. This seems likely that this is a side effect of the introduction of the CAST node to the AST.  I'll take a look.
+
+Comment:
+This issue was closed by revision 79a8906570f4.

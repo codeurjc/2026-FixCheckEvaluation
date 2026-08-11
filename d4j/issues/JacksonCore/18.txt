@@ -1,0 +1,84 @@
+Title: `OutOfMemoryError` when writing BigDecimal
+
+Body:
+(note: moved from https://github.com/FasterXML/jackson-databind/issues/1316 reported by @gmethvin)
+
+When I've enabled the `WRITE_BIGDECIMAL_AS_PLAIN` setting on Jackson 2.7.5, Jackson will attempt to write out the whole number, no matter how large the exponent.
+
+For example, the following code:
+
+``` java
+ObjectMapper mapper = new ObjectMapper().enable(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN);
+mapper.writeValueAsString(new java.math.BigDecimal("9.223372E+1010671858"));
+```
+
+triggers the exception:
+
+```
+java.lang.OutOfMemoryError: Java heap space
+  at java.lang.AbstractStringBuilder.<init>(AbstractStringBuilder.java:68)
+  at java.lang.StringBuilder.<init>(StringBuilder.java:101)
+  at java.math.BigDecimal.toPlainString(BigDecimal.java:2964)
+  at com.fasterxml.jackson.core.json.WriterBasedJsonGenerator.writeNumber(WriterBasedJsonGenerator.java:690)
+  at com.fasterxml.jackson.databind.ser.std.NumberSerializer.serialize(NumberSerializer.java:45)
+  at com.fasterxml.jackson.databind.ser.std.NumberSerializer.serialize(NumberSerializer.java:19)
+  at com.fasterxml.jackson.databind.ser.DefaultSerializerProvider.serializeValue(DefaultSerializerProvider.java:130)
+  at com.fasterxml.jackson.databind.ObjectMapper._configAndWriteValue(ObjectMapper.java:3612)
+  at com.fasterxml.jackson.databind.ObjectMapper.writeValueAsString(ObjectMapper.java:2980)
+  ... 23 elided
+```
+
+I know technically Jackson is doing what you're telling it to do (so if you don't feel this is an issue feel free to close it). But it would be nice if `WRITE_BIGDECIMAL_AS_PLAIN` set a reasonable length on the number, so as not to leave users open to denial of service vulnerabilities.
+
+(Actually, I think this might technically be an issue in jackson-core; let me know if I should resubmit.)
+
+
+Comment:
+Note: for earlier discussion, have a look at https://github.com/FasterXML/jackson-databind/issues/1316
+
+Basically there are differing views of how big is "too big", and what to do about that.
+
+The first step that I will do is to simply throw an exception if attempts is made with `JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN` and scale bigger than 9999 or smaller than -9999, and we'll go from there.
+
+
+Comment:
+I think a shorter limit makes sense, maybe 100 digits max, but I think the only way to make everyone happy is to have minimum and maximum scale settings or something like that.
+
+Let's say we set the limit to 9999 as you suggest. That means each number can occupy a maximum of (slightly less than) 10KB of space. If I had an array with a lot of these I could still easily see it causing a similar error.
+
+I suspect most users of the `WRITE_BIGDECIMAL_AS_PLAIN` feature are just being anal-retentive about how numbers with smaller exponents look, e.g. `.0012` might look better to them than `1.2E-3` and `12` better than `1.2E1`. But they generally don't want to see 1 followed by 30 zeroes instead of the much more compact `1E30`.
+
+Actually, I can't think of any other valid reason to use that setting other than making numbers more human-readable. (If your app requires JSON numbers to be formatted a particular way to actually function, then it's not using JSON properly.)
+
+
+Comment:
+I think any limit below millions should suffice to solve the reported problem of running out of memory accidentally. I agree with your guess on usage; I don't use this feature myself nor think it generally makes sense.
+But to me discussion on specific limit to use sounds like bike shedding at this point: I don't see a real problem remaining to be solved, but rather hypothetical issue. I am content at addressing such problems if and when they actualize.
+(at which point a new issue sounds fine).
+
+So: let's start with 9999 as the limit and see where that takes us.
+
+
+Comment:
+> I agree with your guess on usage; I don't use this feature myself nor think it generally makes sense.
+
+Then what was the original purpose for adding that feature?
+
+I think 10K is a bit much to represent a number but you're right it probably won't cause issues in all but the most extreme cases. You know your users much more than I do so I'm happy to trust your judgment there. I can't think of a good argument for any specific number.
+
+
+Comment:
+@gmethvin It was added by someone requesting it (and/or providing a PR); I don't recall exact reasons but usually it's either compatibility or visual aesthetics.
+If you are interested in background, looks like feature was added in 2.3, for issue #85.
+
+At this point 95%+ of features are due to someone else needing the feature. Just because I don't need or use something does not mean others don't. If Jackson was limited to my needs, version 1.1 would have done close to everything. :)
+
+
+Comment:
+@cowtowncoder I think you missed my point. I cannot find much discussion on this and the only issue I found was fasterxml/jackson-databind#251. I was hoping to find some to support the idea that someone would want a very long number to be written out, but pretty much everything I can find suggests that option is being used to fix annoyances with shorter numbers.
+
+I'm not saying you should remove the option necessarily, but maybe we need something that more directly addresses their problem without causing these potentially unwanted side effects.
+
+
+Comment:
+At this point I think we are all set, from my point, and see no reason to make further changes.

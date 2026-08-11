@@ -1,0 +1,34 @@
+Summary: Issue with attribute::
+
+Description:
+Checking test (Issue172_CountAttributeNode) I came with the following fix for the code in AttributeContext  line 72
+from 
+-----
+if (!(nodeTest instanceof NodeNameTest)) {
+                return false;
+            }
+            QName name = ((NodeNameTest) nodeTest).getNodeName();
+            
+------
+'
+to 
+--- (outside method)
+private static final QName WILDCARD = new QName("", "*");
+--- (in method)
+    
+final QName name ;
+if (nodeTest instanceof NodeTypeTest)
+{
+	 if (((NodeTypeTest) nodeTest).getNodeType() == Compiler.NODE_TYPE_NODE)
+		 name = WILDCARD;
+	 else return false;
+}
+else if (nodeTest instanceof NodeNameTest) {
+	name = ((NodeNameTest) nodeTest).getNodeName();
+}
+else
+{
+	return false;
+}
+
+

@@ -1,0 +1,60 @@
+Title: Possibly wrong `TokenBuffer` delegate deserialization using `@JsonCreator`
+
+Body:
+``` java
+class Value {
+@JsonCreator
+public static Value from(TokenBuffer buffer) {
+...
+}
+```
+
+Given JSON string is  `{ "a":1, "b":null }`, it is expected that while deserializing using delegate buffer,
+current token will be start object `{`, and rest of the tokens will be available in buffer:
+
+```
+[START_OBJECT, FIELD_NAME, VALUE_NUMBER_INT, FIELD_NAME, VALUE_NULL, END_OBJECT]
+```
+
+But, buffers ends up being started with field name and then contains single attribute value
+
+```
+[FIELD_NAME, VALUE_NUMBER_INT]
+```
+
+It's due to how `TokenBuffer#copyCurrentStructure` works when we have current token as a `FIELD_NAME`, rather than `START_OBJECT`, because it's forced to move to next token [BeanDeserializer.java:120](https://github.com/FasterXML/jackson-databind/blob/2.4/src/main/java/com/fasterxml/jackson/databind/deser/BeanDeserializer.java#L120)
+
+Hope this helps to nail it down. Is it an intended behavior, or it's regression/bug? 
+
+
+Comment:
+It is intended behavior at this point, in that deserializers that handle JSON Objects need to accept both the case where current token is `FIELD_NAME` and where it is `START_OBJECT`. This is not ideal, but is required to support (more) efficient handling of the common case for polymorphic types, in which first value pair contains type id, and addition of leading `{` would require merging of additional stream.
+This is not an ideal state of things, and in cases where content is to be reconstructed, it would be better to reconstruct the whole value.
+
+Also, since `TokenBuffer` could contain any JSON value, this is bit of a gray area.
+
+However, all relevant values should be contained, so missing `"b":null` pair.
+
+Also: as you point out, due to the way `copyCurrentStructure` works, this won't behave properly, so I think handling is not as intended. There is a bug somewhere. :)
+I'm not sure which parts need to be changed, but with given example case it should be possible to figure out proper handling here.
+
+
+Comment:
+Thank you for the explanation. I solved somewhat similar problems in generated marshalers by always require that marshaler expects current token to be the first token as a precondition and leaves parser on a last token as a post condition and with some temporary copying to buffer for a polymorphic deserialization, but it's definitely not trivial having a lot of different deserializers.
+
+As a workaround for my usecase, I replaced `TokenBuffer` with `Map<String, TokenBuffer>` to collect all needed tokens in a `@JsonCreator` method.
+
+
+Comment:
+Right, originally expectation was what one would expect (`START_OBJECT`), and the complexity was introduced in 1.5 to support polymorphic type handling; and parts of it weren't discovered until some time later.
+
+But given that `Map` works, `TokenBuffer` definitely should work as well so there is a bug to fix.
+I hope to figure it out & fix, as `TokenBuffer` is the most efficient intermediate form and your use case would be sort of canonical use when converting values.
+
+
+Comment:
+@elucash Thank you again for reporting this -- surprising it hadn't been noticed before.
+
+
+Comment:
+Thank you @cowtowncoder for the quick fix!

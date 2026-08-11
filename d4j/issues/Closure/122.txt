@@ -1,0 +1,65 @@
+Summary: Inconsistent handling of non-JSDoc comments
+
+Description:
+<b>What steps will reproduce the problem?</b>
+<b>1.</b>
+<b>2.</b>
+<b>3.</b>
+
+<b>What is the expected output? What do you see instead?</b>
+
+When given:
+
+    /* @preserve Foo License */
+    alert(&quot;foo&quot;);
+
+It spits out:
+
+    stdin:1: WARNING - Parse error. Non-JSDoc comment has annotations. Did you mean to start it with '/**'?
+    /* @license Foo License */
+    ^
+    
+    0 error(s), 1 warning(s)
+    alert(&quot;foo&quot;);
+
+If I take the suggestion and change the opening of the comment to '/**', everything is great.  However, if I change it to '/*!', the warning goes away, but it doesn't preserve the comment either.
+
+I expect it to print the above warning, or preserve the comment.  That it does neither when starting with &quot;/*!&quot; (and every other character I tried) is confusing.
+
+<b>What version of the product are you using? On what operating system?</b>
+
+Tested with my compilation of the &quot;v20130603&quot; tag:
+
+    Closure Compiler (http://code.google.com/closure/compiler)
+    Version: v20130603
+    Built on: 2013/07/07 15:04
+
+And with the provided binary:
+
+    Closure Compiler (http://code.google.com/closure/compiler)
+    Version: v20130411-90-g4e19b4e
+    Built on: 2013/06/03 12:07
+
+I'm on Parabola GNU/Linux-libre with Java:
+
+    java version &quot;1.7.0_40&quot;
+    OpenJDK Runtime Environment (IcedTea 2.4.0) (ArchLinux build 7.u40_2.4.0-1-i686)
+    OpenJDK Server VM (build 24.0-b40, mixed mode)
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+Thanks for the report. Hopefully I'll fix this today.
+
+Comment:
+I submitted a change today that improved detection of suspicious block comments. See
+
+https://code.google.com/p/closure-compiler/source/detail?r=a8a456b183c9600658bcb0c72091bae1a30a4fda
+
+However, it doesn't fix the current issue. Basically, we want to warn for comments which contain annotations that would be checked inside a jsdoc. For example, if one writes
+/**
+ * The first @param of this function is a number
+ */
+the compiler ignores the @param because it's not the first thing in that line of text. The suspicious-comment check shouldn't warn about such cases, so if there are non blank characters between /* and the tag, we don't warn. I didn't think it was worth it to special-case the check just for the case when the comment starts with /*!
+
+In any case, thanks for the report! The new check found many suspicious comments, even though it doesn't fix the originally reported one.

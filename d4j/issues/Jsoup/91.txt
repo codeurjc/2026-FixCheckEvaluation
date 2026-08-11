@@ -1,0 +1,46 @@
+Title: Jsoup.parse method hangs for certain bogus input text
+
+Body:
+We are indexing the [ClueWeb12](https://lemurproject.org/clueweb12/) dataset using [lucene-clueweb-retrieval](https://github.com/iorixxx/lucene-clueweb-retrieval) library. We are using JSoup to parse Web pages. After a (drop-in) upgrade to JSoup version 1.11.3, our indexing processes hanged. Note than this was not the issue for earlier version of JSoup. Using jstack we spot document(s) that cause this problem crated a failing test case using it. We understand that the input is bogus (not a html code, but a binary file), but we expect JSoup to throw an exception or return an empty string. But the program hangs and never ends. We would like to report this to the community in the hope for obtaining a fix for the issue.
+
+Comment:
+Here is the failing test case and the bogus input file necessary to reproduce it.
+```java
+/**
+ * Jsoup.parse method hangs for certain bogus input text.
+ * It does not throw exception but just hangs.
+ */
+public class BogusInput {
+
+    @Test(timeout = 5000)
+    public void bogusInput() throws IOException {
+        File in = getFile("/htmltests/clueweb12-0200wb-38-08218.txt");
+        Jsoup.parse(in, null, "http://example.com");
+    }
+}
+``` 
+[clueweb12-0200wb-38-08218.txt](https://github.com/jhy/jsoup/files/3008437/clueweb12-0200wb-38-08218.txt)
+
+
+
+
+
+
+
+Comment:
+It's getting hung up on line [57 of Tokeniser.java](https://github.com/jhy/jsoup/blob/master/src/main/java/org/jsoup/parser/Tokeniser.java#L57)
+
+    while (!isEmitPending)
+            state.read(this, reader);
+
+It seems to have something to do with the null character or characters getting it stuck in an infinite loop where it never emits a pending value.  I'm working on building a smaller unit test the recreates this.
+
+Comment:
+When testing with version 1.12.1, I found that it does actually complete the parse. It takes a stupid amount of time, though -- 11m40s on my PC.
+
+If this doc was fetched through the Jsoup Connect methods, either one of the default max size or the timeout would prevent this apparent hang. Those don't apply here because they are implemented in the data reader section of Jsoup Connect, not the core parser.
+
+Probably the thing to do here is to look for a decent way to detect binary files, or add the max size and timeouts by default to the core parser as well.
+
+Comment:
+Thanks for reporting this one. I added a simple test to identify binary files, and jsoup will now throw an exception if forced to try parsing it.

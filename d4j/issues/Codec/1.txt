@@ -1,0 +1,4 @@
+Summary: Fix case-insensitive string handling
+
+Description:
+The language codecs are platform-depedent, please see [Common Bug #3|http://www.nabble.com/Re%3A-Common-Bugs-p14931921s177.html] for details.

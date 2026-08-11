@@ -1,0 +1,130 @@
+Title: NULL values are duplicated when serializing as array [via @JsonFormat(shape = JsonFormat.Shape.ARRAY)]
+
+Body:
+Example:
+
+``` java
+public class TestOuter {
+
+    @JsonFormat(shape = JsonFormat.Shape.ARRAY)
+    public ArrayList<TestInner> array;
+
+    public TestOuter() {
+        this.array = new ArrayList<TestInner>();
+        this.array.add(new TestInner(1, "one"));
+        this.array.add(new TestInner(0, null));
+    }
+
+    private class TestInner {
+        public int i;
+        public String mayBeNull;
+
+        public TestInner(int i, String s) {
+            this.i = i;
+            this.mayBeNull = s;
+        }
+    }
+}
+```
+
+Serializing an instance of TestOuter will produce the following incorrect result (as of Jackson 2.2.1):
+
+``` json
+"array": [[1, "one"], [0, null, null]]
+```
+
+where the null value is duplicated. The expected result would be:
+
+``` json
+"array": [[1, "one"], [0, null]]
+```
+
+I tracked the issue down to:
+
+``` java
+package com.fasterxml.jackson.databind.ser;
+// ...
+public class BeanPropertyWriter {
+// ...
+    public void serializeAsColumn(Object bean, JsonGenerator jgen, SerializerProvider prov)
+        throws Exception
+    {
+        Object value = get(bean);
+        if (value == null) { // nulls need specialized handling
+            if (_nullSerializer != null) {
+                _nullSerializer.serialize(null, jgen, prov);
+            } else { // can NOT suppress entries in tabular output
+                jgen.writeNull();
+            }
+        }
+        // otherwise find serializer to use
+        JsonSerializer<Object> ser = _serializer;
+    // ... ...
+```
+
+where I suspect there is a missing "return", to exit the function once handling of the null value in the dedicated branch is done.
+As it is now, a null value is first serialized in the dedicated branch (jgen.writeNull()), and then execution continues on the "normal" (non-null) path and eventually the value is serialized once again.
+
+
+Comment:
+Good catch. Thank you for doing the detective work -- this does indeed sound like the root cause.
+Will fix it for 2.2.2.
+
+I am also very interested in getting more feedback for serialize-as-array: it is relatively new feature, and not as well tested as more mature ones are (although I thought there was a test for checking this part... apparently not a good test).
+But I think there is potential benefits for size reduction, performance improvements.
+I mean, when it works fully
+
+
+Comment:
+Thank you for the very quick reply and fix. I'll be watching http://wiki.fasterxml.com/JacksonRelease222 for the release date.
+
+Yes, the serialize-as-array feature is <b>very</b> useful for reducing size when dealing with hundreds or thousands of records of data. And having the serialization "as array" done in Jackson (e.g. in conjunction with @ResponseBody in Spring MVC) allows the M(odel) part on the server side to be clear and easy to maintain (no need to resort to actual array of arrays with generic values, just keep a hierarchy of objects with typed properties).
+
+Actually, I'll use the opportunity :smile: to request an improvement for the serialize-as-array feature. The way we are using this feature is in conjunction with a "meta-data" array holding the names of the columns in the "data" array. Like:
+
+``` json
+"array": {
+    "cols": ["i", "mayBeNull"],
+    "data": [[1, "one"], [0, null]]
+}
+```
+
+This allows the JSON response to be self-contained, and the client side code to be more robust.
+Currently, to ensure consistency in the generated JSON output, we would use @JsonPropertyOrder on the InnerTest class, in conjunction with just a hard-coded matching "cols" array. 
+
+So from this standpoint ideally the serialize-as-array feature would incorporate the meta-data array, allowing to specify it in the @JsonFormat(shape = JsonFormat.Shape.ARRAY) annotation perhaps as an optional meta-data array name. Well actually there would be two additional optional properties for shape = ARRAY, one for the meta-data array, and one for the data array... Like:
+
+``` java
+@JsonFormat(shape = JsonFormat.Shape.ARRAY, metaDataArray = "cols", dataArray = "data")
+public ArrayList<TestInner> array;
+```
+
+which would generate the JSON:
+
+``` json
+"array": {
+    "cols": ["i", "mayBeNull"],
+    "data": [[1, "one"], [0, null]]
+}
+```
+
+Thanks for listening and thanks again for the quick fix! Looking forward to release 2.2.2.
+
+
+Comment:
+You are welcome wrt fix. Glad to know feature has proven useful so far.
+
+Column names as metadata is something people have been doing for a while anyway.
+Supporting that would require quite a bit of work; little bit for annotation (since JsonFormat is a generic annotation,
+this would need more thought since it should not be something only applicable to POJO/array case, but bit more abstraction),  but mostly with serializers/deserializers.
+And since it would need to coordinate handling of all kinds of JSON list structures (arrays, Collections) with POJOs, it'd be a big undertaking; Jackson is designed to maximized modularity and (de)serializers only interact via small set of interfaces (wrt. including type & identity information and such cross-cutting concerns).
+But then again, it's easier to see simplifications when actually working on implementing something.
+
+Could you file this as a separate request however? This way I can mark particular bug as fixed, and new entry would track this improvement idea.
+
+
+Comment:
+Thanks for the reply. I suspected it would not be trivial to support such an enhancement (I suspect in fact that starting to actually work on implementing something like this would uncover more complications, rather than simplifications :smile:). Also, this extended serialization format is easily obtainable using existing functionality, so it would really just be a "nice-to-have".
+
+I filed this enhancement request separately as item https://github.com/FasterXML/jackson-databind/issues/229
+Thanks!

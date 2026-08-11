@@ -1,0 +1,141 @@
+JFreeChart / Bugs / #983 Potential NPE in AbstractCategoryItemRender.getLegendItems()
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+JFreeChart
+Bugs
+Potential NPE in AbstractCategoryItemRender.getLegendItems()
+Brought to you by:
+mungady
+,
+taqua
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Mailing Lists
+Tickets ▾
+Patches
+Bugs
+Feature Requests
+News
+Code
+Cvs
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+1.0.x
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#983 Potential NPE in AbstractCategoryItemRender.getLegendItems()
+Status:
+closed-fixed
+Owner:
+David Gilbert
+Labels:
+General (896)
+Priority:
+5
+Updated:
+2010-02-09
+Created:
+2010-02-08
+Creator:
+Peter Becker
+Private:
+No
+Setting up a working copy of the current JFreeChart trunk in Eclipse I got a warning about a null pointer access in this bit of code from AbstractCategoryItemRender.java:
+public LegendItemCollection getLegendItems() {
+LegendItemCollection result = new LegendItemCollection();
+if (this.plot == null) {
+return result;
+}
+int index = this.plot.getIndexOf(this);
+CategoryDataset dataset = this.plot.getDataset(index);
+if (dataset != null) {
+return result;
+}
+int seriesCount = dataset.getRowCount();
+...
+}
+The warning is in the last code line where seriesCount is assigned. The variable dataset is guaranteed to be null in this location, I suppose that the check before that should actually read "if (dataset == null)", not "if (dataset != null)".
+This is trunk as of 2010-02-08.
+Discussion
+David Gilbert
+-
+2010-02-09
+Good spot.  That was the result of a careless commit by me.  I've committed the fix.
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2010-02-09
+labels
+:  --> General
+assigned_to
+: nobody --> mungady
+status
+: open --> closed-fixed
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

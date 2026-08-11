@@ -1,0 +1,75 @@
+Summary: JSCompiler does not recursively resolve typedefs
+
+Description:
+goog.provide('a.b.c');
+
+goog.scope(function() {
+var b = a.b;
+var c = b.c;
+
+/** @typedef {string} */
+c.MyType;
+
+/** @param {c.MyType} x The variable. */
+c.myFunc = function(x) {};
+
+});
+
+results in a compiler error.
+
+given that JSCompiler *does* recursively resolve other names, this appears to be a bug rather than an intended limitation.
+
+Comment:
+I'm fairly certain that typedefs have to be in the global scope. Although I'm not sure that has been documented anywhere or is the intent.
+
+If you remove the goog.scope wrapper, your code compiles correctly.
+
+Comment:
+no, typedefs don't have to be in the global scope. goog.scope must enclose everything in the file except goog.provide/goog.require
+
+Comment:
+Scope affects it in some way. Here's test code:
+
+var foo = {};
+/** @typedef {string} */
+foo.bar;
+
+/** @typedef {string} */
+var foo2;
+
+var foo3 = {};
+
+(function() {
+
+/** @typedef {string} */
+foo3.bar;
+/** @typedef {string} */
+var foo4;
+
+var foo5 = {};
+/** @typedef {string} */
+foo5.bar;
+
+/** @param {foo.bar} x The variable. */
+var myFunc = function(x) {}; // No errors
+
+/** @param {foo2} x The variable. */
+var myFunc2 = function(x) {}; // No errors
+
+/** @param {foo3.bar} x The variable. */
+var myFunc3 = function(x) {}; // Unknown type error
+
+/** @param {foo4} x The variable. */
+var myFunc4 = function(x) {}; // Unknown type error
+
+/** @param {foo5.bar} x The variable. */
+var myFunc5 = function(x) {}; // Unknown type error
+})();
+
+Comment:
+for the record, the error message is:
+JSC_TYPE_PARSE_ERROR: Bad type annotation. Unknown type c.MyType at line 10 character 12
+/** @param {c.MyType} x The variable. */
+
+Comment:
+This issue was closed by revision r2077.

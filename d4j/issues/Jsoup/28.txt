@@ -1,0 +1,65 @@
+Title: Jsoup.parse unescapes query params in plain text URL's
+
+Body:
+I'm trying to clean the HTML snippet below, but unfortunately the URL parameter names have been mistaken for HTML entities and unescaped to HTML.
+
+``` html
+    <a href="http://www.foo.com?a=1&num_rooms=1&children=0&int=VA&b=2">
+        http://www.foo.com?a=1&num_rooms=1&children=0&int=VA&b=2
+    </a>
+```
+
+Cleaned HTML:    http://www.foo.com?a=1#_rooms=1χldren=0∫=VA&amp;b=2
+Expected HTML: http://www.foo.com?a=1&num_rooms=1&children=0&int=VA&b=2
+
+Unit tests...
+
+``` java
+    private static final String URL = "http://www.foo.com?a=1&num_rooms=1&children=0&int=VA&b=2";
+
+    /**
+     * Passes
+     */
+    @Test
+    public void testStringEscapeUtilsUnescapeHtml() throws Exception {
+        // org.apache.commons.lang.StringEscapeUtils;
+        assertEquals(URL, StringEscapeUtils.unescapeHtml(URL));
+    }
+
+    /**
+     * Fails: unescapes &num, &chi, and &int to #, χ, and ∫ respectively
+     * Expected :http://www.foo.com?a=1&num_rooms=1&children=0&int=VA&b=2
+     * Actual   :http://www.foo.com?a=1#_rooms=1χldren=0∫=VA&amp;b=2
+     */
+    @Test
+    public void testJsoupClean() throws Exception {
+        String html = "<a href=\"" + URL + "\">" + URL + "</a>";
+        assertEquals(URL, Jsoup.clean(html, Whitelist.none()));
+    }
+
+    /**
+     * Fails: unescapes &num, &chi, and &int to #, χ, and ∫ respectively
+     * Expected :http://www.foo.com?a=1&num_rooms=1&children=0&int=VA&b=2
+     * Actual   :http://www.foo.com?a=1#_rooms=1&children=0∫=VA&b=2
+     */
+    @Test
+    public void testJsoupTextNodeCreateFromEncoded() throws Exception {
+        assertEquals(URL, TextNode.createFromEncoded(URL, null).text());
+    }
+```
+
+
+Comment:
+I'm using Jsoup v1.6.3 in my pom file...
+
+```
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.6.3</version>
+        </dependency>
+```
+
+
+Comment:
+Thanks for pointing this out and providing tests!

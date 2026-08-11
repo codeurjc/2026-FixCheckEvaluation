@@ -1,0 +1,44 @@
+Title: Serializing and Deserializing Locale.ROOT
+
+Body:
+Serializing and Deserializing Locale objects seems to work just fine, until you try on the Root Locale.
+It writes it out as an empty string and when it reads it in, the value is null
+
+```
+@Test
+    public void testLocaleDeserialization() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        Locale root = Locale.ROOT;
+        String json = objectMapper.writeValueAsString(root);
+        System.out.printf("Root Locale: '%s'", json);
+        Locale actual = objectMapper.readValue(json, Locale.class);
+        Assert.assertEquals(root, actual);
+    }
+```
+
+Here is the output:
+Root Locale: '""'
+java.lang.AssertionError: 
+Expected :
+Actual   :null
+
+
+Comment:
+This might not be backwards compatible, but in Java 7+ you can use Locale.forLanguageTag(String) to deserialize and Locale.toLanguageTag() to serialize.
+For the time being I've added a custom serializer and deserializer that does exactly that.
+
+
+Comment:
+@hookumsnivy thank you for reporting this & for the suggestion of fix. I'll have to think about the solution; my main concern is just that while we are moving to require JDK7 baseline, there is bit of transition where we try to keep runtime JDK6 compatible. But adding special handling for "" seems simple enough even using a work-around.
+
+
+Comment:
+@cowtowncoder It looks like FromStringDeserializer already has special handling for "" in the case of URIs.
+
+
+Comment:
+@hookumsnivy right, that's not a problem from my perspective, can add it once I have time to work on this.
+
+
+Comment:
+Ok... so the problem really is the special handling for empty String. Gotcha.

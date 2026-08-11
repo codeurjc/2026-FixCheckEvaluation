@@ -1,0 +1,92 @@
+Summary: $super is replaced when it should not be replaced
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Have javascript using prototype's $super
+2. Compile with advanced_optimizations
+3. See that $super is replaced by for example $super$$4
+
+<b>What is the expected output? What do you see instead?</b>
+$super should not be renamed as it is used by prototype.
+
+<b>What version of the product are you using? On what operating system?</b>
+Latest from svn.
+
+<b>Please provide any additional information below.</b>
+Personally I made a quick fix in MakeDeclaredNamesUnique.java line 79:
+if (t.getCompiler().getCodingConvention().isExported(name)) { continue; }
+This fixed it for me, but not sure if that's the right place or method to
+solve this, as I am unfamiliar with the project.
+
+Comment:
+Quick question: Are you building from the command line, or using Closure Compiler programmatically?  What 
+does your command line to the compiler look like?
+
+Comment:
+Comment deleted
+
+Comment:
+I am building from the command line, here's what the command looks like:
+
+java -jar /Users/jochen/closure/build/compiler.jar --compilation_level
+ADVANCED_OPTIMIZATIONS --js share.js --module share:1 --js main.js --module main:1
+--js recording.js --module recording:1 --js comments.form.js --module commentsform:1
+--js facebook.share.js --module facebookshare:1 --externs prototype.js
+--module_output_path_prefix /Users/jochen/ruby/karaoke/public/javascripts/compiled/
+
+Comment:
+That looks like the right fix.   Want to add a test case, and submit the change to the project?  (Hint: the tests run 
+in the Google coding convention, so a leading underbar is the sign of an exported name.)
+
+Comment:
+What is the effect of the change?
+
+$super needs to be unique during the name normalization or this would break inlining 
+right?
+
+Comment:
+how does $super work again? wouldn't it be impossible to inline the function anyway, 
+because it uses crazy reflection?
+
+Comment:
+I feel a uncomfortable with breaking the normalization for this.  I would prefer to 
+special case the renaming to look for "$super$..." and change this back to "$super" 
+since we are already special casing it there to prevent it from being renamed in the 
+first place.  If it were to be inlined it would become (currently) something like 
+JSCompiler_inline_$super... so would be broken regardless of the normalization so I 
+would assume this doesn't happen but someone should check.
+
+Comment:
+If the first parameter of a method on a class object is $super, Prototype's code for setting up the class (in 
+addMethod)  inserts a reference to the superclass.  Here's the relevant code:
+
+Class.Methods {
+  addMethods: function(source) {
+    var ancestor   = this.superclass && this.superclass.prototype;
+    var properties = Object.keys(source);
+   ...
+   for (var i = 0, length = properties.length; i < length; i++) {
+      var property = properties[i], value = source[property];
+      if (ancestor && Object.isFunction(value) &&
+          value.argumentNames().first() == "$super") {
+         ....
+
+Alan added a change in November to avoid renaming $super by marking it as an exported symbol in the 
+DefaultCodingConvention.  To correctly compile Prototype code in advanced mode, we'll need to make sure 
+the setup code for the class correctly does the parameter substitution.
+
+See
+http://www.prototypejs.org/assets/2008/9/29/prototype-1.6.0.3.js
+http://www.prototypejs.org/api/class/create
+
+Comment:
+To make my comment clear, one of the points of the normalization is to make it easier
+for passes if the "x" they saw is the same "x" they saw earlier (without needing to
+track scope).  This makes things much easier for code motion because you don't need
+to worry about masking a variable of the same name.  If you change it "$super" is not
+unique the results would be unpredictable. After renaming it doesn't matter if the
+name is unique as the normalization is expected as renaming by design creates as many
+non-unique names as possible.
+
+Comment:
+This issue was closed by revision r139.

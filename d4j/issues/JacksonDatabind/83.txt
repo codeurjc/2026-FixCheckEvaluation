@@ -1,0 +1,97 @@
+Title: `FromStringDeserializer` ignores registered `DeserializationProblemHandler` for `java.util.UUID`
+
+Body:
+Culprit appears to be [lines 155-161 of FromStringDeserializer](https://github.com/FasterXML/jackson-databind/blob/60ae6000d361f910ab0d7d269a5bac1fc66f4cd9/src/main/java/com/fasterxml/jackson/databind/deser/std/FromStringDeserializer.java#L155-L161):
+
+```
+            // 05-May-2016, tatu: Unlike most usage, this seems legit, so...
+            JsonMappingException e = ctxt.weirdStringException(text, _valueClass, msg);
+            if (cause != null) {
+                e.initCause(cause);
+            }
+            throw e;
+            // nothing to do here, yet? We'll fail anyway
+```
+The above lines appear to show that the exception will be thrown regardless of any problem handling logic.
+
+Test Case:
+
+```
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
+import org.junit.Test;
+
+import java.io.IOException;
+import java.util.UUID;
+
+public class UUIDDeserializerTest {
+
+
+  @Test
+  public void itUsesDeserializationProblemHandlerProperly() throws IOException {
+    ObjectMapper mapper = new ObjectMapper().addHandler(new DeserializationProblemHandler() {
+      @Override
+      public Object handleWeirdStringValue(final DeserializationContext ctxt, final Class<?> targetType, final String valueToConvert, final String failureMsg) throws IOException {
+        return null;
+      }
+    });
+
+    mapper.readValue("{\"id\" : \"I am not a UUID\"}", IdBean.class);
+
+
+
+  }
+
+  public static class IdBean {
+    private UUID id;
+
+    public UUID getId() {
+      return id;
+    }
+
+    public void setId(final UUID id) {
+      this.id = id;
+    }
+  }
+}
+```
+
+The handler handles the issue properly; but an exception is thrown anyway:
+
+```
+an not deserialize value of type java.util.UUID from String "I am not a UUID": not a valid textual representation
+ at [Source: (String)"{"id" : "I am not a UUID"}"; line: 1, column: 9] (through reference chain: com.company.test.UUIDDeserializerTest$IdBean["id"])
+com.fasterxml.jackson.databind.exc.InvalidFormatException: Can not deserialize value of type java.util.UUID from String "I am not a UUID": not a valid textual representation
+ at [Source: (String)"{"id" : "I am not a UUID"}"; line: 1, column: 9] (through reference chain: com.company.test.UUIDDeserializerTest$IdBean["id"])
+	at com.fasterxml.jackson.databind.exc.InvalidFormatException.from(InvalidFormatException.java:67)
+	at com.fasterxml.jackson.databind.DeserializationContext.weirdStringException(DeserializationContext.java:1504)
+	at com.fasterxml.jackson.databind.deser.std.FromStringDeserializer.deserialize(FromStringDeserializer.java:156)
+	at com.fasterxml.jackson.databind.deser.impl.MethodProperty.deserializeAndSet(MethodProperty.java:127)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer.vanillaDeserialize(BeanDeserializer.java:287)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:151)
+	at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3999)
+	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2980)
+```
+
+
+Comment:
+Thank you for reporting this. It does indeed look like this deserializer does not add (relatively) new handler method, but instead directly calls method to throw exception. This should not happen.
+
+
+Comment:
+One question first: which Jackson version? I can not reproduce this with 2.8.8.
+
+
+Comment:
+I tested in 2.9.pr3, so most recent version -not sure how far it goes back.
+
+Comment:
+Hmmh. This is odd, considering test I added passes... I'll try your test case exactly as shown.
+
+
+Comment:
+Ah... interesting. This is triggered by returning of `null` -- so handler is called appropriately, it seems, but check for `null` is taken by sub-class to indicate a problem. Which it really shouldn't.
+
+Comment:
+Fixed; I hope this does not introduce problems with other deserializers -- but if it does, those can be worked around, by not using `null` to signal error conditions. I didn't see any places where that was done, but it is possible I missed some. Regardless, all tests pass.

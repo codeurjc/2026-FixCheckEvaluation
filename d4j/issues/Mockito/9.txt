@@ -1,0 +1,4 @@
+Title: Problem spying on abstract classes
+
+Body:
+There's a problem with spying on abstract classes when the real implementation calls out to the abstract method. More details: #121 

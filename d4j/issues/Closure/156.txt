@@ -1,0 +1,235 @@
+Summary: Compiler crashes on assign statement
+
+Description:
+It is a large app (containing the entire Dojo Toolkit library). Code fragment that fails:
+
+/** @constructor
+ *  @param {...Object} params
+ */
+dojox.gfx.shape.Shape = function(params) {};
+dojox.gfx.shape.Shape = dojo.declare(&quot;dojox.gfx.shape.Shape&quot;, null, /** @lends dojox.gfx.shape.Shape.prototype */ { .......
+
+
+Error message:
+
+java.lang.RuntimeException: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+Unexpected variable dojox$gfx$shape$Shape
+  Node(NAME dojox$gfx$shape$Shape): release\src\dijit.js.uncompressed.js:15135:0
+dojox.gfx.shape.Shape = dojo.declare(&quot;dojox.gfx.shape.Shape&quot;, null, /** @lends dojox.gfx.shape.Shape.prototype */ {
+  Parent(ASSIGN): release\src\dijit.js.uncompressed.js:15135:22
+dojox.gfx.shape.Shape = dojo.declare(&quot;dojox.gfx.shape.Shape&quot;, null, /** @lends dojox.gfx.shape.Shape.prototype */ {
+
+	at com.google.javascript.jscomp.Compiler.runCallable(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.runInCompilerThread(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compile(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.doRun(Unknown Source)
+	at com.google.javascript.jscomp.AbstractCommandLineRunner.run(Unknown Source)
+	at com.google.javascript.jscomp.CommandLineRunner.main(Unknown Source)
+Caused by: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please report this problem.
+Unexpected variable dojox$gfx$shape$Shape
+  Node(NAME dojox$gfx$shape$Shape): release\src\dijit.js.uncompressed.js:15135:0
+dojox.gfx.shape.Shape = dojo.declare(&quot;dojox.gfx.shape.Shape&quot;, null, /** @lends dojox.gfx.shape.Shape.prototype */ {
+  Parent(ASSIGN): release\src\dijit.js.uncompressed.js:15135:22
+dojox.gfx.shape.Shape = dojo.declare(&quot;dojox.gfx.shape.Shape&quot;, null, /** @lends dojox.gfx.shape.Shape.prototype */ {
+
+	at com.google.javascript.jscomp.VarCheck.visit(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseBranch(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseRoots(Unknown Source)
+	at com.google.javascript.jscomp.NodeTraversal.traverseRoots(Unknown Source)
+	at com.google.javascript.jscomp.VarCheck.process(Unknown Source)
+	at com.google.javascript.jscomp.PhaseOptimizer$PassFactoryDelegate.processInternal(Unknown Source)
+	at com.google.javascript.jscomp.PhaseOptimizer$NamedPass.process(Unknown Source)
+	at com.google.javascript.jscomp.PhaseOptimizer.process(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.optimize(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.compileInternal(Unknown Source)
+	at com.google.javascript.jscomp.Compiler.access$000(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$1.call(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$1.call(Unknown Source)
+	at com.google.javascript.jscomp.Compiler$2.run(Unknown Source)
+	at java.lang.Thread.run(Unknown Source)
+Caused by: java.lang.IllegalStateException: Unexpected variable dojox$gfx$shape$Shape
+	... 47 more
+
+Comment:
+Sorry, forgot again.  Newest Mar 22 version.
+
+Comment:
+Would you be able to give us a code snippet that can reproduce this?
+
+Comment:
+I've attached four JS documents.  The order is: dojo.js.uncompressed.js, dijit_en.js, dijit.js.uncompressed.js, closure.js.
+
+The error happens on the very last portion of the third file.
+
+Comment:
+Comment deleted
+
+Comment:
+Comment deleted
+
+Comment:
+Let me have a peek.
+
+Comment:
+Having trouble reproducing it.
+
+Are you using modules for your compile?
+
+Comment:
+Well, I've attached the externs file as well.  That's all folks, except for my user code.  On my computer (Win7), it crashed with this:
+
+java -jar compiler.jar --warning_level VERBOSE --externs ihs.externs.js --js dojo.js.uncompressed.js --js dijit_en.js --js dijit.js.uncompressed.js --js closure.js --js_output_file ihsfull.js --compilation_level ADVANCED_OPTIMIZATIONS --create_name_map_files true --jscomp_error=checkTypes --jscomp_error=accessControls --formatting PRINT_INPUT_DELIMITER
+
+Comment:
+Java environment: 
+
+Java(TM) SE Runtime Environment (build 1.6.0_23-b05)
+Java HotSpot(TM) Client VM (build 19.0-b09, mixed mode, sharing)
+
+Comment:
+Ok. I can reproduce it now.
+
+--warning_level VERBOSE and the extern was needed.
+
+Looking....
+
+Comment:
+It looks like property collapsing is doing something weird. I don't have a fix for it yet.
+
+You might want to try disabling that if you want to continue using advanced mode in the the mean time.
+
+Comment:
+Thanks for the info.  How can I disable property collapsing?
+
+Or should I just take away --warning_level VERBOSE?
+
+Comment:
+To disable property collapsing, you would need to a custom build of the compiler.
+
+I make such local changes in CompilationLevel.jav - just disable the option.
+
+Comment:
+OK.  That's probably too much for me -- I don't even have a Java compiler.  So I think I should take away VERBOSE warning for the time being and try to see if it works...
+
+Comment:
+FYI:
+
+One of the name space is sometimes collpase.
+
+This is the compiled output. Strangely, they appear next to each other...
+
+
+  dojox$gfx.shape.Shape = function(params$$66) {};
+  dojox$gfx$shape$Shape = dojo$declare("dojox.gfx.shape.Shape", null, {constructor:function() {
+
+Comment:
+This was in an older version.  That version has dojox.gfx being used inside a named function declared within a wrapper closure, causing an incomplete alias.  It should not be collapsed...
+
+Comment:
+Sorry.  Typo.  There was an alias "var g = dojox.gfx" being used inside a named function declared within a wrapper closure, so it is an incomplete alias and should not be collapsed.
+
+Comment:
+Update: 
+
+Rewriting a named function that uses the alias to dojox.gfx (which then allows dojox.gfx to be collapsed) no longer triggers this error.
+
+So I believe this error occurs whenever VERBOSE is used and whenever the variable access cannot be collapsed.
+
+Comment:
+Further update:
+
+Compiled program successfully without triggering crash (dojox.gfx is collapsed).
+
+However, when compiled with --debug true, all mangled names for local variables and parameters are wrong.  The names look nothing like the actual variable and argument names, but look like they're from variables in other functions.  Looks like something is overwriting mangled names in the wrong positions.
+
+Comment:
+@20 The variable renaming algorithm was improved to allow local names to be shadowed, however this has made a mess of the --debug output.  I believe that Alan has a change pending to improve this.
+
+Comment:
+I don't think the bug I fixed would not have cause the names to be all
+wrong.
+
+Can you describe what's wrong with the names?
+
+-Alan
+
+Comment:
+fyi, i've got a small repro case for the CollapseProperties issue.
+
+Comment:
+1. Changed a few functions in the files I attached so that dojox.gfx can be collapsed.
+
+2. Compiled with VERBOSE.  No crash.  File ran without errors.
+
+3. Compiled with VERBOSE + --debug true.  File doesn't run -- exception on browser.  Open file and see all local variable/argument names messed up.  Variables so messed up that they conflict with other function/global variable names, so it doesn't run.
+
+Behavior: for example, a function:
+
+function hello(world, abc) {
+   var test = abc(world);
+   world = test;
+}
+
+May become:
+
+function $something$completely$different$$ ($del$, $clear156$) {
+   var $tmp_may_conflict_with_other_names$ = $clear156$($del$);
+   $del$ = $tmp_may_conflict_with_other_names$;
+}
+
+Notice that the variable names show up in *other* functions.  Normally it should be something like:
+
+function $hello$$($world123$, $abc456$) {
+   var $test$ = $abc456$($world123$);
+   $world123$ = $test$;
+}
+
+Comment:
+I've attached a new dijit.js.uncompressed.js.  Replace the original one and compile with VERBOSE and --debug true.
+
+Comment:
+@21/@22, turning on --debug true should not break code.  Currently, --debug true creates a file that doesn't run.
+
+Comment:
+This issue was closed by revision r951.
+
+Comment:
+Great!  Does it solve the --debug true prob as well?
+
+Comment:
+i believe that problem was fixed in an unrelated change.

@@ -1,0 +1,93 @@
+Summary: Verification using isA(int.class) gives NullPointerException
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Create an object that has a method do(int aValue)
+2. Create a spy for this object. T spy = spy(obj)
+3. Verify behavior using verify(spy).do(isA(int.class))
+
+<b>What is the expected output? What do you see instead?</b>
+
+Expected output is that there will be a normal verification (either pass
+the test or &quot;wanted but not invoked&quot; result). 
+
+<b>What version of the product are you using? On what operating system?</b>
+
+1.7, SLED 10 
+
+<b>Please provide any additional information below.</b>
+
+This issue is mainly a usability issue. It is strange however that
+isA(String.class) works but isA(int.class) does not. Also
+isA(Integer.class) does not work. 
+
+This problem is mainly a usability issue. It occurs only for methods that
+have primitive arguments instead of objects. In any case, either mockito
+should support the verifications (preferred) or it should give a clear
+error message when running the test. Currently, we get a NullPointerException: 
+
+java.lang.NullPointerException
+	at itoamapi.MockitoTest.testX(MockitoTest.java:22)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:597)
+	at junit.framework.TestCase.runTest(TestCase.java:168)
+	at junit.framework.TestCase.runBare(TestCase.java:134)
+	at junit.framework.TestResult$1.protect(TestResult.java:110)
+	at junit.framework.TestResult.runProtected(TestResult.java:128)
+	at junit.framework.TestResult.run(TestResult.java:113)
+	at junit.framework.TestCase.run(TestCase.java:124)
+	at junit.framework.TestSuite.runTest(TestSuite.java:232)
+	at junit.framework.TestSuite.run(TestSuite.java:227)
+	at
+org.junit.internal.runners.OldTestClassRunner.run(OldTestClassRunner.java:76)
+	at
+org.eclipse.jdt.internal.junit4.runner.JUnit4TestReference.run(JUnit4TestReference.java:45)
+	at
+org.eclipse.jdt.internal.junit.runner.TestExecution.run(TestExecution.java:38)
+	at
+org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:460)
+	at
+org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:673)
+	at
+org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.run(RemoteTestRunner.java:386)
+	at
+org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.main(RemoteTestRunner.java:196)
+
+Comment:
+This issue also occurs for Mockito 1.8.0-rc2.
+
+Comment:
+Hi, thanks a lot for the detailed description!
+
+I looked at the implementation and here is how it works:
+
+intMethod(int x);
+
+verify(mock).intMethod(isA(int.class));
+//isA() matcher returns null (most of the matcher-methods return null)
+//java is autounboxing to int and the value to autounbox is null, hence NPE
+
+This is related to all kinds of matchers that return null where args are primitive.
+Interestingly, this is very unusual case. For example, most people use anyInt()
+instead of isA(int.class) because the first one is more explicit. After all, you
+really want 'any int' and you're not interested in the type because the compiler
+checks it for you.
+
+What about fixing it? Fixing it requires the matcher methods to return corresponding
+primitive value in some cases instead of null. I'm not going to able to fix it for
+all matcher methods because usually the matcher method doesn't know the type of
+argument. For example: public static <T> T eq(T value) doesn't know the type (generic
+T is erasured in runtime), therefore following code will always throw NPE:
+
+verify(mock).intMethod(eq(new Integer(100)));
+
+I'll try to fix it for some matcher methods that do have access to the arg type (it's
+minority, for example isA(Class<T> clazz)). For now though, please consider using
+anyInt() instead of isA(int.class).
+
+Comment:
+This issue was closed by revision r1677.

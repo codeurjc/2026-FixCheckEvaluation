@@ -1,0 +1,99 @@
+Summary: closure compiled swfobject error
+
+Description:
+swfobject.js code
+
+function urlEncodeIfNecessary(s) {
+	var regex = /[\\\&quot;&lt;&gt;\.;]/;
+	var hasBadChars = regex.exec(s) != null;
+	return hasBadChars &amp;&amp; typeof encodeURIComponent != UNDEF ? encodeURIComponent(s) : s;
+}
+
+closure compiled:
+
+function Z(a){return/[\&quot;&lt;&gt;.;]/.exec(a)!=
+null&amp;&amp;typeof encodeURIComponent!=j?encodeURIComponent(a):a}
+
+but it's error.and minify erray:
+Fatal error: Uncaught exception 'JSMin_UnterminatedStringException' with message 'Unterminated String: '&quot;&lt;&gt;.;]/.exec(a)!=''
+
+return/[\&quot;&lt;&gt;.;]/ to  return /[\&quot;&lt;&gt;.;]/   that's OK
+
+
+ie = !+&quot;\v1&quot;,   closure compiled to   ie=!1,    my god!!
+
+Comment:
+What version of the compiler are you using? I'm not getting the same results on urlEncodeIfNecessary:
+
+function urlEncodeIfNecessary(s) {
+	var regex = /[\\\"<>\.;]/;
+	var hasBadChars = regex.exec(s) != null;
+	return hasBadChars && typeof encodeURIComponent != 'undefined' ? encodeURIComponent(s) : s;
+}
+window["urlEncodeIfNecessary"] = urlEncodeIfNecessary;
+
+Compiles to:
+
+window.urlEncodeIfNecessary = function(a) {
+  return/[\\\"<>\.;]/.exec(a) != null && typeof encodeURIComponent != "undefined" ? encodeURIComponent(a) : a
+};
+
+Comment:
+today download the last version.
+
+Do have this problem, by swfobject v2.2 Compiles
+
+Comment:
+I'll confirm Chad's result. Neither "compiler-latest.zip" (Windows 7, Java 1.6.0_24 build 7)  nor "closure-compiler.appspot.com" compile "http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject_src.js" to the result your describe.
+Here is the relevant snippet from the result:
+function U(a){return/[\\\"<>\.;]/.exec(a)!=o&&typeof encodeURIComponent!=i?encodeURIComponent(a):a}
+
+You'll need to provide additional details:
+- what os?
+- what version of java?
+- the complete command-line used
+- the actual source file that can be used to reproduce the issue.
+
+Comment:
+I'll let someone else jump in, but I would say that:
+
+ie = !+"\v1"
+
+compiling to:
+
+ie=!1
+
+is working as intended.
+
+Comment:
+java version "1.6.0_21"
+Java(TM) SE Runtime Environment (build 1.6.0_21-b06)
+Java HotSpot(TM) Client VM (build 17.0-b16, mixed mode, sharing)
+
+Windows 7 SP1 chinese , nor "closure-compiler.appspot.com" compile 
+
+I do not know why. now, it is good. Thinks!
+
+minify error:
+Fatal error: Uncaught exception 'JSMin_UnterminatedStringException' with message 'Unterminated String: '",''
+
+Still can not resolve！
+
+Comment:
+1) How are you running the compiler?
+2) Attach the file or provide a link to the version you are using.
+3) Is anyone else able to reproduce your results?
+
+Comment:
+nope, 
+!+"\v1"
+evaluates to true in jscript (IE) and false in ecmascript (everybody else). this is probably something we should fix.
+
+Comment:
+the other error sounds like you're running JSMin, and JSMin has a bug.
+
+Comment:
+@Nick:  dang. vertical tab. Yeah we should fix this.
+
+Comment:
+This issue was closed by revision r963.

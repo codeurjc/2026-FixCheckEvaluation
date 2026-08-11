@@ -1,0 +1,13 @@
+Summary: User should be able to set serializable and yet configure his own extra interfaces
+
+Description:
+Example:
+
+Foo mock = mock(Foo.class, 
+  withSettings().serializable().extraInterfaces(Bar.class));
+
+Comment:
+This issue was closed by revision r1759.
+
+Comment:
+This issue was closed by revision r1768.

@@ -1,0 +1,26 @@
+Summary: Namespaced attribute not selected with wildcard
+
+Description:
+With expression:
+
+xml/@*
+
+On xml:
+
+<xml xmlns:x='foo' x:pop='a'/>
+
+selectSingleNode returns null, @x:* works fine.
+
+Possible Fix:
+
+In DOMAttributeIterator, line 84
+
+if (equalStrings(testPrefix, nodePrefix)) {
+                return true;
+            }
+
+should probably be changed to
+
+if (testPrefix==null || equalStrings(testPrefix, nodePrefix)) {
+                return true;
+            }

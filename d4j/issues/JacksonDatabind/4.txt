@@ -1,0 +1,83 @@
+Title: Index is never set for Collection and Array in InvalidFormatException.Reference
+
+Body:
+When a InvalidFormatException is created, index values is always '-1'.
+Indeed, in StringCollectionDeserializer, and CollectionDeserializer the exception is not caught.
+The JsonMappingException shoud be caught and the index should be added and based on the "result" size.
+Without this information, there is no way to get the index of the item involved in the mapping error.
+
+
+Comment:
+Thank you for reporting this. Intent is indeed to report correct index...
+
+
+Comment:
+Forgot one thing: this has only been supported on serialization side, since that is where it is more obviously needed.
+
+But it would be nice on deserialization too, given that generally collection entry counts and JSON index (which would be available via `JsonParser`) align, and since actual `JsonParser` instance may or may not be available. Also, in case of nested JSON Arrays, locating index of problematic container might be tricky.
+
+
+Comment:
+Fixed for 4 relevant deserializers; please let me know if I missed something. Also added basic unit tests.
+
+
+Comment:
+I've just tested this change and this is perfect. You have added the missing reference of collection/array and attached the index to it.
+It's perfect, now we have the entire path.
+
+Thanks.
+
+
+Comment:
+Just on thing, the index is well set, but the "InvalidFormatException.Reference#_from" is a Class<T> instead of the true Collection/Array reference.
+Having this information could be usefull to see the previous successfully parsed collection's items.
+
+
+Comment:
+@fabdouglas Right, the problem with array is that one is only instantiated after collecting all entries (since arrays are not resizable). With collections this may not be the case, so I should go back and add a reference if possible. I realize that non-type-safety between `Class` and instance is awkward, but sometimes that is best that can be done when deserializing (f.ex. if problem occurs during deserialization of creator parameter, or due to buffering).
+
+
+Comment:
+One possible thing to do would be to create incomplete arrays, although this would only be for purposes of error reporting. But I am wondering if this might not actually be a good thing: it'd be possible to indicate (for example) what was the preceding non-erroneous element.
+So perhaps it would be possible to further improve this.
+
+
+Comment:
+Indeed, the array copy may cause serious performance issues for large objects.
+The main goal of this issue was the path making possible for JSON client to spot the incorrect data
+
+
+Comment:
+BTW, the target Milestone is currently 1.9.13 instead of 2.4.2
+
+
+Comment:
+@fabdouglas Thanks, fixed milestone. And yes, perhaps consider further improvements later on; while constructing array can be useful, it could also be problematic, so might want to use heuristics to determine that... i.e. needs more thinking.
+
+
+Comment:
+There are a couple places you use `ix` as the index that I think might be better represented as `ix + buffer.bufferedSize()`.
+
+
+Comment:
+Sounds plausible. Can you point me to those so I can fix them?
+
+
+Comment:
+Probably all ones using ix. It gets periodically reset as it is just the index into a temporary buffer. So index 13 might get misreported as index 0. Unless I am misreading it badly... See here for example:
+
+https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/deser/std/ObjectArrayDeserializer.java#L160
+
+I can pull together the full list and try to reproduce in a test case if this doesn't look convincing to you.
+
+
+Comment:
+Yes I see, you are absolutely right. Thanks!
+
+
+Comment:
+Is there a chance to attach this issue to the next milstone?
+
+
+Comment:
+It'll go in 2.5, but if someone wants to do a PR for 2.4 branch I can merge.

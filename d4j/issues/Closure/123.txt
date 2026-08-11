@@ -1,0 +1,52 @@
+Summary: Generates code with invalid for/in left-hand assignment
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile this:
+
+window.Foo = function(A, B, C, D) {
+  if ( A ) {                        
+    if ( B ) {
+      C = 0;
+    } else {
+      C = 0 in D;
+    }
+    while ( C-- ) {}
+  }
+}
+
+<b>What is the expected output? What do you see instead?</b>
+
+Expected: Something that doesn't have a syntax error, maybe
+
+window.Foo=function(b,c,a,d){if(b)for(a=c?0:(0 in d);a--;);};
+
+Actual:
+
+window.Foo=function(b,c,a,d){if(b)for(a=c?0:0 in d;a--;);};
+
+SyntaxError: Unexpected token ; (Chrome)
+invalid for/in left-hand side (Firefox)
+
+
+<b>What version of the product are you using? On what operating system?</b>
+
+http://closure-compiler.appspot.com/home
+
+
+<b>Please provide any additional information below.</b>
+
+I noticed this while attempting to minify jquery
+
+Comment:
+I bisected, and it appears that the first bad commit is 
+
+https://code.google.com/p/closure-compiler/source/detail?r=6842032b7c1857e0cdf690ce25a767b4365dd307
+
+Comment:
+Thanks for the report!
+
+Sounds like a code generation problem.
+
+Comment:
+This issue was closed by revision 8d11b8cc7a61.

@@ -1,0 +1,126 @@
+Title: Large ISO-8601 Dates are formatted/serialized incorrectly
+
+Body:
+**The problem**
+
+```
+java.text.ParseException: Cannot parse date "痝055-12-02T16:47:04.192+0000": not compatible with any of standard forms ("yyyy-MM-dd'T'HH:mm:ss.SSSZ", "yyyy-MM-dd'T'HH:mm:ss.SSS", "EEE, dd MMM yyyy HH:mm:ss zzz", "yyyy-MM-dd")
+	at com.fasterxml.jackson.databind.util.StdDateFormat.parse(StdDateFormat.java:372)
+```
+
+Years > 9999 are not rendered as 5 numbers or more, but with a non numerical characters for the thousands digit..
+
+**The testcase**
+
+```
+public class MyTestCase{
+  public static void main(String[] args) throws JsonProcessingException, ParseException {
+    StdDateFormat formatter = new StdDateFormat();
+    System.out.println(formatter.format(new Date(Long.MIN_VALUE)));
+    System.out.println(formatter.format(new Date(Long.MAX_VALUE)));
+    System.out.println(formatter.parse(formatter.format(new Date(Long.MIN_VALUE))));
+    System.out.println(formatter.parse(formatter.format(new Date(Long.MAX_VALUE))));
+
+    assert formatter.parse(formatter.format(new Date(Long.MAX_VALUE))).getTime() == Long.MAX_VALUE;
+    // Will fail due to lack of support for negative dates.
+    //assert formatter.parse(formatter.format(new Date(Long.MIN_VALUE))).getTime() == Long.MIN_VALUE;
+  }
+}
+```
+**Expected**
+
+a) All dates are formatted correctly, meaning, years bigger than 9999.
+b) or some sort of exception telling the data is not supported.
+
+**The location** 
+`'0' + something`
+https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/util/StdDateFormat.java#L442
+
+**Suggestion**
+a) Adding '0' with an integer is not a safe operation. But if you are doing it, you need an upper bound check, e.g.:
+```
+ private static void pad2(StringBuffer buffer, int value) {
+     int tens = value / 10;
++    if (tens >= 10) {
++        pad2(buffer, tens);
++        buffer.append((char) ('0' + value % 10));
++        return;
++    }
+     if (tens == 0) {
+         buffer.append('0');
+     } else {
+         buffer.append((char) ('0' + tens));
+         value -= 10 * tens;
+     }
+     buffer.append((char) ('0' + value));
+ }
+ 
+ private static void pad3(StringBuffer buffer, int value) {
+     int h = value / 100;
++    if (h >= 100) {
++        pad3(buffer, h);
++        pad2(buffer, value % 100);
++        return;
++    }
+     if (h == 0) {
+         buffer.append('0');
+     } else {
+         buffer.append((char) ('0' + h));
+         value -= (h * 100);
+     }
+     pad2(buffer, value);
+ }
+```
+b) Or if you do not want to support such high years, then throw some sort of exception. E.g.:
+```
+     protected void _format(TimeZone tz, Locale loc, Date date,
+             StringBuffer buffer)
+     {
+         Calendar cal = _getCalendar(tz);
+         cal.setTime(date);
+
++        int year = cal.get(Calendar.YEAR);
++        if (cal.get(Calendar.ERA) == 0) {
++            year = -year + 1;
++        }
++        if (year < 0 || 9999 < year) {
++            throw new IndexOutOfBoundsException("Year not within the range [0,9999]: " + Integer.toString(year))
++        }
+ 
+-        pad4(buffer, cal.get(Calendar.YEAR));
++        pad4(buffer, year);
+         buffer.append('-');
+         pad2(buffer, cal.get(Calendar.MONTH) + 1);
+         buffer.append('-');
+         pad2(buffer, cal.get(Calendar.DAY_OF_MONTH));
+```
+
+Comment:
+Good catch. I agree, one or the other should be supported; ideally probably support for years beyond 9999.
+
+Comment:
+If you want to support years `>9999` then you should support also years `<1BC`.
+
+The ISO spec requires a 4 numeral year, so, if year `<1000`, it needs to be padded with `0` as it done right now.
+
+Beyond that, the spec optionally specifies that years can have 5 or more numerals, and that years before 1CE have a negative sign, starting at 0.
+
+So, `2018CE` is `2018`, `1CE` is `0001`, `1BCE` is `0000`, `2BCE` is `-0001`, `3BCE` is `-0002`, etc...
+
+The spec also says that  if there is an agreement between the parties that exchange the information, then the application can use the signed big year format. So, there should be a toggle to enable that, and by default make it limited to `[0000,9999]`.
+
+
+
+Comment:
+I think I'll leave support for BCE for another issue if anyone has time and interest, and this will be focused on improving handling of future dates.
+
+
+Comment:
+Or. Hmmh. Reading this:
+
+https://www.tondering.dk/claus/cal/iso8601.php
+
+is interesting, mentioning that positive prefix must be used 5-or-more digits (and `-` for BC).
+So I think maybe I should actually support serialization.
+
+Of course, being able to deserialize any of that is yet another issue.

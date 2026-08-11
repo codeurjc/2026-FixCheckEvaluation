@@ -1,0 +1,36 @@
+Summary: assignment to object in conditional causes type error on function w/ record type return type
+
+Description:
+slightly dodgy code :)
+
+/** @returns {{prop1: (Object|undefined), prop2: (string|undefined), prop3: (string|undefined)}} */
+function func(a, b) {
+  var results;
+  if (a) {
+    results = {};
+    results.prop1 = {a: 3};
+  }
+  if (b) {
+    results = results || {};
+    results.prop2 = 'prop2';
+  } else {
+    results = results || {};
+    results.prop3 = 'prop3';
+  }
+  return results;
+}
+results in this error:
+
+
+JSC_TYPE_MISMATCH: inconsistent return type
+found   : ({prop1: {a: number}}|{})
+required: {prop1: (Object|null|undefined), prop2: (string|undefined), prop3: (string|undefined)} at line 18 character 7
+return results;
+
+
+
+defining results on the first line on the function causes it the world.
+the still dodgy, but slightly less so, use of this is if the function return type were that record type|undefined and not all branches were guaranteed to be executed.
+
+Comment:
+This issue was closed by revision r1802.

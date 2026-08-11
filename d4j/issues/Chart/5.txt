@@ -1,0 +1,201 @@
+JFreeChart / Bugs / #862 XYSeries.addOrUpdate() should add if duplicates are allowed
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+JFreeChart
+Bugs
+XYSeries.addOrUpdate() should add if duplicates are allowed
+Brought to you by:
+mungady
+,
+taqua
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Mailing Lists
+Tickets ▾
+Patches
+Bugs
+Feature Requests
+News
+Code
+Cvs
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+1.0.x
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#862 XYSeries.addOrUpdate() should add if duplicates are allowed
+Status:
+closed-fixed
+Owner:
+David Gilbert
+Labels:
+General (896)
+Priority:
+9
+Updated:
+2008-11-24
+Created:
+2008-05-01
+Creator:
+Anonymous
+Private:
+No
+Copied from this post (by Ted Schwartz) in the forum:
+http://www.jfree.org/phpBB2/viewtopic.php?t=24523
+I've found a bug in jfreechart-1.0.9 code for org.jfree.data.xy.XYSeries. There was a change some time ago which introduced the notion of allowing duplicate X values in XYSeries data. The method addOrUpdate(Number x, Number y) was never modified to support this, and therefore duplicate data were overwriting existing data. This is the fix I've made, but I don't know how to submit a patch...
+$ diff original/jfreechart-1.0.9/source/org/jfree/data/xy/XYSeries.java fixed/org/jfree/data/xy/XYSeries.java
+537c537
+< if (index >= 0) {
+---
+> if (index >= 0 && !allowDuplicateXValues) {
+545a546,559
+> } else if (index >= 0){
+> XYDataItem item = new XYDataItem(x, y);
+> // need to make sure we are adding *after* any duplicates
+> int size = this.data.size();
+> while (index < size
+> && item.compareTo(this.data.get(index)) == 0) {
+> index++;
+> }
+> if (index < this.data.size()) {
+> this.data.add(index, item);
+> }
+> else {
+> this.data.add(item);
+> }
+558,561d571
+< // check if this addition will exceed the maximum item count...
+< if (getItemCount() > this.maximumItemCount) {
+< this.data.remove(0);
+< }
+562a573,576
+> // check if this addition will exceed the maximum item count...
+> if (getItemCount() > this.maximumItemCount) {
+> this.data.remove(0);
+> }
+Discussion
+David Gilbert
+-
+2008-05-12
+assigned_to
+: nobody --> mungady
+status
+: open --> closed-fixed
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-05-12
+Logged In: YES
+user_id=112975
+Originator: NO
+A fix has been committed to Subversion for inclusion in the upcoming 1.0.10 release.
+Regards,
+Dave Gilbert
+JFreeChart Project Leader
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Teodor Danciu
+-
+2008-11-21
+Hi,
+I think there is still something wrong with this.
+If you have autosort true and allowduplicates true as well, it can happen that the value already exists and it is the first in the list, in which case the index returned would be zero. And we end up trying to add a new value at index -1, which makes it blow up with:
+java.lang.IndexOutOfBoundsException: Index: -1, Size: 13
+at java.util.ArrayList.add(ArrayList.java:367)
+at org.jfree.data.xy.XYSeries.addOrUpdate(XYSeries.java:571)
+Thanks,
+Teodor
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-11-24
+priority
+: 5 --> 9
+status
+: closed-fixed --> open-accepted
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-11-24
+Hi Teodor,
+You are right.  Thanks for spotting/reporting this, I'll fix it now.
+Best regards,
+Dave
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-11-24
+Fix committed to Subversion for inclusion in the 1.0.12 release.
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-11-24
+status
+: open-accepted --> closed-fixed
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

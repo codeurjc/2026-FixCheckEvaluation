@@ -1,0 +1,21 @@
+Title: Issue with <tr>
+
+Body:
+When calling append to add a table row the resulting tr gets wrapped in a table even though I appended to an existing table.
+
+
+Comment:
+Thanks for the report. 
+
+This example has effectively the same root cause as http://groups.google.com/group/jsoup/browse_thread/thread/81e7a1e326108715?hl=en_US#
+
+The valid ancestor check needs a bit of a refactor to fix.
+
+
+Comment:
+Improved implicit close tag heuristic detection when parsing malformed HTML.
+
+Fixes an issue where appending / prepending rows to a table (or  to similar implicit
+element structures) would create a redundant wrapping elements.
+
+Closed by 3e8cf582f79cd5e5320cda4caa2044fa433d8fcf

@@ -1,0 +1,80 @@
+Title: `ValueInstantiator.canInstantiate()` ignores `canCreateUsingArrayDelegate()`
+
+Body:
+### Problem
+
+Method Javadoc doesn't match behavior. As a result, delegate collection constructors (for abstract types) don't work properly.
+
+### Tested versions
+
+jackson-databind v2.8.7 and v2.9.2.
+
+### Location in code
+
+https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/deser/ValueInstantiator.java#L70
+
+### Expected Behavior
+Outputs `[]`.
+
+### Observed Behavior
+```
+Exception in thread "main" com.fasterxml.jackson.databind.exc.InvalidDefinitionException: Cannot construct instance of `ArrayDelegateDeserializationTest$MyType` (no Creators, like default construct, exist): abstract types either need to be mapped to concrete types, have custom deserializer, or contain additional type information
+ at [Source: (String)"[]"; line: 1, column: 1]
+	at com.fasterxml.jackson.databind.exc.InvalidDefinitionException.from(InvalidDefinitionException.java:67)
+	at com.fasterxml.jackson.databind.DeserializationContext.reportBadDefinition(DeserializationContext.java:1451)
+	at com.fasterxml.jackson.databind.DeserializationContext.handleMissingInstantiator(DeserializationContext.java:1027)
+	at com.fasterxml.jackson.databind.deser.AbstractDeserializer.deserialize(AbstractDeserializer.java:265)
+	at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:4001)
+	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2992)
+	at ArrayDelegateDeserializationTest.main(ArrayDelegateDeserializationTest.java:35)
+```
+
+### Test code
+```java
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class ArrayDelegateDeserializationTest {
+
+    public static class MyTypeImpl implements MyType {
+        private final List<Integer> values;
+
+        MyTypeImpl(List<Integer> values) {
+            this.values = values;
+        }
+
+        @Override
+        public List<Integer> getValues() {
+            return values;
+        }
+    }
+
+    public interface MyType {
+        @JsonValue
+        List<Integer> getValues();
+
+        @JsonCreator
+        static MyType of(List<Integer> values) {
+            return new MyTypeImpl(values);
+        }
+    }
+
+
+    public static void main(String[] args) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        MyType thing = mapper.readValue("[]", MyType.class);
+        System.out.println(thing.getValues());
+    }
+
+}
+```
+
+
+Comment:
+Note: did some debugger hackery to verify that bypassing [this check](https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/deser/BeanDeserializerFactory.java#L281) seems to fix the bug, so adding the missing piece of `canInstantiate()` should do the trick.
+
+Comment:
+Thank you for reporting the problem. Sounds like retrofitting done to add array-delegator was missing the call.

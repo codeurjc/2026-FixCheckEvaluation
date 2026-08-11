@@ -1,0 +1,28 @@
+Summary: JXPathContext.iteratePointers() does not work with multiple prefixes for a single namespace URI
+
+Description:
+Have a look at the following document:
+
+<a:doc xmlns:a="ns">
+  <a:elem />
+  <b:elem xmlns:b="ns" />
+</a:doc>
+
+We have two elements 'elem' in the same namespace 'ns'.
+They have a different prefix, however.
+
+When we use JXPathContext.iteratePointers() to iterate over them, the first element is returned two times. The second element is not returned.
+
+This is because
+in class org.apache.commons.jxpath.ri.model.dom.DOMNodePointer
+in method getRelativePositionByName() (line 546)
+we have:
+
+if (nm.equals(node.getNodeName()))
+
+In the example, we have
+nm  == "a:elem" and node == "b:elem"
+
+Thus, equals() returns false. But since 'a' and 'b' are just different prefixes for the same namespace URI, we should have 'true'.
+
+I attached a testcase which reproduces the bug.

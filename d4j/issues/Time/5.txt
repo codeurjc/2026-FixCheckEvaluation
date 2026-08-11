@@ -1,0 +1,36 @@
+Title: none standard PeriodType without year throws exception
+
+Body:
+Hi.
+
+I tried to get a Period only for months and weeks with following code:
+
+``` Java
+Period p = new Period(new DateTime(startDate.getTime()), new DateTime(endDate.getTime()), PeriodType.forFields(new DurationFieldType[]{DurationFieldType.months(), DurationFieldType.weeks()})).normalizedStandard(PeriodType.forFields(new DurationFieldType[]{DurationFieldType.months(), DurationFieldType.weeks()}));
+return p.getMonths();
+```
+
+This throws following exception:
+
+```
+ 10-17 14:35:50.999: E/AndroidRuntime(1350): java.lang.UnsupportedOperationException: Field is not supported
+ 10-17 14:35:50.999: E/AndroidRuntime(1350): at org.joda.time.PeriodType.setIndexedField(PeriodType.java:690)
+ 10-17 14:35:50.999: E/AndroidRuntime(1350): at org.joda.time.Period.withYears(Period.java:896) 10-17
+ 14:35:50.999: E/AndroidRuntime(1350): at org.joda.time.Period.normalizedStandard(Period.java:1630)
+```
+
+Even removing the year component with .withYearsRemoved() throws the same exception:
+
+this works:
+
+``` Java
+Period p = new Period(new DateTime(startDate.getTime()), new DateTime(endDate.getTime()), PeriodType.standard()).normalizedStandard(PeriodType.standard());
+return p.getMonths();
+```
+
+this fails:
+
+``` Java
+Period p = new Period(new DateTime(startDate.getTime()), new DateTime(endDate.getTime()), PeriodType.standard().withYearsRemoved()).normalizedStandard(PeriodType.standard().withYearsRemoved());
+return p.getMonths();
+```

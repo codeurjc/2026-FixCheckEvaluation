@@ -1,0 +1,58 @@
+Title: 1.10 regression (StackOverflowError) with interface where generic type has itself as upper bound
+
+Body:
+Add this to `GenericMetadataSupportTest`:
+
+``` java
+    interface GenericsSelfReference<T extends GenericsSelfReference<T>> {
+        T self();
+    }
+
+    @Test
+    public void typeVariable_of_self_type() {
+        GenericMetadataSupport genericMetadata = inferFrom(GenericsSelfReference.class).resolveGenericReturnType(firstNamedMethod("self", GenericsSelfReference.class));
+
+        assertThat(genericMetadata.rawType()).isEqualTo(GenericsSelfReference.class);
+    }
+```
+
+It fails on master and 1.10.8 with this:
+
+```
+java.lang.StackOverflowError
+    at sun.reflect.generics.reflectiveObjects.TypeVariableImpl.hashCode(TypeVariableImpl.java:201)
+    at java.util.HashMap.hash(HashMap.java:338)
+    at java.util.HashMap.get(HashMap.java:556)
+    at org.mockito.internal.util.reflection.GenericMetadataSupport.getActualTypeArgumentFor(GenericMetadataSupport.java:193)
+    at org.mockito.internal.util.reflection.GenericMetadataSupport.getActualTypeArgumentFor(GenericMetadataSupport.java:196)
+    at org.mockito.internal.util.reflection.GenericMetadataSupport.getActualTypeArgumentFor(GenericMetadataSupport.java:196)
+```
+
+It worked on 1.9.5. May be caused by the changes in ab9e9f3 (cc @bric3).
+
+(Also note that while the above interface looks strange, it is commonly used for builder hierarchies, where base class methods want to return this with a more specific type.)
+
+
+Comment:
+Thanks a lot for reporting! Guys, do you want to take a stab at fixing it?
+
+
+Comment:
+Published with 1.10.18. Thanks a lot for contribution!!!
+
+
+Comment:
+Hey @pbielicki since you committed this fix, thx by the way, what is your opinion about the code that handle the generic support. I know generics is a complicated matter, I find my code quite intricate, as you have an external point of view do you saw some way to make it better ?
+
+
+Comment:
+@bric3 I'm quite pragmatic - it's good if it works.
+generics + reflection is a complex matter as casting is inevitable. different types, different variants, type erasure, etc. so it's even difficult to imagine all possible test scenarios (Class is considered differently that Class<?> in runtime, while for me it's the same :)
+The code is quite clean, and I don't have any ideas how to improve it - at least for now.
+Test, test, test and test again - I'm not helpful, I know.
+
+
+Comment:
+Hey you did dive in this code to fix while I was busy on my current job, that was helpful :)
+
+Yeah with generics it seems almost all cases are edge cases. But if you find it good enough for the time being that's already a good feedback.

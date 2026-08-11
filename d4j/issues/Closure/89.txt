@@ -1,0 +1,77 @@
+Summary: Compiler removes function properties that it should not
+
+Description:
+The Compiler appears to remove properties that are added to functions. I do not believe that it should do such a thing. In the following example, I add a property named &quot;alwaysCall&quot; to a function that I check later. The property appears to be stripped, which changes the behavior of the program. To see this in action run the following through http://closure-compiler.appspot.com/home:
+
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// @use_closure_library true
+// @formatting pretty_print
+// ==/ClosureCompiler==
+
+var lastMsg;
+var map = {};
+
+var addToMap = function(key, func) {
+  map[key] = func;
+};
+
+var f1 = function() { alert('f1'); };
+f1.alwaysCall = true;
+var f2 = function() { alert('f2'); };
+
+addToMap('f1', f1);
+addToMap('f2', f2);
+
+var callFunctionByKey = function(key) {
+  var f = map[key];
+  if (f.alwaysCall) f();
+};
+
+callFunctionByKey(Math.random() &gt; 0.5 ? 'f1' : 'f2');
+
+
+The compiled code is:
+
+
+var a = {};
+a.f1 = function() {
+  alert(&quot;f1&quot;)
+};
+a.f2 = function() {
+  alert(&quot;f2&quot;)
+};
+var b = a[Math.random() &gt; 0.5 ? &quot;f1&quot; : &quot;f2&quot;];
+b.a &amp;&amp; b();
+
+Note that a.f1 does not have a property defined on it anymore, though it still appears to be checked on this line of code:
+
+b.a &amp;&amp; b();
+
+So it looks like it is missing the following:
+
+a.f1.a =  true;
+
+For now, I can workaround this by quoting the property:
+
+f1['alwaysCall'] = true;
+
+// In callFunctionByKey:
+if (f['alwaysCall']) f();
+
+But that seems as though it should not be necessary.
+
+Comment:
+thanks for the report. i think i know what the problem is. you can also workaround for now by having a setAlwaysCall(f, true) method.
+
+Comment:
+This issue was closed by revision r580.
+
+Comment:
+Awesome, thanks so much for fixing this!
+
+So if I understand correctly, there is now a distinction between collapsing properties on ordinary functions as opposed to constructor functions, as the latter are collapsed to become global variables rather than properties of the constructor function (as they are semantically static variables, anyway), whereas the former will continue to be properties of the function? Nifty! Hopefully this distinction works for everyone.
+
+Comment:
+yep. i think this is the correct behavior.

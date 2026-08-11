@@ -1,0 +1,56 @@
+Title: Configuring an ObjectMapper's DateFormat changes time zone when serialising Joda DateTime
+
+Body:
+The serialisation of Joda `DateTime` instances behaves differently in 2.6.0 vs 2.5.4 when the `ObjectMapper`'s had its `DateFormat` configured. The behaviour change is illustrated by the following code:
+
+``` java
+public static void main(String[] args) throws JsonProcessingException {
+    System.out.println(createObjectMapper()
+            .writeValueAsString(new DateTime(1988, 6, 25, 20, 30, DateTimeZone.UTC)));
+}
+
+private static ObjectMapper createObjectMapper() {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.registerModule(createJodaModule());
+    mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+    System.out.println(mapper.getSerializationConfig().getTimeZone());
+    mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
+    System.out.println(mapper.getSerializationConfig().getTimeZone());
+    return mapper;
+}
+
+private static SimpleModule createJodaModule() {
+    SimpleModule module = new SimpleModule();
+    module.addSerializer(DateTime.class, new DateTimeSerializer(
+            new JacksonJodaDateFormat(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss")
+                    .withZoneUTC())));
+        return module;
+    }
+```
+
+When run with Jackson 2.5.4 the output is:
+
+```
+sun.util.calendar.ZoneInfo[id="GMT",offset=0,dstSavings=0,useDaylight=false,transitions=0,lastRule=null]
+sun.util.calendar.ZoneInfo[id="GMT",offset=0,dstSavings=0,useDaylight=false,transitions=0,lastRule=null]
+"1988-06-25 20:30:00"
+```
+
+When run with Jackson 2.6.0 the output is:
+
+```
+sun.util.calendar.ZoneInfo[id="GMT",offset=0,dstSavings=0,useDaylight=false,transitions=0,lastRule=null]
+sun.util.calendar.ZoneInfo[id="Europe/London",offset=0,dstSavings=3600000,useDaylight=true,transitions=242,lastRule=java.util.SimpleTimeZone[id=Europe/London,offset=0,dstSavings=3600000,useDaylight=true,startYear=0,startMode=2,startMonth=2,startDay=-1,startDayOfWeek=1,startTime=3600000,startTimeMode=2,endMode=2,endMonth=9,endDay=-1,endDayOfWeek=1,endTime=3600000,endTimeMode=2]]
+"1988-06-25 21:30:00"
+```
+
+It looks like the fix for #824 is the cause. In 2.6, the call to `mapper.setDateFormat` causes the `ObjectMapper`'s time zone to be set to the JVM's default time zone. In 2.5.x, calling `mapper.setDateFormat` has no effect on its time zone.
+
+
+Comment:
+Ok, this does sound like a problem. Unfortunately timezone handling is a rather messy area of Jackson databinding. But sounds like in this case solution might be relatively easy, by trying to retain existing configured time zone and not taking it from `DateFormat`
+
+
+Comment:
+The idea with the change was to allow piggy-backing timezone configuration, but all in all it is probably better not to try to be too clever. And since it changed behavior for existing code, it's a no-no.
+Thank you for reporting this, and apologies for breakage. Fix will be in 2.6.1; we are getting enough fixes to release that relatively soon now, esp. considering couple of other issue with Joda / Java8 datetime datatype modules.

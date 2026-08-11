@@ -288,8 +288,41 @@ python summarize_campaign.py --list-failures
 ```
 
 See [scripts/README.md](scripts/README.md) for the options and
-[docs/campaign.md](docs/campaign.md) for the protocol, including why 280 of the
-854 bugs need `GITHUB_TOKEN` set for `--include-issue` to work at all.
+[docs/campaign.md](docs/campaign.md) for the protocol.
+
+### Issue reports are pre-downloaded
+
+`--include-issue` reads each bug's issue report from `d4j/issues/<Project>/<bug_id>.txt`,
+downloaded once and committed, so a run needs no network and always sees the
+same text:
+
+```bash
+python -m d4j.fetch_issues              # all 854, skipping what is cached
+python -m d4j.fetch_issues --project Lang --force
+```
+
+Fetching at run time does not scale: unauthenticated `api.github.com` allows
+**60 requests/hour** and the 280 GitHub-tracked bugs need two calls each, while
+the archived Google Code pages another 197 bugs point at render through
+JavaScript and cannot be scraped at all. `fetch_issues.py` handles all five
+tracker families (Jira, GitHub, Google Code JSON, Google Code archive pages,
+SourceForge). Put a `GITHUB_TOKEN` in `.env` before running it — with one, the
+allowance is 5000/hour and the whole download takes minutes.
+
+**Only the reporter's original text reaches the prompt.** The issue is cut at
+the first `Comment:` line: the maintainers' thread is written *after* the bug
+was diagnosed and routinely discusses (sometimes states) the fix, which would
+leak the answer. 436 of the 813 issues with content have such a thread, and
+dropping it removes 42% of all issue text without leaving a single issue empty.
+The comments stay in the cache for inspection.
+
+**Not every bug has a usable issue**, so `result.json` records an
+`issue_status` saying which case it was: `available` (814 bugs), `unusable`
+(the 22 SourceForge ones, whose pages scrape to a navigation menu rather than
+the ticket — Chart 8, Time 14), `empty` (18 Chart bugs with no URL, plus one
+Jsoup issue GitHub no longer has), or `not-requested`. Chart therefore
+contributes no issue at all. See
+[docs/campaign.md](docs/campaign.md#40-bugs-carry-no-issue-for-three-different-reasons).
 
 ## Output
 
@@ -307,9 +340,9 @@ set), where `<model>` is `--model` with any `<provider>/` prefix stripped
   response, whether the regression test code/log/issue were included in the
   prompt (`included_test_code`, `included_test_log`, `included_issue`), and
   the FixCheck overfitting check's result (`fixcheck`, `fixcheck_suspicious`
-  — see below). `included_issue` reflects whether an issue was *actually*
-  fetched, so a rate-limited or unreachable tracker records `false` rather
-  than claiming the issue reached the prompt.
+  — see below). `included_issue` reflects whether an issue *actually* reached
+  the prompt, and `issue_status` says why when it did not
+  (`available` / `unusable` / `empty` / `not-requested`).
 - `run_status.json` — only written by `run_project.py`: how the run itself
   went (`status` of `ok`/`error`/`timeout`, `exit_code`, `seconds`) alongside
   the outcome flags. This is what distinguishes "the model did not fix it"

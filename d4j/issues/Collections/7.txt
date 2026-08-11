@@ -1,0 +1,6 @@
+Summary: put() and putAll() don't update the getKeys() map
+
+Description:
+If you use the put() or putAll() methods of the ExtendedProperties class, it will  not update the contents of the internal keysAsListed map which in turn will return a different list of keys using the getKeys() method than the keySet() method does.
+
+The attached patchs fix this behaviour and add test cases. 

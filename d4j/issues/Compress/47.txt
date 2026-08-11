@@ -1,0 +1,19 @@
+Summary: ZipArchiveInputStream#getNextZipEntry should verify compressed size is known for bzip2, implode etc.
+
+Description:
+{code}
+        if (current.entry.getCompressedSize() != ArchiveEntry.SIZE_UNKNOWN) {
+            if (current.entry.getMethod() == ZipMethod.UNSHRINKING.getCode()) {
+                current.in = new UnshrinkingInputStream(new BoundedInputStream(in, current.entry.getCompressedSize()));
+            } else if (current.entry.getMethod() == ZipMethod.IMPLODING.getCode()) {
+                current.in = new ExplodingInputStream(
+                        current.entry.getGeneralPurposeBit().getSlidingDictionarySize(),
+                        current.entry.getGeneralPurposeBit().getNumberOfShannonFanoTrees(),
+                        new BoundedInputStream(in, current.entry.getCompressedSize()));
+            } else if (current.entry.getMethod() == ZipMethod.BZIP2.getCode()) {
+                current.in = new BZip2CompressorInputStream(new BoundedInputStream(in, current.entry.getCompressedSize()));
+            }
+        }
+{code}
+
+never sets {{current.in}} if the compressed size is unknown which probably leads to a NullPointerException in {{read}} later. We should fail early with a useful error message instead.

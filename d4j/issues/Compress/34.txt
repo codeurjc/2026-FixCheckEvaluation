@@ -1,0 +1,62 @@
+Summary: Exception in X7875_NewUnix.parseFromLocalFileData when parsing 0-sized "ux" local entry
+
+Description:
+When trying to detect content type of a zip file with Tika 1.10 (which uses Commons Compress 1.9 internally) in manner like this:
+
+{code}
+        byte[] content = ... // whole zip file.
+        String name = "TR_01.ZIP";
+        Tika tika = new Tika();
+        return tika.detect(content, name);
+{code}
+
+it throws an exception:
+
+{code}
+java.lang.ArrayIndexOutOfBoundsException: 13
+	at org.apache.commons.compress.archivers.zip.X7875_NewUnix.parseFromLocalFileData(X7875_NewUnix.java:199)
+	at org.apache.commons.compress.archivers.zip.X7875_NewUnix.parseFromCentralDirectoryData(X7875_NewUnix.java:220)
+	at org.apache.commons.compress.archivers.zip.ExtraFieldUtils.parse(ExtraFieldUtils.java:174)
+	at org.apache.commons.compress.archivers.zip.ZipArchiveEntry.setCentralDirectoryExtra(ZipArchiveEntry.java:476)
+	at org.apache.commons.compress.archivers.zip.ZipFile.readCentralDirectoryEntry(ZipFile.java:575)
+	at org.apache.commons.compress.archivers.zip.ZipFile.populateFromCentralDirectory(ZipFile.java:492)
+	at org.apache.commons.compress.archivers.zip.ZipFile.<init>(ZipFile.java:216)
+	at org.apache.commons.compress.archivers.zip.ZipFile.<init>(ZipFile.java:192)
+	at org.apache.commons.compress.archivers.zip.ZipFile.<init>(ZipFile.java:153)
+	at org.apache.tika.parser.pkg.ZipContainerDetector.detectZipFormat(ZipContainerDetector.java:141)
+	at org.apache.tika.parser.pkg.ZipContainerDetector.detect(ZipContainerDetector.java:88)
+	at org.apache.tika.detect.CompositeDetector.detect(CompositeDetector.java:77)
+	at org.apache.tika.Tika.detect(Tika.java:155)
+	at org.apache.tika.Tika.detect(Tika.java:183)
+	at org.apache.tika.Tika.detect(Tika.java:223)
+{code}
+
+The zip file does contain two .jpg images and is not a "special" (JAR, Openoffice, ... ) zip file.
+
+Unfortunately, the contents of the zip file is confidential and so I cannot attach it to this ticket as it is, although I can provide the parameters supplied to
+org.apache.commons.compress.archivers.zip.X7875_NewUnix.parseFromLocalFileData(X7875_NewUnix.java:199) as caught by the debugger:
+
+{code}
+data = {byte[13]@2103}
+ 0 = 85
+ 1 = 84
+ 2 = 5
+ 3 = 0
+ 4 = 7
+ 5 = -112
+ 6 = -108
+ 7 = 51
+ 8 = 85
+ 9 = 117
+ 10 = 120
+ 11 = 0
+ 12 = 0
+offset = 13
+length = 0
+{code}
+
+This data comes from the local zip entry for the first file, it seems the method tries to read more bytes than is actually available in the buffer.
+
+It seems that first 9 bytes of the buffer are 'UT' extended field with timestamp, followed by 0-sized 'ux' field (bytes 9-12) that is supposed to contain UID/GID - according to infozip's doc the 0-size is common for global dictionary, but the local dictionary should contain complete data. In this case for some reason it does contain 0-sized data.
+
+Note that 7zip and unzip can unzip the file without even a warning, so Commons Compress should be also able to handle that file correctly without choking on that exception.

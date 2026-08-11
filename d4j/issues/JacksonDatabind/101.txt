@@ -1,0 +1,42 @@
+Title: `@JsonUnwrapped` fields are skipped when using `PropertyBasedCreator` if they appear after the last creator property
+
+Body:
+Example:
+
+```java
+    static class Bean {
+        int x;
+        int y;
+
+        @JsonUnwrapped
+        UnwrappedBean w;
+
+        public Bean(@JsonProperty("x") int x, @JsonProperty("y") int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public void setW(UnwrappedBean w) {
+            this.w = w;
+        }
+    }
+
+    static class UnwrappedBean {
+        int a;
+        int b;
+
+        public UnwrappedBean(@JsonProperty("a") int a, @JsonProperty("b") int b) {
+            this.a = a;
+            this.b = b;
+        }
+    }
+```
+
+```json
+    {"x": 1, "a": 2, "y": 3, "b": 4}
+```
+
+`x`, `y`, and `a` are deserialized as expected. `b` is skipped entirely. I think I've found the root cause and the fix doesn't appear to break any tests; opening a PR for further review.
+
+Comment:
+Thank you for reporting this -- not sure how I managed to miss it. Looking now, hoping to merge for 2.9.7.

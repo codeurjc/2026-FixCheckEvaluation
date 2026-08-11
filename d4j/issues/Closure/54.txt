@@ -1,0 +1,86 @@
+Summary: Prototype methods can't be used from the constructor in case prototype is explicitly defined.
+
+Description:
+Consider the following source code:
+http://trac.webkit.org/browser/trunk/Source/WebCore/inspector/front-end/DOMAgent.js
+
+When I mark WebInspector.DOMAgent as a @constructor, I get the following warning.
+
+Source/WebCore/inspector/front-end/DOMAgent.js:48: WARNING - Property _setAttributesPayload never defined on WebInspector.DOMNode
+        this._setAttributesPayload(payload.attributes);
+
+It sounds like the problem is in the way we define prototypes in line 83-ish. That's the way WebKit style tells us to do.
+
+Comment:
+I tried compiling DOMAgent.js after adding the @constructor tag, and did not see this warning.
+
+what version of the compiler are you using?
+
+here is the command i ran with
+java -jar compiler.jar --js=DOMAgent.js --jscomp_warning=checkTypes > /dev/null
+
+Comment:
+It seems to depend on the other files content. I now have different set of files and I can no longer repro it. I went back to the original set of files, but could not repro either. Since yesterday, I was actively changing the code to make it compiler-friendly, so I must have fixed something from its perspective. I'll reopen it if I have a repro case.
+
+Version:
+Closure Compiler (http://code.google.com/closure/compiler)
+Version: 1346
+Built on: 2011/08/11 15:02
+
+Comment:
+OK, thanks. This should work (I think Maps defines prototypes this ways a lot), so I'd be interested if there was an edge case where the check made a mistake.
+
+Comment:
+I am currently getting:
+
+Foo.js:10: WARNING - Property baz never defined on Bar
+  if (this.baz())
+      ^
+0 error(s), 1 warning(s), 91.7% typed
+
+java -jar ~/closure/compiler.jar --warning_level VERBOSE --js Source/WebCore/inspector/front-end/Foo.js
+
+With following Foo.js:
+=======8<=======
+/** @constructor */
+function Foo() {}
+
+/**
+ * @constructor
+ * @extends {Foo}
+ */
+function Bar() {
+  Foo.call(this)
+  if (this.baz())
+    alert(1);
+}
+
+Bar.prototype = {
+    baz: function()
+    {
+        return true;
+    }
+}
+
+Bar.prototype.__proto__ = Foo.prototype;
+=======>8=======
+
+Closure Compiler (http://code.google.com/closure/compiler)
+Version: 1346
+Built on: 2011/08/11 15:02
+Mac OS X
+
+Comment:
+This issue was closed by revision r1401.
+
+Comment:
+We are getting the warnings due to the __proto__ assignment as above again. We decided to move to the prototype = {
+    __proto__: 
+}
+syntax, but I wonder if we are not alone.
+
+Comment:
+thanks for the report.
+
+Comment:
+This issue was closed by revision r2232.

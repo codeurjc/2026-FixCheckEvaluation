@@ -1,0 +1,4 @@
+Title: Location information included twice for some `JsonMappingException`s
+
+Body:
+Looks like due to some double-processing, certain kinds of `JsonMappingException` (observed with `InvalidFormatException`) seem to include " at [source]" twice. This is probably due to calls to `getMessage()` that add location being used to pass `message` property when wrapping or re-creating exceptions.

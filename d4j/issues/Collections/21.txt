@@ -1,0 +1,62 @@
+Summary: Modifications of a SetUniqueList.subList() invalidate the parent list
+
+Description:
+The List returned by SetUniqueList.subList() is again a SetUniqueList. The contract for List.subList() says that the returned list supports all the operations of the parent list, and it is backed by the parent list.
+
+We have a SetUniqueList uniqueList equal to {"Hello", "World"}. We get a subList containing the last element. Now we add the element "Hello", contained in the uniqueList but not in the subList, to the subList.
+
+What should happen?
+
+Should the subList behave like a SetUniqueList and add the element - meaning that it changes position in the uniqueList because at the old place it gets removed, so now uniqueList equals {"World", "Hello"} (which fails)?
+Or should the element not be added, because it is already contained in the parent list, thereby violating the SetUniqueList-ness of the subList (which fails)?
+I prefer the former behaviour, because modifications should only be made through the subList and not through the parent list (as explained in List.subList()).
+
+What should happen if we replace (using set) the subList element "World" with "Hello" instead of adding an element?
+
+The subList should contain only "Hello", and for the parent list, the old element 0 (now a duplicate of the just set element 1) should be removed (which fails).
+
+And of course the parent list should know what happens to it (specifically, its uniqueness Set) (which fails in the current snapshot).
+
+
+	public void testSubListAddNew() {
+		List uniqueList = SetUniqueList.decorate(new ArrayList());
+		uniqueList.add("Hello");
+		uniqueList.add("World");
+		List subList = uniqueList.subList(1, 2);
+
+		subList.add("Goodbye");
+
+		List expectedSubList = Arrays.asList(new Object[] { "World", "Goodbye" });
+		List expectedParentList = Arrays.asList(new Object[] { "Hello", "World", "Goodbye" });
+		assertEquals(expectedSubList, subList);
+		assertEquals(expectedParentList, uniqueList);
+		assertTrue(uniqueList.contains("Goodbye")); // fails
+	}
+
+	public void testSubListAddDuplicate() {
+		List uniqueList = SetUniqueList.decorate(new ArrayList());
+		uniqueList.add("Hello");
+		uniqueList.add("World");
+		List subList = uniqueList.subList(1, 2);
+
+		subList.add("Hello");
+
+		List expectedSubList = Arrays.asList(new Object[] { "World", "Hello" });
+		List expectedParentList = Arrays.asList(new Object[] { "World", "Hello" });
+		assertEquals(expectedSubList, subList);
+		assertEquals(expectedParentList, uniqueList); // fails
+	}
+
+	public void testSubListSetDuplicate() {
+		List uniqueList = SetUniqueList.decorate(new ArrayList());
+		uniqueList.add("Hello");
+		uniqueList.add("World");
+		List subList = uniqueList.subList(1, 2);
+
+		subList.set(0, "Hello");
+
+		List expectedSubList = Arrays.asList(new Object[] { "Hello" });
+		List expectedParentList = Arrays.asList(new Object[] { "Hello" });
+		assertEquals(expectedSubList, subList);
+		assertEquals(expectedParentList, uniqueList); // fails
+	}

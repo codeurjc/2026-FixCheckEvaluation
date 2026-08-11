@@ -1,0 +1,40 @@
+Summary: TarArchiveInputStream throws IllegalArgumentException instead of IOException
+
+Description:
+TarArchiveInputStream is throwing  IllegalArgumentException instead of IOException on corrupt files, in direct contradiction to the Javadoc. Here is a stack-trace:
+
+{code}
+java.lang.IllegalArgumentException: Invalid byte -1 at offset 7 in '<some bytes>' len=8
+	at org.apache.commons.compress.archivers.tar.TarUtils.parseOctal(TarUtils.java:86)
+	at org.apache.commons.compress.archivers.tar.TarArchiveEntry.parseTarHeader(TarArchiveEntry.java:790)
+	at org.apache.commons.compress.archivers.tar.TarArchiveEntry.<init>(TarArchiveEntry.java:308)
+	at org.apache.commons.compress.archivers.tar.TarArchiveInputStream.getNextTarEntry(TarArchiveInputStream.java:198)
+	at org.apache.commons.compress.archivers.tar.TarArchiveInputStream.getNextEntry(TarArchiveInputStream.java:380)
+	at de.schlichtherle.truezip.fs.archive.tar.TarInputShop.<init>(TarInputShop.java:91)
+	at de.schlichtherle.truezip.fs.archive.tar.TarDriver.newTarInputShop(TarDriver.java:159)
+	at de.schlichtherle.truezip.fs.archive.tar.TarGZipDriver.newTarInputShop(TarGZipDriver.java:82)
+	at de.schlichtherle.truezip.fs.archive.tar.TarDriver.newInputShop(TarDriver.java:151)
+	at de.schlichtherle.truezip.fs.archive.tar.TarDriver.newInputShop(TarDriver.java:47)
+	at de.schlichtherle.truezip.fs.archive.FsDefaultArchiveController.mount(FsDefaultArchiveController.java:170)
+	at de.schlichtherle.truezip.fs.archive.FsFileSystemArchiveController$ResetFileSystem.autoMount(FsFileSystemArchiveController.java:98)
+	at de.schlichtherle.truezip.fs.archive.FsFileSystemArchiveController.autoMount(FsFileSystemArchiveController.java:47)
+	at de.schlichtherle.truezip.fs.archive.FsArchiveController.autoMount(FsArchiveController.java:129)
+	at de.schlichtherle.truezip.fs.archive.FsArchiveController.getEntry(FsArchiveController.java:160)
+	at de.schlichtherle.truezip.fs.archive.FsContextController.getEntry(FsContextController.java:117)
+	at de.schlichtherle.truezip.fs.FsDecoratingController.getEntry(FsDecoratingController.java:76)
+	at de.schlichtherle.truezip.fs.FsDecoratingController.getEntry(FsDecoratingController.java:76)
+	at de.schlichtherle.truezip.fs.FsConcurrentController.getEntry(FsConcurrentController.java:164)
+	at de.schlichtherle.truezip.fs.FsSyncController.getEntry(FsSyncController.java:108)
+	at de.schlichtherle.truezip.fs.FsFederatingController.getEntry(FsFederatingController.java:156)
+	at de.schlichtherle.truezip.nio.file.TFileSystem.newDirectoryStream(TFileSystem.java:348)
+	at de.schlichtherle.truezip.nio.file.TPath.newDirectoryStream(TPath.java:963)
+	at de.schlichtherle.truezip.nio.file.TFileSystemProvider.newDirectoryStream(TFileSystemProvider.java:344)
+	at java.nio.file.Files.newDirectoryStream(Files.java:400)
+	at com.googlecode.boostmavenproject.GetSourcesMojo.convertToJar(GetSourcesMojo.java:248)
+	at com.googlecode.boostmavenproject.GetSourcesMojo.download(GetSourcesMojo.java:221)
+	at com.googlecode.boostmavenproject.GetSourcesMojo.execute(GetSourcesMojo.java:111)
+	at org.apache.maven.plugin.DefaultBuildPluginManager.executeMojo(DefaultBuildPluginManager.java:101)
+	... 20 more
+{code}
+
+Expected behavior: TarArchiveInputStream should wrap the IllegalArgumentException in an IOException.

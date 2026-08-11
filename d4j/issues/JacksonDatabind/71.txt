@@ -1,0 +1,10 @@
+Title: Missing `KeyDeserializer` for `CharSequence`
+
+Body:
+Looks like use of nominal Map key type of `CharSequence` does not work yet (as of 2.7.8 / 2.8.6).
+This is something that is needed to work with certain frameworks, such as Avro's generated POJOs.
+
+
+
+Comment:
+Fixed for 2.7.9 / 2.8.7

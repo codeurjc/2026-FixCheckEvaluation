@@ -1,0 +1,145 @@
+Title: @JsonDeserialize(keyUsing = ...) does not work correctly together with DefaultTyping.NON_FINAL
+
+Body:
+Version 2.8.3 seems to ignore @JsonDeserialize(keyUsing = ...) when used together with DefaultTyping.NON_FINAL setting and Map<,> argument type in constructor with concrete type (e.g. HashMap<,>) specified in JSON.
+
+In the code below testFails() fails and testSucceeds() passes fine. The only difference is testSucceeds() has a module with deserializer registered explicitly. Both tests pass on version 2.6.
+
+``` java
+package com.test.testjackson.testjackson;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.module.SimpleKeyDeserializers;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import java.io.IOException;
+import java.util.Map;
+import org.junit.Test;
+
+import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY;
+import static junit.framework.Assert.assertEquals;
+
+public class TestJackson 
+{
+    private static String TEST_INSTANCE_SERIALIZED = "{\"mapProperty\":[\"java.util.HashMap\",{\"Compound|Key\":\"Value\"}]}";
+
+    @Test
+    public void testFails() throws JsonParseException, JsonMappingException, IOException
+    {
+        ObjectMapper mapper = new ObjectMapper().enableDefaultTyping(DefaultTyping.NON_FINAL);
+        TestClass testInstance = mapper.readValue(TEST_INSTANCE_SERIALIZED, TestClass.class);
+        String testInstanceSerialized = mapper.writeValueAsString(testInstance);
+        assertEquals(TEST_INSTANCE_SERIALIZED, testInstanceSerialized);
+    }
+
+    @Test
+    public void testSucceeds() throws JsonParseException, JsonMappingException, IOException
+    {
+        ObjectMapper mapper = new ObjectMapper().enableDefaultTyping(DefaultTyping.NON_FINAL).registerModule(new SimpleModule() {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public void setupModule(SetupContext context) {
+                context.addKeyDeserializers(new SimpleKeyDeserializers().addDeserializer(CompoundKey.class, new CompoundKeyDeserializer()));
+            }
+        });
+        TestClass testInstance = mapper.readValue(TEST_INSTANCE_SERIALIZED, TestClass.class);
+        String testInstanceSerialized = mapper.writeValueAsString(testInstance);
+        assertEquals(TEST_INSTANCE_SERIALIZED, testInstanceSerialized);
+    }
+
+    @JsonAutoDetect(fieldVisibility = ANY)
+    public static final class TestClass {
+        @JsonProperty("mapProperty")
+        @JsonSerialize(keyUsing = CompoundKeySerializer.class)
+        private final Map<CompoundKey, String> mapProperty;
+
+        @JsonCreator
+        private TestClass(@JsonDeserialize(keyUsing = CompoundKeyDeserializer.class) @JsonProperty("mapProperty") Map<CompoundKey, String> mapProperty) {
+            this.mapProperty = mapProperty;
+        }
+    }
+
+    public static final class CompoundKey {
+        private String part0;
+        private String part1;
+
+        public CompoundKey(String part0, String part1) {
+            this.part0 = part0;
+            this.part1 = part1;
+        }
+
+        public String getPart0() { return part0; }
+        public String getPart1() { return part1; }
+    }
+
+    public static class CompoundKeyDeserializer extends KeyDeserializer {
+        @Override
+        public Object deserializeKey(String s, DeserializationContext deserializationContext) {
+            String[] parts = s.split("\\|");
+            return new CompoundKey(parts[0], parts[1]);
+        }
+    }
+
+    public static class CompoundKeySerializer extends JsonSerializer<CompoundKey> {
+        @Override
+        public void serialize(CompoundKey compoundKey, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
+            jsonGenerator.writeFieldName(compoundKey.getPart0() + '|' + compoundKey.getPart1());
+        }
+    }
+}
+```
+
+
+Comment:
+Just to make sure I understand: by ignored you mean that it is not using specified custom key deserializer, but default one?
+
+
+Comment:
+Yes. The exception thrown says it cannot find the map key deserializer:
+
+```
+com.fasterxml.jackson.databind.JsonMappingException: Can not find a (Map) Key deserializer for type [simple type, class com.test.testjackson.testjackson.TestJackson$CompoundKey]
+ at [Source: {"mapProperty":["java.util.HashMap",{"Compound|Key":"Value"}]}; line: 1, column: 37] (through reference chain: com.test.testjackson.testjackson.TestClass["mapProperty"])
+    at com.fasterxml.jackson.databind.JsonMappingException.from(JsonMappingException.java:261)
+    at com.fasterxml.jackson.databind.DeserializationContext.reportMappingException(DeserializationContext.java:1234)
+    at com.fasterxml.jackson.databind.deser.DeserializerCache._handleUnknownKeyDeserializer(DeserializerCache.java:588)
+    at com.fasterxml.jackson.databind.deser.DeserializerCache.findKeyDeserializer(DeserializerCache.java:168)
+    at com.fasterxml.jackson.databind.DeserializationContext.findKeyDeserializer(DeserializationContext.java:499)
+    at com.fasterxml.jackson.databind.deser.std.MapDeserializer.createContextual(MapDeserializer.java:237)
+    at com.fasterxml.jackson.databind.DeserializationContext.handleSecondaryContextualization(DeserializationContext.java:681)
+    at com.fasterxml.jackson.databind.DeserializationContext.findContextualValueDeserializer(DeserializationContext.java:445)
+    at com.fasterxml.jackson.databind.jsontype.impl.TypeDeserializerBase._findDeserializer(TypeDeserializerBase.java:188)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer._deserialize(AsArrayTypeDeserializer.java:97)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer.deserializeTypedFromObject(AsArrayTypeDeserializer.java:61)
+    at com.fasterxml.jackson.databind.deser.std.MapDeserializer.deserializeWithType(MapDeserializer.java:387)
+    at com.fasterxml.jackson.databind.deser.SettableBeanProperty.deserialize(SettableBeanProperty.java:497)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer._deserializeWithErrorWrapping(BeanDeserializer.java:511)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer._deserializeUsingPropertyBased(BeanDeserializer.java:396)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.deserializeFromObjectUsingNonDefault(BeanDeserializerBase.java:1196)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserializeFromObject(BeanDeserializer.java:314)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:148)
+    at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3789)
+    at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2833)
+    at com.test.testjackson.testjackson.TestJackson.testFails(TestJackson.java:34)
+        ... [omitted further stack frames]
+```
+
+
+Comment:
+Thank you for reporting this. I hope to work on this soon as it seems straight-forward to reproduce.
+
+
+Comment:
+Looks like this only affects 2.8, as it passes on 2.7(.7) but not with 2.8(.3). Interesting, as 2.7 had bigger changes, 2.8 not much...

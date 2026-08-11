@@ -1,0 +1,4 @@
+Summary: In LinkIterator hasPrevious() is not working properly for the first entry
+
+Description:
+In hasPrevious() method of LinkIterator 'next' field is used, that is not correct  - method returns 'true' for the first entry. 'last' field should be used insted.

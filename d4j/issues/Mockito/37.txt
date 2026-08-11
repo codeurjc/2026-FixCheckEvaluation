@@ -1,0 +1,17 @@
+Summary: Inform the user immediately when she tries to 'callRealMethod()' on a mock of a interface
+
+Description:
+Inform the user immediately when she tries to 'callRealMethod()' on a mock
+of a interface:
+
+//fail fast when:
+when(mockOfAnIterface.doStuff()).thenCallRealMethod();
+
+Comment:
+This issue was closed by revision r1661.
+
+Comment:
+This issue was closed by revision r1662.
+
+Comment:
+This issue was closed by revision r1664.

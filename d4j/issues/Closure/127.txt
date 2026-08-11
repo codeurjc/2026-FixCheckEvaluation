@@ -1,0 +1,33 @@
+Summary: Break in finally block isn't optimized properly
+
+Description:
+b: try { throw(&quot;throw me&quot;) } finally { /* fake catcher */ ; break b }; console.log(&quot;ok then...&quot;)
+
+... gets optimized into ...
+
+  throw&quot;throw me&quot;;
+
+... which is not the same.
+
+The break in the finally block should prevent the exception from being passed on. The expected result is:
+
+   console.log(&quot;ok then...&quot;)
+
+ECMA-262 says:
+
+The production TryStatement : try Block Finally is evaluated as follows:
+
+Let B be the result of evaluating Block.
+Let F be the result of evaluating Finally.
+If F.type is normal, return B.
+Return F.
+
+F.type in this case would be 'break' and not 'normal', so 'break' overrides the 'throw' of B
+
+This is with the build available for download on Feb 28 2013.
+
+Comment:
+Thanks for the report.
+
+Comment:
+This issue was closed by revision 211dc0161ae7.

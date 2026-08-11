@@ -1,0 +1,39 @@
+Summary: does not properly handle NodeSet returned by extension function
+
+Description:
+Per the documentation, my function is returning a BasicNodeSet containing zero
+or more pointers:
+
+  public static NodeSet observations(ExpressionContext context) {
+    // the cast below shouldn't break, as this is the only pointer type that
+    // makes sense in this context
+    List<NodePointer> ptrs = extractObservations(
+                                  (NodePointer)context.getContextNodePointer(), 
+                                  new ArrayList<NodePointer>());
+    BasicNodeSet result = new BasicNodeSet();
+    for (NodePointer ptr : ptrs) {
+      result.add(ptr);
+    }
+    return result;
+  }
+
+However, if I call JXPathContext.selectNodes("ems:observations()"), I'm getting
+a single node containing the BasicNodeSet. I notice that there is a testcase for
+functions that return NodeSets, but that it uses expressions that actually
+return the children of the NodeSet ("test:nodeSet()/name").
+
+There appear to be two problems. First, Expression.iterate() and
+Expression.iteratePointers() do not correctly recognize a NodeSet as something
+iterable. I've resolved this by reaching into the NodeSet and getting an
+iterator over its pointers.
+
+Second, Expression.PointerIterator doesn't recognize when it already has a
+pointer, and instead tries to wrap it in a new pointer. This ends up treating
+the pointer as a bean.
+
+I've made these changes, and written a testcase that uses an unadorned NodeSet
+function. I also found a class that used a variable named "enum", and changed
+this so that it would compile under 1.5.
+
+The patch is attached. It's relative to "commons-jxpath-1.2" (root of extract
+directory).

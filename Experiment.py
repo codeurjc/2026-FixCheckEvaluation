@@ -41,6 +41,13 @@ from html.parser import HTMLParser
 import docker
 from dotenv import load_dotenv
 
+from d4j.defects4j_bugs import (
+    ISSUE_AVAILABLE,
+    ISSUE_EMPTY,
+    ISSUE_UNCACHED,
+    ISSUE_UNUSABLE,
+    issue_text,
+)
 from docker_utils import exec_in_container, export_property, run_step
 from FixCheckWrapper import (
     DEFAULT_FIXCHECK_ASSERTIONS,
@@ -506,6 +513,8 @@ def fetch_issue_text(bug_report_url):
     recognized, otherwise falls back to a generic HTML-to-text fetch. Any
     failure is logged as a warning and results in an empty string, so a
     fetch problem never aborts the run.
+
+    Prefer :func:`get_issue_text`, which reads the pre-downloaded cache first.
     """
     host = urllib.parse.urlparse(bug_report_url).netloc
     try:
@@ -517,6 +526,41 @@ def fetch_issue_text(bug_report_url):
     except Exception as exc:
         print(f"[experiment] WARNING: failed to fetch issue from {bug_report_url}: {exc}")
         return ""
+
+
+def get_issue_text(project, bug_id, bug_report_url):
+    """The bug's issue report as prompt context, plus *why* when there is none.
+
+    Returns ``(text, status)``; see ``d4j.defects4j_bugs.issue_text`` for the
+    statuses. 40 of the 854 bugs have no usable issue -- 18 Chart bugs have no
+    URL at all, one Jsoup issue was deleted from GitHub, and the 22 SourceForge
+    ones scrape to a navigation menu rather than the ticket -- so a bare empty
+    string would be ambiguous. The status is printed and stored in
+    ``result.json`` so a run says which case it was.
+
+    ``d4j/fetch_issues.py`` downloads all 854 issues once; only a bug that is
+    not cached falls back to the network, which keeps a one-off run working on
+    a machine without the cache.
+    """
+    text, status = issue_text(project, bug_id)
+    if status == ISSUE_AVAILABLE:
+        print(f"[experiment] Issue report: {len(text)} chars (cached)")
+        return text, status
+    if status == ISSUE_UNCACHED:
+        if not bug_report_url:
+            print("[experiment] Issue report: none (Defects4J lists no URL for this bug)")
+            return "", ISSUE_EMPTY
+        print(f"[experiment] Issue report not cached; fetching {bug_report_url} "
+              "(run `python -m d4j.fetch_issues` to avoid this)")
+        fetched = fetch_issue_text(bug_report_url)
+        return (fetched, ISSUE_AVAILABLE) if fetched.strip() else ("", ISSUE_EMPTY)
+    reason = {
+        ISSUE_EMPTY: "the tracker has no text for it",
+        ISSUE_UNUSABLE: "its tracker does not scrape into usable context",
+    }[status]
+    print(f"[experiment] Issue report: none ({status}) -- {reason}; "
+          "the prompt will carry no issue")
+    return "", status
 
 
 # ------------------------------------------------------------------- apply
@@ -772,10 +816,12 @@ def main():
         )
 
         # 4b. Optionally fetch the original bug-tracker issue report.
-        issue_text = None
+        issue_report = None
+        issue_status = "not-requested"
         if args.include_issue:
-            bug_report_url = extract_bug_report_url(info.output)
-            issue_text = fetch_issue_text(bug_report_url) if bug_report_url else ""
+            issue_report, issue_status = get_issue_text(
+                project, bug_id, extract_bug_report_url(info.output)
+            )
 
         # 5. Locate and read the buggy sources (Defects4J-specific).
         files = locate_source_files(container, workdir)
@@ -826,7 +872,7 @@ def main():
         generator = FixGenerator(model=args.model, temperature=args.temperature)
         gen = generator.generate(
             sources,
-            test_sources=test_sources, test_log=test_log, issue_text=issue_text,
+            test_sources=test_sources, test_log=test_log, issue_text=issue_report,
             results_dir=results_dir,
         )
 
@@ -887,8 +933,8 @@ def main():
         write_text(results_dir, "test_after.log", test_after_log)
         if test_log is not None:
             write_text(results_dir, "regression_test.log", test_log)
-        if issue_text is not None:
-            write_text(results_dir, "issue.txt", issue_text)
+        if issue_report is not None:
+            write_text(results_dir, "issue.txt", issue_report)
 
         result = {
             "project": project,
@@ -910,10 +956,12 @@ def main():
             "raw_response": gen["raw_response"],
             "included_test_code": test_sources is not None,
             "included_test_log": test_log is not None,
-            # bool(), not "is not None": fetch_issue_text returns "" when the
-            # tracker is unreachable or rate-limited, and reporting that as
-            # "the issue was in the prompt" would misdescribe the run.
-            "included_issue": bool(issue_text),
+            # bool(), not "is not None": an issue can be requested and still
+            # be absent -- no URL, deleted upstream, or a tracker that does not
+            # scrape into usable context -- and reporting that as "the issue was
+            # in the prompt" would misdescribe the run. issue_status says which.
+            "included_issue": bool(issue_report),
+            "issue_status": issue_status,
             "fixcheck": fixcheck_result,
             "fixcheck_suspicious": fixcheck_suspicious,
         }

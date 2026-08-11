@@ -1,0 +1,31 @@
+Title: Handle null type id for polymorphic values that use external type id
+
+Body:
+Remove exceptions thrown when polymorphic value is null.
+If there is a need to force non-null value, this could be provided as an extra property in @JsonTypeInfo, or perhaps use an existing property such as JsonProperty.required.
+
+
+Comment:
+What actual problem is this fixing? Could you provide a test case to show the problem you have. I am not sure, looking at the patch alone, that this is a valid change. Type Ids are typically required, unless there is `defaultImpl` defined. How should actual expected polymorphic type determined, if no type id is available?
+
+
+Comment:
+This is a case when there exists a type Id via an EXTERNAL_PROPERTY but the polymorphic value itself is null.  See http://stackoverflow.com/questions/28089484/deserialization-with-jsonsubtypes-for-no-value-missing-property-error for an example.
+
+
+Comment:
+Hmmh ok. That's bit unusual (nulls are not typed, so there really should not be an id IMO), but I guess it could be supported.
+
+Would it be possible to add a simple unit test, with commentary, both to verify the fix and as bit of documentation?
+
+
+Comment:
+@stormboy Thank you for suggesting this, it makes sense. I ended up solving the issue slightly differently, so I won't be merging the patch as is, but the end result should be same. Fix will be in 2.6.3.
+
+
+Comment:
+Thanks @cowtowncoder  Sorry I didn't get back with a unit test and commentary.  I had been planning to, but have been busy working on other things.
+
+
+Comment:
+@stormboy No problem -- SO issue and your comments clarified this enough so it was not a big deal in the end. But if you do get a chance, it would be great to verify this against 2.6.3-SNAPSHOT, if you can do a local build.

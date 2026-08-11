@@ -1,0 +1,23 @@
+Title: JsonReader.nextInt() doesent work if p == PEEKED_UNQUOTED
+
+Body:
+```
+What steps will reproduce the problem?
+This unit test describes the problem:
+
+    @Test public void test() {
+        Map<Integer, Integer> expected = new HashMap<Integer, Integer>() {{ put(0, 1); }};
+        Map<Integer, Integer> actual = new Gson().fromJson("{0:1}", new TypeToken<Map<Integer, Integer>>() {}.getType());
+        assertEquals(expected, actual);
+    }
+
+
+What version of the product are you using? On what operating system?
+2.3 (version 2.1 works OK)
+```
+
+Original issue reported on code.google.com by `feathoro...@gmail.com` on 28 Oct 2014 at 4:32
+
+
+Comment:
+Looks like this was fixed by #809.

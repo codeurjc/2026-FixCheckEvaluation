@@ -1,0 +1,22 @@
+Summary: Ar doesn't delete correct
+
+Description:
+When working on the Testcases i figured out that a deletion from an Ar Archive is not as successful as it look at first glance.
+For example: my bla.ar file contains test1.xml and test2.xml. I delete test2.xml
+
+The "getNextEntry" Method just delivers test1.xml. Looks correct.
+
+But checking the result file at commandline brings the following:
+
+$> ar -t /tmp/dir26673/bla.ar
+test1.xml
+test2.xml
+
+vi shows me that there is still the test2.xml entry in the archive,
+even when getNextEntry returns null.
+
+Deleting test2.xml and adding test.txt afterward brings the following:
+
+$> ar -t /tmp/dir24825/bla.ar
+test.txt
+ar: /tmp/dir24825/bla.ar: Inappropriate file type or format

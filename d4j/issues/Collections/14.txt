@@ -1,0 +1,4 @@
+Summary: Fix case-insensitive string handling
+
+Description:
+For example, the behavior of the {{CaseInsensitiveMap}} is currently platform-dependent, please see [Common Bug #3|http://www.nabble.com/Re%3A-Common-Bugs-p14931921s177.html] for details.

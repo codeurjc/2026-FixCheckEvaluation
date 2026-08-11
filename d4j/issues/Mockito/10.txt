@@ -1,0 +1,111 @@
+Title: RETURNS_DEEP_STUBS automatically tries to create serializable mocks
+
+Body:
+I am just migrating from mockito 1.9.5 to 1.10.5
+
+The following code runs fine with version 1.9.5. but breaks now:
+
+``` java
+
+  @Test
+  public void test() {
+    ToBeMocked mock = mock(ToBeMocked.class, RETURNS_DEEP_STUBS);
+    assertThat(mock.getSomething()).isNotNull();
+  }
+
+  public static class ToBeMocked {
+
+    NotSerializableReturnValue field1;
+
+    public ToBeMocked(NotSerializableReturnValue field1) {
+      this.field1 = field1;
+    }
+
+    public NotSerializableReturnValue getSomething() {
+      return field1;
+    }
+  }
+
+  public static class NotSerializableReturnValue {
+
+    String field1 = "";
+
+    public NotSerializableReturnValue(String field1) {
+      this.field1 = field1;
+    }
+
+    public String getSomething2() {
+      return field1;
+    }
+  }
+```
+
+org.mockito.exceptions.base.MockitoException: 
+You are using the setting 'withSettings().serializable()' however the type you are trying to mock 'NotSerializableReturnValue'
+do not implement Serializable AND do not have a no-arg constructor.
+
+
+Comment:
+Hey,
+
+Perhaps Mockito is too aggressive with this validation. The thing is that this code could break if you stub some of those methods. @bric3, thoughts?
+
+Thanks for reporting! Can you update your code and add Serializable / default constructor?
+
+
+Comment:
+I just experienced the same issue when I wanted to test our custom DSL API on my current project. I believe there was some issue sometime ago before we moved to github about serialization, it may relate to deep stubs.
+
+
+Comment:
+https://code.google.com/p/mockito/issues/detail?id=399 right?
+
+I don't really understand this validation - if I have no interest in my code being serializable nor serializing a mock/stub; why do I have to make it so (and add default constructors, allowing partially constructed objects) just to use deep stubs? Shouldn't I have to opt-in if I need/want my deep stubs to be serializable or am I missing something?
+
+
+Comment:
+@szczepiq Hi, for one occurence I was able to implement a default constructor. For another occurence, it did not feel sensible to add a default constructor. I changed this and mocked all used method calls manually. For me it's ok now. 
+btw: Thank you very much for sharing and caring for mockito!
+
+
+Comment:
+For some reason the deep stub code was enabling _children_ stubs to be always serializable which doesn't make sense. In the plane I crafted a fix. ~~I'll push it asap.~~
+
+
+Comment:
+It should be fixed in 1.10.8
+
+
+Comment:
+Excellent, thanks @bric3 ! Let me take this chance to add that Mockito is an excellent piece of software and a near-perfect mocking library IMO - all of your efforts are highly appreciated :) I was at a workshop with Michael Feathers recently and was asking him whether he planned to update his book Working Effectively with Legacy Code to reflect the invent of modern (non-strict!) mocking frameworks such as Mockito as in my opinion they have revolutionized dependency-breaking and bringing legacy code under test. No luck, but maybe someone should write a new updated such book :)
+
+
+Comment:
+Hey,
+
+1.10.8 was released to Bintray/jcenter. For some reason, maven central sync
+didn't work :(
+
+What do you think needs to be fixed so that mockito is perfect? :)
+
+On Fri, Oct 10, 2014 at 5:33 AM, Chad notifications@github.com wrote:
+
+> Excellent, thanks @bric3 https://github.com/bric3 ! Let me take this
+> chance to add that Mockito is an excellent piece of software and a
+> near-perfect mocking library IMO - all of your efforts are highly
+> appreciated :) I was at a workshop with Michael Feathers recently and was
+> asking him whether he planned to update his book Working Effectively with
+> Legacy Code to reflect the invent of modern (non-strict!) mocking
+> frameworks such as Mockito as in my opinion they have revolutionized
+> dependency-breaking and bringing legacy code under test. No luck, but maybe
+> someone should write a new updated such book :)
+> 
+> ## 
+> 
+> Reply to this email directly or view it on GitHub
+> https://github.com/mockito/mockito/issues/99#issuecomment-58608755.
+
+## 
+
+Szczepan Faber
+Core dev@gradle; Founder@mockito

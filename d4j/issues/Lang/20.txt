@@ -1,0 +1,16 @@
+Summary: StringUtils.join throws NPE when toString returns null for one of objects in collection
+
+Description:
+Try
+{code} 
+StringUtils.join(new Object[]{
+        new Object() {
+          @Override
+          public String toString() {
+            return null;
+          }
+        }
+    }, ',');
+{code}
+
+ToString should probably never return null, but it does in javax.mail.internet.InternetAddress

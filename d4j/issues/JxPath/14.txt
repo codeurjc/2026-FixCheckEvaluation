@@ -1,0 +1,14 @@
+Summary: Core rounding functions don't handle NaN or infinite values correctly
+
+Description:
+        assertXPathValue(context, "floor('NaN')", new Double(Double.NaN));
+        assertXPathValue(context, "floor(-2 div 0)", new Double(Double.NEGATIVE_INFINITY));
+        assertXPathValue(context, "floor(2 div 0)", new Double(Double.POSITIVE_INFINITY));
+
+        assertXPathValue(context, "ceiling('NaN')", new Double(Double.NaN));
+        assertXPathValue(context, "ceiling(-2 div 0)", new Double(Double.NEGATIVE_INFINITY));
+        assertXPathValue(context, "ceiling(2 div 0)", new Double(Double.POSITIVE_INFINITY));
+
+        assertXPathValue(context, "round('NaN')", new Double(Double.NaN));
+        assertXPathValue(context, "round(-2 div 0)", new Double(Double.NEGATIVE_INFINITY));
+        assertXPathValue(context, "round(2 div 0)", new Double(Double.POSITIVE_INFINITY));

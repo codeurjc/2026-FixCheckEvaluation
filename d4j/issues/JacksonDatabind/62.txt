@@ -1,0 +1,123 @@
+Title: Custom UnmodifiableSetMixin Fails in Jackson 2.7+ but works in Jackson 2.6
+
+Body:
+I'd like to be able to deserialize an `UnmodifiableSet` with default typing enabled. To do this I have created an `UnmodifiableSetMixin` as shown below:
+
+**NOTE**: You can find a minimal project with all the source code to reproduce this issue at https://github.com/rwinch/jackson-unmodifiableset-mixin
+
+``` java
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+import java.util.Set;
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY)
+public abstract class UnmodifiableSetMixin {
+
+    @JsonCreator
+    public UnmodifiableSetMixin(Set<?> s) {}
+}
+```
+
+I then try to use this to deserialize an empty set.
+
+``` java
+public class UnmodifiableSetMixinTest {
+    static final String EXPECTED_JSON = "[\"java.util.Collections$UnmodifiableSet\",[]]";
+
+    ObjectMapper mapper;
+
+    @Before
+    public void setup() {
+        mapper = new ObjectMapper();
+        mapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY);
+        mapper.addMixIn(Collections.unmodifiableSet(Collections.<String>emptySet()).getClass(), UnmodifiableSetMixin.class);
+    }    
+    @Test
+    @SuppressWarnings("unchecked")
+    public void read() throws Exception {
+        Set<String> foo = mapper.readValue(EXPECTED_JSON, Set.class);
+        assertThat(foo).isEmpty();
+    }
+}
+```
+
+The test passes with Jackson 2.6, but fails using Jackson 2.7+ (including Jackson 2.8.3) with the following stack trace:
+
+```
+java.lang.IllegalStateException: No default constructor for [collection type; class java.util.Collections$UnmodifiableSet, contains [simple type, class java.lang.Object]]
+    at com.fasterxml.jackson.databind.deser.std.StdValueInstantiator.createUsingDefault(StdValueInstantiator.java:240)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:249)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:26)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer._deserialize(AsArrayTypeDeserializer.java:110)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer.deserializeTypedFromArray(AsArrayTypeDeserializer.java:50)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserializeWithType(CollectionDeserializer.java:310)
+    at com.fasterxml.jackson.databind.deser.impl.TypeWrappedDeserializer.deserialize(TypeWrappedDeserializer.java:42)
+    at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3788)
+    at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2779)
+    at sample.UnmodifiableSetMixinTest.read(UnmodifiableSetMixinTest.java:36)
+    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.lang.reflect.Method.invoke(Method.java:498)
+    at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:50)
+    at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+    at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:47)
+    at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+    at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+    at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:325)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:78)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:57)
+    at org.junit.runners.ParentRunner$3.run(ParentRunner.java:290)
+    at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:71)
+    at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:288)
+    at org.junit.runners.ParentRunner.access$000(ParentRunner.java:58)
+    at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:268)
+    at org.junit.runners.ParentRunner.run(ParentRunner.java:363)
+    at org.eclipse.jdt.internal.junit4.runner.JUnit4TestReference.run(JUnit4TestReference.java:86)
+    at org.eclipse.jdt.internal.junit.runner.TestExecution.run(TestExecution.java:38)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:459)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:678)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.run(RemoteTestRunner.java:382)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.main(RemoteTestRunner.java:192)
+```
+
+This seems like a passivity issue. Is there a workaround for this problem?
+
+
+Comment:
+Interesting. So, true, no zero-arg constructor, but that's not what mix-in tries to do.
+I can reproduce this, hope to see what causes the problem as signature seems to match.
+
+
+Comment:
+Looking through 2.7.0 notes, guessing this might be due to one of:
+- #936 
+- #1010 (most likely culprit)
+
+
+Comment:
+Ok. Almost certain this is a regression due to #1010, which lead to separation of "delegating array creators" from other kinds. Looks like `BeanDeserializerBase` handles it, but `CollectionDeserializer` was not retrofitted (nor, very likely, other non-pojo deseiralizers).
+
+
+Comment:
+Sigh. Nasty one to solve for a patch... but I think I found a way. Need to figure out clean it up for 2.8, or, at very least master (2.9).
+
+
+Comment:
+Thanks for the fast turn around!
+
+On Oct 4, 2016 6:37 PM, "Tatu Saloranta" notifications@github.com wrote:
+
+> Closed #1392 https://github.com/FasterXML/jackson-databind/issues/1392
+> via 4e94c0e
+> https://github.com/FasterXML/jackson-databind/commit/4e94c0ed9eca0caccb57feb0ceb252fc91198032
+> .
+> 
+> —
+> You are receiving this because you authored the thread.
+> Reply to this email directly, view it on GitHub
+> https://github.com/FasterXML/jackson-databind/issues/1392#event-812568242,
+> or mute the thread
+> https://github.com/notifications/unsubscribe-auth/AAWIB5k-RNUNEZYbwga-S0jtgvlspk-nks5qwuMxgaJpZM4KLIj_
+> .

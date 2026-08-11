@@ -1,0 +1,17 @@
+Summary: Typos in externs/html5.js
+
+Description:
+Line 354:
+CanvasRenderingContext2D.prototype.globalCompositingOperation;
+
+Line 366:
+CanvasRenderingContext2D.prototype.mitreLimit;
+
+They should be globalCompositeOperation and miterLimit, respectively.
+
+Comment:
+thanks for catching that. i'll fix it on monday when i'm near a machine that i can edit 
+code from.
+
+Comment:
+This issue was closed by revision r113.

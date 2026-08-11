@@ -1,0 +1,259 @@
+Title: @JsonProperty(access = Access.READ_ONLY) - unexpected behaviour
+
+Body:
+Hey,
+
+I was hoping to make use of @JsonProperty(access = Access.READ_ONLY), but failed.
+
+Assume this class:
+
+```
+public class TestPojo
+{
+    private String firstName;
+
+    private String lastName;
+
+    @JsonProperty(access = Access.READ_ONLY)
+    public String getFullName()
+    {
+        return firstName + " " + lastName;
+    }
+
+    public String getFirstName()
+    {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName)
+    {
+        this.firstName = firstName;
+    }
+
+    public String getLastName()
+    {
+        return lastName;
+    }
+
+    public void setLastName(String lastName)
+    {
+        this.lastName = lastName;
+    }
+}
+```
+
+I couldn't find a way to stop the deserializer from attempting to deserialize the field "fullName".
+The only thing that helps is to create a setter and annotate it with `@JsonIgnore`. However, that setter does not make sense and I don't want to have it. Is this a bug in behaviour or am I missing something? Thanks
+
+
+Comment:
+That does sound like a bug indeed. Which version are you using?
+
+
+Comment:
+Whoa. There is no unit test coverage for value of `READ_ONLY`. That should not be the case... No wonder there could be a bug lurking in there.
+
+
+Comment:
+I can reproduce this with 2.6. Looks like `READ_ONLY` does actually hide/remove setter method (my test fails with "unknown property"), but will not mark it as ignorable, which it probably should do.
+
+
+Comment:
+I added a failing test case for this, but not sure how easy it will be to pipe "do ignore" information.
+
+Thank you for reporting the problem again.
+
+
+Comment:
+Thanks for dealing with the issue and sorry for the lack of details in my description. Afaik Access.READ_ONLY has just been added in 2.6. I also got the UnrecognizedPropertyException: Unrecognized field "fullName" ... not marked as ignorable
+
+
+Comment:
+Correct, it's 2.6 only which is why I realized that asking for version wasn't fully necessary (but only after asking).
+
+The fix would be to essentially carry along the name as "ignorable" property, similar to how `@JsonIgnore` is tracked. But I'll need to see how that plumbing is handled, since discovery occurs in bit different place.
+
+
+Comment:
+Hi,
+
+is there some easy workaround, until this is fixed? I mean instead of implementing a noop setter method?
+
+The annotation @JsonIgnoreProperties sounds like it could help here. But it also has no effect, if I add it to a getter, regardless which values I choose for allowGetters or allowSetters.
+
+**Update:** It seems that I found a solution by adding
+
+  `@JsonIgnoreProperties(value="some_field",` allowGetters = true, allowSetters = `false)`
+
+to the class. So this could be a solution, if we don't need the @JsonIgnoreProperties annotation on class level for other purposes.
+
+
+Comment:
+@plattfish thank you for sharing this. I am hoping to address this, along with some issues with creator property handling, in 2.8.
+
+
+Comment:
+Any movement here? I just bumped into this issue.
+
+
+Comment:
+Don't know if related, but I'm experiencing this with a `Map`:
+
+``` java
+public class Ticket {
+
+    @JsonProperty(access = Access.READ_ONLY)
+    @JsonSerialize(using = MapToArraySerializer.class)
+    public SortedMap<Timer, Integer> getServiceTimers() {
+        // ...
+    }
+
+}
+```
+
+All works on serialization, but on deserialization of `Ticket` I get this exception:
+
+```
+Can not find a (Map) Key deserializer for type [simple type, class Timer]
+ at [Source: java.io.SequenceInputStream@1100946d; line: 1, column: 1]
+    at com.fasterxml.jackson.databind.JsonMappingException.from(JsonMappingException.java:261)
+```
+
+I'm on Jackson 2.8.
+
+
+Comment:
++1  
+I also have come across this issue. I am using spring boot which pulled in Jackson version 2.6.5
+
+
+Comment:
+This disabling this feature on your ObjectMapper helped me avoid this issue.
+`ObjectMapper mapper = new ObjectMapper();
+mapper.disable(MapperFeature.USE_GETTERS_AS_SETTERS);`
+
+Comment:
+Hi @cowtowncoder - any word on a fix for this?  I am using 2.8.5, and it appears the issue persists.  @plattfish's  solution did not work for me.  
+I don't mind trying to isolate the issue myself if it will speed up development of a patch.  
+
+Comment:
+@philbayer no activity on this one. I have been slowly fixing similar bugs, hope to have another look at this one. Thank you for the ping, for some reason I hadn't tagged it.
+
+
+Comment:
+@heruan in a way it is related, if and when expectation is that `Map` is not to be deserialized, although @msfanous suggestion is also relevant.
+
+Comment:
+@cowtowncoder I pulled in v2.8.7 for jackson-databind but unable to do deserialize on a 
+```
+    @JsonProperty(access=Access.WRITE_ONLY)
+    private String passwordPlaintext;
+```
+Only if I remove the `access` modifier, I am able to deserialize the json properly. However I do not want to involve this in serialization. Is this fixed in this same issue? 
+
+Comment:
+@jyothri If there are remaining problems, please file a new issue, with reproduction. It is possible that fix is incomplete, or something in your setup differs significantly; I don't know without reproduction.
+
+Comment:
+Has this been fixed in 2.8.9? I still seem to be seeing this issue.
+
+Edit: Plattfish's workaround works for me!
+
+Comment:
+@YashArya Please read my previous comment. It is fixed to the best of my knowledge -- for remaining problems, if any, please file a new issue with reproduction showing what is not working.
+
+
+Comment:
+I agree, this does not work until now
+@JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    public boolean isEnriched() {
+        return enrichedPayload != null;
+    }
+and I have, when I deserialise 
+Unrecognized field "enriched" (class Transaction), not marked as ignorable 
+
+I use spring-boot 1.5.10
+
+Comment:
+@AngorSTV Please do not keep adding comments on closed issues -- I really do not care for +1s if no one files a new case with reproduction. Reproduction must not rely on frameworks like Spring Boot.
+
+Comment:
+Neither ` @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)` on field or`@JsonIgnoreProperties(value="password", allowSetters = true)` work for me in 2.9.9.
+
+I just cannot set the value during deserialization. 
+Maybe you should consider reopening this.
+
+Comment:
+Try  READ only, I think the annotations are from the frameworks perspective, not the client.
+
+Comment:
+@JWGmeligMeyling is correct: naming is not be as intuitive as I originally hoped: [INCORRECT EXPLANATION, REMOVED]
+
+
+Comment:
+Thank you, but damn the documentation on this is confusing. 
+```
+        /**
+         * Access setting that means that the property may only be written (set)
+         * for deserialization,
+         * but will not be read (get) on serialization, that is, the value of the property
+         * is not included in serialization.
+         */
+        WRITE_ONLY,
+```
+It says that `property may only be written (set) for deserialization` which is what I needed. :)
+
+Comment:
+`READ_ONLY` doesn't do it either. This is my setup with Spring Boot: [Sample](https://github.com/iuliana/person-manager  )
+In the `proof` directory there are screenshots with execution paused while `PersonManagerApplicationTests.testPOST()`. 
+
+Comment:
+@iuliana Can you please file a new issue with the link. I don't usually re-open issues in cases where there has been a previous fix as that will make release notes more difficult to follow up.
+I will try to improve javadocs wrt setting as well.
+
+
+
+Comment:
+Also: my earlier explanation was exactly backwards. Javadocs state it correctly (if not well): `READ_ONLY` refers to POJO being handled in read-only way, and `WRITE_ONLY` opposite.
+So Java-centric, not JSON-centric.
+
+I really should have named values differently (GETTER_ONLY, SETTER_ONLY, perhaps).
+
+
+Comment:
+@cowtowncoder 
+
+I think this is still not fixed. I have the same problem with 2.10.3
+My getter is annotated with `@JsonProperty(value = "t", access = JsonProperty.Access.READ_ONLY)`
+The `BeanDeserializerBase` tries to deserialize it which results into `Caused by: com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field "t"`
+
+Here is the stacktrace:
+```
+Caused by: com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field "t" 
+    at com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException.from(UnrecognizedPropertyException.java:61)
+    at com.fasterxml.jackson.databind.DeserializationContext.handleUnknownProperty(DeserializationContext.java:843)
+    at com.fasterxml.jackson.databind.deser.std.StdDeserializer.handleUnknownProperty(StdDeserializer.java:1206)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.handleUnknownProperty(BeanDeserializerBase.java:1592)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.handleUnknownVanilla(BeanDeserializerBase.java:1570)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.vanillaDeserialize(BeanDeserializer.java:294)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer._deserializeOther(BeanDeserializer.java:189)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:161)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer._deserializeTypedForId(AsPropertyTypeDeserializer.java:130)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer.deserializeTypedFromObject(AsPropertyTypeDeserializer.java:97)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer.deserializeTypedFromAny(AsPropertyTypeDeserializer.java:193)
+    at com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer$Vanilla.deserializeWithType(UntypedObjectDeserializer.java:712)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:288)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:245)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:27)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer._deserialize(AsArrayTypeDeserializer.java:120)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer.deserializeTypedFromArray(AsArrayTypeDeserializer.java:53)
+    at com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer.deserializeTypedFromAny(AsPropertyTypeDeserializer.java:191)
+    at com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer$Vanilla.deserializeWithType(UntypedObjectDeserializer.java:712)
+    at com.fasterxml.jackson.databind.deser.impl.TypeWrappedDeserializer.deserialize(TypeWrappedDeserializer.java:68)
+    at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:4218)
+    at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:3275)
+    at org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer.deserialize(GenericJackson2JsonRedisSerializer.java:150)
+    ... 138 more
+```
+
+FYI:` _removeUnwantedAccessor` is not called at all.

@@ -1,0 +1,34 @@
+Summary: division by zero wrongly throws JSC_DIVIDE_BY_0_ERROR
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+unaliased division by zero `1/0`
+
+<b>What is the expected output? What do you see instead?</b>
+
+I expect minified code, but an error is thrown instead.
+
+<b>What version of the product are you using? On what operating system?</b>
+
+appspot
+
+<b>Please provide any additional information below.</b>
+
+Division by zero is a perfectly sane operation in ECMAScript. See 11.5.2 [0] of the ECMAScript 5 specification. Aliased division by zero `(n=1)/0` is permitted.
+
+[0] http://es5.github.com/#x11.5.2
+
+Comment:
+In what way does this cause a problem?  
+
+Generally, devision by zero is indicative of a programming error.  We could make it suppressible however.
+
+Comment:
+In ES3, `Infinity` is a writable variable, just like `undefined`. For these cases it's both safer and faster to generate the value rather than look for it in the scope chain. Because of this, `1/0`, `1/-0`, and `void 0` are common JS idioms.
+
+Comment:
+i also think this is a dumb error and has never solved any real problem.
+
+Comment:
+This issue was closed by revision r900.

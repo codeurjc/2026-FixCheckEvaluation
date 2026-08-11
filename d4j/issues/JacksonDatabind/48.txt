@@ -1,0 +1,68 @@
+Title: `BasicClassIntrospector.forSerialization(...).findProperties` should respect MapperFeature.AUTO_DETECT_GETTERS/SETTERS
+
+Body:
+When I set the ObjectMapper MapperConfig to not AutoDetect and use the BasicClassIntrospector to get the properties, I seem to still be getting the Methods.  I am currently using version 2.7.3.
+
+The following code produces this output:
+        Found property count 2, there should only be one??
+        Found property: name=name, internalName=name
+        Found property: name=groupname, internalName=groupname
+
+I think it should produce only this output:
+        Found property: name=groupname, internalName=groupname
+
+```
+public static void main(String [] args) {
+    class TCls {
+        @JsonProperty("groupname")
+        private String groupname;
+
+        public void setName(String str) {
+            this.groupname = str;
+        }
+        public String getName() {
+            return groupname;
+        }
+    }
+
+    ObjectMapper om = new ObjectMapper();
+    // Only use explicitly specified values to be serialized/deserialized (i.e., JSONProperty).
+    om.configure(com.fasterxml.jackson.databind.MapperFeature.AUTO_DETECT_FIELDS, false);
+    om.configure(com.fasterxml.jackson.databind.MapperFeature.AUTO_DETECT_GETTERS, false);
+    om.configure(com.fasterxml.jackson.databind.MapperFeature.AUTO_DETECT_SETTERS, false);
+    om.configure(com.fasterxml.jackson.databind.MapperFeature.AUTO_DETECT_IS_GETTERS, false);
+    om.configure(com.fasterxml.jackson.databind.MapperFeature.USE_GETTERS_AS_SETTERS, false);
+    om.configure(com.fasterxml.jackson.databind.MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS, true);
+    om.configure(com.fasterxml.jackson.databind.MapperFeature.INFER_PROPERTY_MUTATORS, false);
+    om.configure(com.fasterxml.jackson.databind.MapperFeature.USE_ANNOTATIONS, true);
+
+    JavaType javaType = om.getTypeFactory().constructType(TCls.class);
+
+    BasicClassIntrospector introspector = new BasicClassIntrospector();
+    BasicBeanDescription bdesc = introspector.forSerialization(om.getSerializationConfig(), javaType, null);
+    List<BeanPropertyDefinition> bprops = bdesc.findProperties();
+
+    if (1 != bprops.size()) {
+        System.out.println("Found property count " + bprops.size() + ", there should only be one??");
+    }
+    bprops.forEach(prop -> {
+        System.out.println("Found property: name=" + prop.getName() + ", internalName=" + prop.getInternalName());
+    });
+}
+```
+
+
+Comment:
+@headw01 with quick look, that looks like a flaw: if you disable auto-detection, only `groupname` should be found.
+
+More common way nowadays is to set visibility levels low enough (to `Visibility.NONE`), but method you show should still also work.
+
+
+Comment:
+Actually if you try serialization, only one property is serialized, so I think this has more to do with introspection: mechanism you are using is not quite how Jackson itself detects properties. I'll check out this bit more and code sample of how introspection would work.
+
+
+Comment:
+Actually I take that back: access is just fine. But it does look like there is a minor flaw in handling; due to (earlier) optimizations, auto-detection settings are only considered for "relevant" parts, and setter-visibility is not considered relevant for serialization. Long story short, this leads to `setName()` being considered visible, which adds `name` property. Later on property collector will remove it so it is not being used, and this is why no issues have been reported, but the removal should really occur earlier.
+
+So I think I'll have a fix to make here. Just need to think carefully whether fix is safe to add for 2.7.5, or just 2.8.0.

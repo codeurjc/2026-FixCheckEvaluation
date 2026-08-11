@@ -1,0 +1,4 @@
+Summary: HelpFormatter.setArgName() has no effect
+
+Description:
+The default argument name set on the HelpFormatter has no effect because the Option and the OptionBuilder bring automatically a default value 'arg'.

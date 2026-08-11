@@ -1,0 +1,22 @@
+Title: tag[attr~=regex] fails if preceded by a combinator
+
+Body:
+All following selectors fail with a SelectorParseException:
+
+<pre>
+div table[class~=x|y]
+div > table[class~=x|y]
+div + table[class~=x|y]
+div ~ table[class~=x|y]
+</pre>
+
+
+Note that <pre>div, table[class~=x|y]</pre> does not fail
+
+Using: jsoup 1.4.1 and JDK 7 build 116
+
+
+Comment:
+Fixed issue when using descendant regex attribute selectors.
+
+Closed by 53a207d0689371e652a5b9318c06dd69c8107750

@@ -1,0 +1,150 @@
+{
+  "project": "Gson",
+  "updated_at": "2026-08-11T13:51:28.144389+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://github.com/google/gson/issues/40",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 944,
+      "fetched_at": "2026-08-11T13:51:12.131063+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://github.com/google/gson/pull/719",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 268,
+      "fetched_at": "2026-08-11T13:51:13.066097+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://github.com/google/gson/issues/624",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1878,
+      "fetched_at": "2026-08-11T13:51:14.147520+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://github.com/google/gson/pull/773",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 128,
+      "fetched_at": "2026-08-11T13:51:15.085732+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://github.com/google/gson/issues/768",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 7155,
+      "fetched_at": "2026-08-11T13:51:16.104754+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://github.com/google/gson/pull/800",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1336,
+      "fetched_at": "2026-08-11T13:51:17.139141+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://github.com/google/gson/issues/604",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 685,
+      "fetched_at": "2026-08-11T13:51:17.994075+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://github.com/google/gson/issues/817",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 47421,
+      "fetched_at": "2026-08-11T13:51:18.919623+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://github.com/google/gson/pull/836",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 355,
+      "fetched_at": "2026-08-11T13:51:20.073447+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://github.com/google/gson/issues/831",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 8409,
+      "fetched_at": "2026-08-11T13:51:21.030682+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://github.com/google/gson/pull/964",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 258,
+      "fetched_at": "2026-08-11T13:51:21.915751+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://github.com/google/gson/issues/1013",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 989,
+      "fetched_at": "2026-08-11T13:51:22.899654+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://github.com/google/gson/issues/1053",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 3299,
+      "fetched_at": "2026-08-11T13:51:23.750871+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://github.com/google/gson/issues/1074",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1634,
+      "fetched_at": "2026-08-11T13:51:24.578239+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://github.com/google/gson/issues/1090",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1056,
+      "fetched_at": "2026-08-11T13:51:25.388877+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://github.com/google/gson/pull/1128",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 307,
+      "fetched_at": "2026-08-11T13:51:26.305069+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://github.com/google/gson/pull/1100",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 951,
+      "fetched_at": "2026-08-11T13:51:27.272211+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://github.com/google/gson/issues/1107",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 5886,
+      "fetched_at": "2026-08-11T13:51:28.144343+00:00"
+    }
+  ]
+}

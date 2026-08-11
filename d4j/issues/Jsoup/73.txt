@@ -1,0 +1,153 @@
+Title: In w3c dom, siblings are incorrectly inheriting namespaces
+
+Body:
+I am not sure if this is a bug or I am missing something that is defined in specification.
+
+When I am parsing (W3C DOM)  html file without namespace that have some element(s) with defined namespace, elements that are following will inherit that namespace.
+
+Small test case and test html are included.
+
+[test.zip](https://github.com/jhy/jsoup/files/1478508/test.zip)
+
+
+
+Comment:
+Could you please inline the test case and example HTML? Will make it more accessible for people to review. 
+
+Comment:
+OK, here they are ... HTML:
+
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Title</title>
+</head>
+<body role="document">
+
+<picture class="header-image"><img sizes="100vw" alt="" srcset="http://example.com/small_header.jpg 480w, http://example.com/mid_header.jpg 1024w, http://example.com/large_header.jpg 1980w" width="100%" src="http://example.com/large_header.jpg" /></picture>
+
+<svg version="1.1" class="logo-gocomics-2016" xmlns="http://www.w3.org/2000/svg">
+	<path d="M437.5,456.8h-23.6v-7.2c-6.3,5.1-16.6,9.3-30.5,9.3c-37.2,0-62.8-25.4-62.8-63.3c0-34.7,25-63.1,62.8-63.1
+		c25.7,0,41.6,11.1,50.1,24.2l-19,14.1c-5.6-7.6-14.8-15.5-31-15.5c-22,0-37.2,16.6-37.2,40.4c0,24.7,16.2,40.7,38.3,40.7
+		c14.1,0,24-5.5,29.1-10.8v-13.9h-19.9v-20.5h43.9v65.6H437.5z"></path>
+</svg>
+
+<picture class="footer-image"><img sizes="100vw" alt="" srcset="http://example.com/small_footer.jpg 480w, http://example.com/mid_footer.jpg 1024w, http://example.com/large_footer.jpg 1980w" width="100%" src="http://example.com/large_footer.jpg" /></picture>
+
+</body>
+</html>
+```
+
+... and test:
+
+```
+    @Test
+    public void anotherNamespacePreservation() throws IOException {
+        File in = ParseTest.getFile("/htmltests/ns.html");
+        org.jsoup.nodes.Document jsoupDoc;
+        jsoupDoc = Jsoup.parse(in, "UTF-8");
+
+        Document doc;
+        W3CDom jDom = new W3CDom();
+        doc = jDom.fromJsoup(jsoupDoc);
+
+        Node htmlEl = doc.getChildNodes().item(0);
+        assertNull(htmlEl.getNamespaceURI());
+        assertEquals("html", htmlEl.getLocalName());
+        assertEquals("html", htmlEl.getNodeName());
+
+        final NodeList childNodes = htmlEl.getChildNodes();
+        final Node headNode = childNodes.item(0);
+        final Node bodyNode = childNodes.item(2);
+        final NodeList bodyChildNodes = bodyNode.getChildNodes();
+        List<org.w3c.dom.Element> elements = new ArrayList<>();
+        for (int index = 0; index < bodyChildNodes.getLength(); ++index) {
+            final Node item = bodyChildNodes.item(index);
+            if (item instanceof org.w3c.dom.Element) {
+                elements.add((org.w3c.dom.Element) item);
+            }
+        }
+        assertEquals(3, elements.size());
+
+        final org.w3c.dom.Element firstPicture = elements.get(0);
+        assertNull(firstPicture.getNamespaceURI());
+        assertEquals("picture", firstPicture.getLocalName());
+        assertEquals("picture", firstPicture.getNodeName());
+
+        final org.w3c.dom.Element svg = elements.get(1);
+        assertEquals("http://www.w3.org/2000/svg", svg.getNamespaceURI());
+        assertEquals("svg", svg.getLocalName());
+        assertEquals("svg", svg.getNodeName());
+
+        final org.w3c.dom.Element secondPicture = elements.get(2);
+        assertNull(secondPicture.getNamespaceURI());
+        assertEquals("picture", secondPicture.getLocalName());
+        assertEquals("picture", secondPicture.getNodeName());
+    }
+```
+
+Comment:
+Thanks. It's a bug. `path` should be in the svg namespace (because the `svg` element sets a default namespace for child elements), but `picture` is a sibling not child so should inherit the default empty namespace.
+
+Comment:
+Very quick (and, probably, very dirty) solution is to have stack of namespaces with push in W3CBuilder.head and pop in W3CBuilder.tail . This way, all test will pass, including this one. Something like this:
+
+```
+diff --git a/src/main/java/org/jsoup/helper/W3CDom.java b/src/main/java/org/jsoup/helper/W3CDom.java
+index ac71e59..6df28ec 100644
+--- a/src/main/java/org/jsoup/helper/W3CDom.java
++++ b/src/main/java/org/jsoup/helper/W3CDom.java
+@@ -19,6 +19,7 @@ import javax.xml.transform.dom.DOMSource;
+ import javax.xml.transform.stream.StreamResult;
+ import java.io.StringWriter;
+ import java.util.HashMap;
++import java.util.Stack;
+ 
+ /**
+  * Helper class to transform a {@link org.jsoup.nodes.Document} to a {@link org.w3c.dom.Document org.w3c.dom.Document},
+@@ -70,19 +71,21 @@ public class W3CDom {
+         private static final String xmlnsPrefix = "xmlns:";
+ 
+         private final Document doc;
+-        private final HashMap<String, String> namespaces = new HashMap<>(); // prefix => urn
++        private final Stack<HashMap<String, String>> namespacesStack = new Stack<>(); // prefix => urn
+         private Element dest;
+ 
+         public W3CBuilder(Document doc) {
+             this.doc = doc;
++            this.namespacesStack.push(new HashMap<String, String>());
+         }
+ 
+         public void head(org.jsoup.nodes.Node source, int depth) {
++            namespacesStack.push(new HashMap<>(namespacesStack.peek()));
+             if (source instanceof org.jsoup.nodes.Element) {
+                 org.jsoup.nodes.Element sourceEl = (org.jsoup.nodes.Element) source;
+ 
+                 String prefix = updateNamespaces(sourceEl);
+-                String namespace = namespaces.get(prefix);
++                String namespace = namespacesStack.peek().get(prefix);
+ 
+                 Element el = doc.createElementNS(namespace, sourceEl.tagName());
+                 copyAttributes(sourceEl, el);
+@@ -113,6 +116,7 @@ public class W3CDom {
+             if (source instanceof org.jsoup.nodes.Element && dest.getParentNode() instanceof Element) {
+                 dest = (Element) dest.getParentNode(); // undescend. cromulent.
+             }
++            namespacesStack.pop();
+         }
+ 
+         private void copyAttributes(org.jsoup.nodes.Node source, Element el) {
+@@ -141,7 +145,7 @@ public class W3CDom {
+                 } else {
+                     continue;
+                 }
+-                namespaces.put(prefix, attr.getValue());
++                namespacesStack.peek().put(prefix, attr.getValue());
+             }
+ 
+             // get the element prefix if any
+```
+
+Comment:
+Thanks for the patch! I like the approach. Merged.

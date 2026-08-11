@@ -1,0 +1,4 @@
+Summary: The CollectionUtils.removeAll method calls the ListUtils.retainAll method instead of the ListUtils.removeAll method.
+
+Description:
+The CollectionUtils.removeAll method calls the ListUtils.retainAll method instead of the ListUtils.removeAll method.

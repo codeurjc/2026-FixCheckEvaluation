@@ -1,0 +1,15 @@
+Title: Problem resolving locally declared generic type
+
+Body:
+(reported by Hal H)
+
+Case like:
+
+``` java
+class Something {
+    public <T extends Ruleform> T getEntity()
+    public <T extends Ruleform> void setEntity(T entity) 
+}
+```
+
+appears to fail on deserialization.

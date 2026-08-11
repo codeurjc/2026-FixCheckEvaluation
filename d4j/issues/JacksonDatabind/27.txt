@@ -1,0 +1,6 @@
+Title: Problem deserializing External Type Id if type id comes before POJO
+
+Body:
+(note: seems to be similar or related to https://github.com/FasterXML/jackson-module-afterburner/issues/58)
+
+With 2.6, looks like handling of External Type Id is broken in some rare (?) cases; existing unit tests did not catch this. At this point I am speculating this is due to some refactoring, or change to use more efficient 'nextFieldName()' method.

@@ -1,0 +1,17 @@
+Title: Quadratic behaviour on deeply nested pages
+
+Body:
+On pages with very deep sequence of elements (like this one sv.stargate.wikia.com/wiki/M2J), Jsoup gets very slow and spends too much time in this function:
+https://github.com/jhy/jsoup/blob/master/src/main/java/org/jsoup/parser/HtmlTreeBuilder.java#L462
+
+Is there any way to remove this quadratic behaviour? Either by using better data structures or by having option to limit stack size (and throw exception when it is too deep).
+
+Comment:
+Interesting, looks like Chrome has a bit of a perf issue on that page too. Performance monitor shows it continually parsing the page.
+
+Maybe we can implement an improvement here by just running a counter on the tags that in scope. Or put them in a hash or something - vs walking through the scope stack each time and hunting for them.
+
+Comment:
+Thanks. I fixed this by limiting the search scope depth to 100. I sampled a bunch of sites in the wild from Alexa 1MM (though could be more rigorous) and found the max was 26. So this depth should be safe. Parse completes in ~ 200 millis now.
+
+Also tuned the string array searches to use binary searches.

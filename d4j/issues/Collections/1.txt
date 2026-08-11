@@ -1,0 +1,26 @@
+Summary: Flat3Map.Entry.setValue() overwrites other Entry values
+
+Description:
+Flat3Map's Entry objects will overwrite other Entry's values if Entry.setValue() is called on one.  It should only overwrite the Entry at hand.
+
+I've looked at the source, and the case statement incorrectly falls through, rather than returning like it should:
+
+Flat3Map.java, lines 646-660:
+
+        public Object setValue(Object value) {
+            if (canRemove == false) {
+                throw new IllegalStateException(AbstractHashedMap.SETVALUE_INVALID);
+            }
+            Object old = getValue();
+            switch (nextIndex) {
+                case 3: 
+                    parent.value3 = value;
+                case 2:
+                    parent.value2 = value;
+                case 1:
+                    parent.value1 = value;
+            }
+            return old;
+        }
+
+With this code, if I set the value of the third item in the EntrySet, then all three values are set to the new value.

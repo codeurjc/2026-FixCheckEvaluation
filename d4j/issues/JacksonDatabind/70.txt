@@ -1,0 +1,31 @@
+Title: `ACCEPT_CASE_INSENSITIVE_PROPERTIES` fails with `@JsonUnwrapped`
+
+Body:
+(note: moved from https://github.com/FasterXML/jackson-dataformat-csv/issues/133)
+
+When trying to deserialize type like:
+
+```java
+public class Person {
+  @JsonUnwrapped(prefix = "businessAddress.")
+  public Address businessAddress;
+}
+
+public class Address {
+  public String street;
+  public String addon;
+  public String zip = "";
+  public String town;    
+  public String country;
+}
+```
+
+with case-insensitive mapper (`mapper.enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);`) I get exception:
+
+```
+java.util.NoSuchElementException: No entry 'businessAddress' found, can't remove
+	at com.fasterxml.jackson.databind.deser.impl.BeanPropertyMap.remove(BeanPropertyMap.java:447)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.resolve(BeanDeserializerBase.java:534)
+	at com.fasterxml.jackson.databind.deser.DeserializerCache._createAndCache2(DeserializerCache.java:293)
+   ...
+```

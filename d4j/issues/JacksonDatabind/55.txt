@@ -1,0 +1,25 @@
+Title: EnumMap keys not using enum's `@JsonProperty` values unlike Enum values
+
+Body:
+Based on these issues:
+https://github.com/FasterXML/jackson-databind/issues/677
+https://github.com/FasterXML/jackson-databind/issues/1148
+https://github.com/FasterXML/jackson-annotations/issues/96
+
+I implemented @JsonProperty for my enum constants and they show up nicely when they are property values. But I also have an EnumMap which uses the enum, and it's generated JSON uses the original enum names for the keys and not the JsonProperty values.
+
+Using 2.8.1 (in spring boot 4.3.2)
+
+Thanks!
+
+
+Comment:
+Thank you for reporting this.
+
+
+Comment:
+Ok, looks like use of `@JsonValue` works at least. Next checking `@JsonProperty` part.
+
+
+Comment:
+I can reproduce this, and can see the problem. Fix will take a while, need to add Enum-specific key serializer. Not particularly difficult to do but... some work.

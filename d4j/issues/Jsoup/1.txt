@@ -1,0 +1,28 @@
+Title: Parsing a HTML snippet causes the leading text to be moved to back
+
+Body:
+Code:
+
+```
+String html = "foo <b>bar</b> baz";
+String text = Jsoup.parse(html).text();
+System.out.println(text);
+```
+
+Result: 
+
+```
+bar baz foo
+```
+
+Expected:
+
+```
+foo bar baz
+```
+
+
+Comment:
+Fix an issue where text order was incorrect when parsing pre-document HTML.
+
+Closed by 821d3b68381c83378dcf6a614f1055c420eb47b3

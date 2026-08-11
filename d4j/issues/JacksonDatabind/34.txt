@@ -1,0 +1,6 @@
+Title: Regression in 2.7.0-rc2, for schema/introspection for `BigDecimal`
+
+Body:
+(found via Avro module, but surprisingly json schema module has not test to catch it)
+
+Looks like schema type for `BigDecimal` is not correctly produced, due to an error in refactoring (made to simplify introspection for simple serializers): it is seen as `BigInteger` (and for Avro, for example, results in `long` getting written).

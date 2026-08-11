@@ -1,0 +1,25 @@
+Summary: Compiler should warn/error when instance methods are operated on
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile and run the following code:
+  goog.require('goog.graphics.Path');
+  function demo() {
+    var path = new goog.graphics.Path();
+    var points = [[1,1], [2,2]];
+    for (var i = 0; i &lt; points.length; i++) {
+      (i == 0 ? path.moveTo : path.lineTo)(points[i][0], points[i][1]);
+    }
+  }
+  goog.exportSymbol('demo', demo);
+
+<b>What is the expected output? What do you see instead?</b>
+I expect it to either work or produce a warning.  In this case, the latter since there's an error in the javascript - when calling path.moveTo(x, y), &quot;this&quot; is set correctly to the path element in the moveTo function.  But when the function is operated on, as in (i == 0 ? path.moveTo : path.lineTo)(x, y), it's no longer an instance method invocation, so &quot;this&quot; reverts to the window object.  In this case, an error results because moveTo references a field in Path that is now &quot;undefined&quot;.  Better would be to issue a warning/error that an instance method is being converted to a normal function (perhaps only if it references this).
+
+<b>What version of the product are you using? On what operating system?</b>
+Unknown (it's built into my build tools) - I presume this issue is present in all builds.  Running on ubuntu.
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+This issue was closed by revision r1147.

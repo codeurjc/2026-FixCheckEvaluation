@@ -1,0 +1,31 @@
+Summary: incomplete function definition crashes the compiler when ideMode is enabled
+
+Description:
+The code:
+
+f f f ;
+function t
+
+The cause:
+
+Rhino is creating an incomplete FUNCTION node.  We could fix this in Rhino or the IRFactory.  If it is invalid in Rhino we should fix it there, I'm not sure how to determine this so maybe we should fix it in the IRFactory and be done with it.
+
+The stack trace:
+
+Caused by: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+at com.google.common.base.Preconditions.checkState(Preconditions.java:135)
+at com.google.javascript.jscomp.NodeTraversal.traverseFunction(NodeTraversal.java:544)
+at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:493)
+at com.google.javascript.jscomp.NodeTraversal.traverseBranch(NodeTraversal.java:501)
+at com.google.javascript.jscomp.NodeTraversal.traverse(NodeTraversal.java:281)
+at com.google.javascript.jscomp.NodeTraversal.traverse(NodeTraversal.java:459)
+at com.google.javascript.jscomp.PrepareAst.process(PrepareAst.java:70)
+at com.google.javascript.jscomp.Compiler.prepareAst(Compiler.java:1836)
+at com.google.javascript.jscomp.JsAst.parse(JsAst.java:100)
+at com.google.javascript.jscomp.JsAst.getAstRoot(JsAst.java:53)
+at com.google.javascript.jscomp.CompilerInput.getAstRoot(CompilerInput.java:120)
+at com.google.javascript.jscomp.Compiler.parseInputs(Compiler.java:1303)
+at com.google.javascript.jscomp.Compiler.parse(Compiler.java:697)
+
+Comment:
+This issue was closed by revision r1786.

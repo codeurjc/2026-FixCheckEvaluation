@@ -1,0 +1,32 @@
+Summary: ProcessCommonJSModules module$exports failures when checkTypes enabled
+
+Description:
+If you define a module (echo.js) as:
+define(function() { return {
+  echo: function(val) {
+    window.console.log(val);
+  }
+}});
+
+and an entry point* that does not define any new modules as:
+var echo = require('echo');
+echo.echo('hello world');
+
+and compile with:
+java -jar build/compiler.jar --formatting=PRETTY_PRINT --jscomp_error=checkTypes --compilation_level=SIMPLE_OPTIMIZATIONS --transform_amd_modules --process_common_js_modules --js=echo.js --js=echo-main.js --common_js_entry_module=echo-main.js
+
+You get the error:
+echo-main.js:1: ERROR - Property module$exports never defined on module$echo_main
+
+which is probably happening because of ProcessCommonJSModules#emitOptionalModuleExportsOverride is testing a property that doesn't exist. I can try to cook up a patch but it would probably fall back to using goog.isDef and there's probably a cleaner way :)
+
+
+
+
+*p.s what is the intended definition of entry points that do not define new modules. the following leaves a call to a require function:
+require(['echo'], function(echo) {
+  echo.echo('hello world');
+});
+
+Comment:
+This issue was closed by revision r1982.

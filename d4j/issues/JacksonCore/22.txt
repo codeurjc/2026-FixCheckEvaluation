@@ -1,0 +1,18 @@
+Title: Make use of `_matchCount` in `FilteringParserDelegate`
+
+Body:
+Currently, it looks like that the _matchCount attribute in FilteringGeneratorDelegate is not utilised (i.e. no value is assigned to this variable). Re. the documentation this attribute offers some useful functionality. So it would be nice, if it could be implemented properly. See https://groups.google.com/d/msg/jackson-user/VzZ94G9hvrs/JGFozl6lCQAJ
+
+
+Comment:
+Had a quick look to try to see how easy it would be to add this, and my head is hurting now. Code gets complicated pretty quickly, and although some aspects (zero vs some matches) would be doable, it gets tricky to properly update it with sub-tree matches. So I'll need to spend more time at some point to do it right.
+
+
+Comment:
+@cowtowncoder I gave it a try. Please have a look.
+
+Comment:
+@rfoltyns Could you create a Pull Request for this?
+
+Comment:
+Sure. Done. I had to remove a couple of tests after 330 revert, but it still does the job.

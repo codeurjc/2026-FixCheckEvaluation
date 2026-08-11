@@ -1,0 +1,94 @@
+Title: `@JsonIgnoreProperties`: ignoring the "cause" property of `Throwable` on GAE
+
+Body:
+Deserializing an exception class from json on Google App Engine causes this error:
+
+```
+Caused by: java.lang.IllegalArgumentException: Can not access private java.lang.Throwable java.lang.Throwable.cause (from class java.lang.Throwable; failed to set access: java.lang.IllegalAccessException: Reflection is not allowed on private java.lang.Throwable java.lang.Throwable.cause
+    at com.fasterxml.jackson.databind.util.ClassUtil.checkAndFixAccess(ClassUtil.java:505)
+    at com.fasterxml.jackson.databind.introspect.AnnotatedMember.fixAccess(AnnotatedMember.java:123)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.constructSettableProperty(BeanDeserializerFactory.java:704)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.addBeanProps(BeanDeserializerFactory.java:501)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.buildThrowableDeserializer(BeanDeserializerFactory.java:356)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerFactory.createBeanDeserializer(BeanDeserializerFactory.java:114)
+```
+
+I tried preventing this by using `@JsonIgnoreProperties`:
+
+``` java
+@JsonIgnoreProperties("cause")
+public class MyException extends RuntimeException { ... }
+```
+
+... but the same error still occurs. What am I doing wrong? What else could I do?
+
+I've also considered setting `MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS` to false, but I don't like this solution because I need this setting to be `true` in some other cases (in particular, I provide no-arg constructors for Jackson, but they should't be public in my API).
+
+
+Comment:
+I've also tried using mixins, and I still get the same error:
+
+``` java
+public abstract class ThrowableMixin {
+    @JsonIgnore private Throwable cause;
+    @JsonIgnore public abstract Throwable getCause();
+}
+```
+
+``` java
+objectMapper.addMixIn(MyException.class, ThrowableMixin.class);
+MyException myException = objectMapper.readValue("{}", MyException.class);
+```
+
+
+Comment:
+I was able to fix this for my case using a custom `JacksonAnnotationIntrospector`.
+
+Still, shouldn't any of `@JsonIgnoreProperties` or mixins do the trick?
+
+Leaving this issue open because this may be a bug with handling ignored properties; but may be closed at any time as far as I am concerned.
+
+
+Comment:
+@mmazi Yes, it should; the problem here is because `Exception`s (or in general `Throwable`s) do not use standard POJO serializers/deserializers. The reason is that there are couple of problems in making things work with fully default handling. As a result, support for many annotations is missing or incomplete.
+This is not intentional, but rather based on having to implement support explicitly, and some aspects are missing; it should be possible to add support for ignorals for example.
+
+Thank you for reporting the problem; I hope we will be able to fix this in a future version.
+
+
+Comment:
+I am not able to reproduce the issue: tests show that use of `@JsonIgnoreProperties` works for serialization as expected, but the exception comes from deserialization. That does not fail either, but perhaps it's due to GAE specific problem. At this point I would need a way to reproduce specific problem assuming it still exists (which I'm not sure).
+
+
+Comment:
+I'm having the same problem.  The issue is that Google App Engine restricts reflection of java.lang.Throwable (and probably other classes in the JDK).  Could exception serialization use Throwable.initCause() and Throwable.setStacktrace() rather than setting private fields? 
+
+
+Comment:
+@davidkilliansc it is quite difficult to work on this without reproduction. But in theory it might be possible to suppress `setAccess()` call in cases where it can (if it can) be determined that accessor is not needed.
+It's just that it's tricky to ensure call does not happen, from unit test, to guard against regression.
+
+
+Comment:
+@cowtowncoder For testable reproduction, maybe a security policy for the tests could be configured to restrict reflection access to Throwable.  
+
+
+Comment:
+@davidkilliansc that's a great idea. I wonder how easy that'd be... I haven't created those, but sounds doable. Would be useful for other tests too I bet.
+
+
+Comment:
+Looking at `ThrowableDeserializer`, "cause" is indeed passed via `initCause()`, no attempt is made to try to set underlying field.
+
+However, it is entirely possible that attempt to call `setAccess()` is made at an earlier point when potential property is found. This should be deferred since that property is later on replaced so access change is not really needed that early.
+
+
+Comment:
+Added an ugly fix for 2.7.8, in which specific check is made for `cause` field of `Throwable` and skip forced access change if so.
+Also added test that sets specific `SecurityManager` to trigger fail on J2SE JDK; thanks again @davidkilliansc for the suggestion!
+
+Will try to improve the fix for 2.8 (to ideally just defer forced access override), but wanted to keep patch somewhat minimal for 2.7 to reduce chance of regression.
+
+
+Comment:
+@cowtowncoder Fantastic, thanks!

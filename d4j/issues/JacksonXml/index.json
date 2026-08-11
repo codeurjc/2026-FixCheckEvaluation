@@ -1,0 +1,54 @@
+{
+  "project": "JacksonXml",
+  "updated_at": "2026-08-11T13:53:45.687134+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://github.com/FasterXML/jackson-dataformat-xml/issues/180",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 669,
+      "fetched_at": "2026-08-11T13:53:41.478922+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://github.com/FasterXML/jackson-dataformat-xml/issues/196",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2087,
+      "fetched_at": "2026-08-11T13:53:42.292617+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://github.com/FasterXML/jackson-dataformat-xml/issues/204",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1828,
+      "fetched_at": "2026-08-11T13:53:43.107991+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://github.com/FasterXML/jackson-dataformat-xml/issues/213",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 857,
+      "fetched_at": "2026-08-11T13:53:43.898346+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://github.com/FasterXML/jackson-dataformat-xml/issues/282",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1390,
+      "fetched_at": "2026-08-11T13:53:44.865393+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://github.com/FasterXML/jackson-dataformat-xml/issues/270",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1387,
+      "fetched_at": "2026-08-11T13:53:45.687093+00:00"
+    }
+  ]
+}

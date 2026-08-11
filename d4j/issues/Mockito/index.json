@@ -1,0 +1,310 @@
+{
+  "project": "Mockito",
+  "updated_at": "2026-08-11T13:55:43.646438+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://github.com/mockito/mockito/issues/188",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 340,
+      "fetched_at": "2026-08-11T13:55:26.485836+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://github.com/mockito/mockito/issues/197",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1263,
+      "fetched_at": "2026-08-11T13:55:27.335734+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://github.com/mockito/mockito/issues/188",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 340,
+      "fetched_at": "2026-08-11T13:55:28.185046+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://github.com/mockito/mockito/issues/187",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2402,
+      "fetched_at": "2026-08-11T13:55:29.035837+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://github.com/mockito/mockito/issues/152",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 11908,
+      "fetched_at": "2026-08-11T13:55:29.945906+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://github.com/mockito/mockito/issues/134",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4715,
+      "fetched_at": "2026-08-11T13:55:30.931254+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://github.com/mockito/mockito/issues/128",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2003,
+      "fetched_at": "2026-08-11T13:55:31.683961+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://github.com/mockito/mockito/issues/114",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2664,
+      "fetched_at": "2026-08-11T13:55:32.533830+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://github.com/mockito/mockito/issues/122",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 182,
+      "fetched_at": "2026-08-11T13:55:33.316779+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://github.com/mockito/mockito/issues/99",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 4195,
+      "fetched_at": "2026-08-11T13:55:34.201427+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://github.com/mockito/mockito/issues/87",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 2818,
+      "fetched_at": "2026-08-11T13:55:35.176575+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://code.google.com/archive/p/mockito/issues/188",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 1079,
+      "fetched_at": "2026-08-11T13:55:35.461446+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://code.google.com/archive/p/mockito/issues/138",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 2002,
+      "fetched_at": "2026-08-11T13:55:35.492749+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://code.google.com/archive/p/mockito/issues/138",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 2002,
+      "fetched_at": "2026-08-11T13:55:35.529806+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://code.google.com/archive/p/mockito/issues/211",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 396,
+      "fetched_at": "2026-08-11T13:55:35.765086+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://code.google.com/archive/p/mockito/issues/151",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 215,
+      "fetched_at": "2026-08-11T13:55:36.002884+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://code.google.com/archive/p/mockito/issues/152",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 309,
+      "fetched_at": "2026-08-11T13:55:36.204305+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://github.com/mockito/mockito/issues/210",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 462,
+      "fetched_at": "2026-08-11T13:55:37.005653+00:00"
+    },
+    {
+      "bug_id": "19",
+      "url": "https://github.com/mockito/mockito/issues/205",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 1603,
+      "fetched_at": "2026-08-11T13:55:37.835482+00:00"
+    },
+    {
+      "bug_id": "20",
+      "url": "https://github.com/mockito/mockito/issues/92",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 14995,
+      "fetched_at": "2026-08-11T13:55:38.674255+00:00"
+    },
+    {
+      "bug_id": "21",
+      "url": "https://github.com/mockito/mockito/issues/92",
+      "tracker": "github",
+      "status": "ok",
+      "chars": 14995,
+      "fetched_at": "2026-08-11T13:55:39.551391+00:00"
+    },
+    {
+      "bug_id": "22",
+      "url": "https://code.google.com/archive/p/mockito/issues/484",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 1102,
+      "fetched_at": "2026-08-11T13:55:39.762821+00:00"
+    },
+    {
+      "bug_id": "23",
+      "url": "https://code.google.com/archive/p/mockito/issues/399",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 1745,
+      "fetched_at": "2026-08-11T13:55:40.011549+00:00"
+    },
+    {
+      "bug_id": "24",
+      "url": "https://code.google.com/archive/p/mockito/issues/467",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 1037,
+      "fetched_at": "2026-08-11T13:55:40.304370+00:00"
+    },
+    {
+      "bug_id": "25",
+      "url": "https://code.google.com/archive/p/mockito/issues/230",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 14546,
+      "fetched_at": "2026-08-11T13:55:40.520234+00:00"
+    },
+    {
+      "bug_id": "26",
+      "url": "https://code.google.com/archive/p/mockito/issues/352",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 3350,
+      "fetched_at": "2026-08-11T13:55:40.762968+00:00"
+    },
+    {
+      "bug_id": "27",
+      "url": "https://code.google.com/archive/p/mockito/issues/282",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 523,
+      "fetched_at": "2026-08-11T13:55:41.016165+00:00"
+    },
+    {
+      "bug_id": "28",
+      "url": "https://code.google.com/archive/p/mockito/issues/236",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 2358,
+      "fetched_at": "2026-08-11T13:55:41.316567+00:00"
+    },
+    {
+      "bug_id": "29",
+      "url": "https://code.google.com/archive/p/mockito/issues/229",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 3182,
+      "fetched_at": "2026-08-11T13:55:41.537161+00:00"
+    },
+    {
+      "bug_id": "30",
+      "url": "https://code.google.com/archive/p/mockito/issues/225",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 1336,
+      "fetched_at": "2026-08-11T13:55:41.773439+00:00"
+    },
+    {
+      "bug_id": "31",
+      "url": "https://code.google.com/archive/p/mockito/issues/225",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 1336,
+      "fetched_at": "2026-08-11T13:55:42.009220+00:00"
+    },
+    {
+      "bug_id": "32",
+      "url": "https://code.google.com/archive/p/mockito/issues/216",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 381,
+      "fetched_at": "2026-08-11T13:55:42.218506+00:00"
+    },
+    {
+      "bug_id": "33",
+      "url": "https://code.google.com/archive/p/mockito/issues/200",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 1135,
+      "fetched_at": "2026-08-11T13:55:42.470321+00:00"
+    },
+    {
+      "bug_id": "34",
+      "url": "https://code.google.com/archive/p/mockito/issues/157",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 1186,
+      "fetched_at": "2026-08-11T13:55:42.755186+00:00"
+    },
+    {
+      "bug_id": "35",
+      "url": "https://code.google.com/archive/p/mockito/issues/98",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 4067,
+      "fetched_at": "2026-08-11T13:55:42.982882+00:00"
+    },
+    {
+      "bug_id": "36",
+      "url": "https://code.google.com/archive/p/mockito/issues/140",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 434,
+      "fetched_at": "2026-08-11T13:55:43.235491+00:00"
+    },
+    {
+      "bug_id": "37",
+      "url": "https://code.google.com/archive/p/mockito/issues/140",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 434,
+      "fetched_at": "2026-08-11T13:55:43.423394+00:00"
+    },
+    {
+      "bug_id": "38",
+      "url": "https://code.google.com/archive/p/mockito/issues/79",
+      "tracker": "googlecode-page",
+      "status": "ok",
+      "chars": 3776,
+      "fetched_at": "2026-08-11T13:55:43.646396+00:00"
+    }
+  ]
+}

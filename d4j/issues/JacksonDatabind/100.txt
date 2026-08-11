@@ -1,0 +1,18 @@
+Title: `TreeTraversingParser` does not take base64 variant into account
+
+Body:
+This affects at least 2.6.4 to current versions. In [TreeTraversingParser#getBinaryValue](https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/node/TreeTraversingParser.java#L348), a `Base64Variant` is accepted but ignored. The call to `n.binaryValue()`, when `n` is a `TextNode`, then uses the default Base64 variant instead of what's specified. It seems the correct behavior would be to call `TextNode#getBinaryValue` instead.
+
+Comment:
+Sounds like a flaw indeed. Just need to see how/where to access base64 variant.
+
+Comment:
+If you change the assignment of `byte[] data` to:
+
+```java
+            byte[] data = n.isTextual()
+                    ? ((TextNode) n).getBinaryValue(b64variant)
+                    : n.binaryValue();
+```
+
+That seems sufficient, though I am operating on 2.6 and it looks like `ObjectMapper` has undergone a lot of refactoring since then. Presumably it would propagate the variant down correctly to the method.

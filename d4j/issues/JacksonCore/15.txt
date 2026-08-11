@@ -1,0 +1,4 @@
+Title: Make use of `_allowMultipleMatches` in `FilteringParserDelegate`
+
+Body:
+Currently, it looks like that the _allowMultipleMatches attribute in FilteringGeneratorDelegate is not utilised (i.e. no value is assigned to this variable). Re. the documentation this attribute offers some useful functionality. So it would be nice, if it could be implemented properly. See https://groups.google.com/d/msg/jackson-user/VzZ94G9hvrs/JGFozl6lCQAJ

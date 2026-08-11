@@ -1,0 +1,24 @@
+Summary: compiler crashes when  goog.provide used with non string 
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. insert  goog.provide(some.function);
+2. compile.
+<b>3.</b>
+
+<b>What is the expected output? What do you see instead?</b>
+
+This should give an error diagnostic. What it gives is:
+
+java.lang.RuntimeException: java.lang.RuntimeException: INTERNAL COMPILER ERROR.
+Please email js-compiler@google.com with this stack trace.
+GETPROP 17 [originalname: Spike] [source_file: file.js] is not a string node
+ Node(CALL): file.js:17:12
+goog.provide(mine.Spike);
+...
+[stack traces...]
+
+I think this is the current build as of the day of this report.
+
+Comment:
+This issue was closed by revision r1357.

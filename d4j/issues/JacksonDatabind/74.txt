@@ -1,0 +1,4 @@
+Title: AsPropertyTypeDeserializer ignores DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT
+
+Body:
+The `AsPropertyTypeDeserializer ` implementation does not respect the `DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT` feature. When deserializing an empty String it throws `DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT` instead of creating a null Object.

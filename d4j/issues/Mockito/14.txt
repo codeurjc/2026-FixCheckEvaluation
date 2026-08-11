@@ -1,0 +1,80 @@
+Summary: make verify() possible if there is inlined different method call on other mock
+
+Description:
+To reproduce, run this as a test case:
+	
+	private static interface Foo {void setFoo(String bar);}
+	private static interface Bar {String getBar();}
+	
+	@Test
+	public void testVerifyFails() throws Exception {
+		Foo foo = Mockito.mock(Foo.class);
+		Bar bar = Mockito.mock(Bar.class);
+		bar.getBar();
+		verify(foo).setFoo(bar.getBar());
+	}
+
+The verify should fail, since setFoo(String) was never called, but it will
+succeed.
+
+I'm using 1.8 on Linux, JDK 1.6.
+
+If you comment out the second-to-last line:
+//              bar.getBar();
+it will fail, complaining like this:
+# Wanted but not invoked:
+# bar.getBar();
+
+So what seems to be happening is that the mock invocation of getBar(),
+passed as the parameter to the setFoo(String) invocation, confuses verify()
+into thinking that it should verify getBar(), rather than setFoo(String).
+
+Comment:
+Nice one, thanks for reporting!
+
+I can fix this particular case because I can only allow verifying on mock that was
+passed to verify() method. However, there's a corner case I cannot fix:
+
+private static interface Foo {
+void setFoo(String bar); 
+String getBar();
+}
+...
+foo.getBar();
+verify(foo).setFoo(foo.getBar());
+
+Comment:
+This issue is waiting for a patch from one of the users :)
+
+Comment:
+Started working on this.
+
+Comment:
+This issue was closed by revision r1932.
+
+Comment:
+In 1.8.4 this means that all checks like
+ A a = mock(A.class);
+ B b = mock(B.class);
+ verify(a, times(100)).methodToVerify(b.value());
+
+will result in a green bar, but
+
+ A a = mock(A.class);
+ B b = mock(B.class);
+ String value = b.value();
+ verify(a, times(100)).methodToVerify(value);
+
+will work. Is this really correct?
+
+Comment:
+Reopening - this is not really working
+
+Comment:
+Issue 186 has been merged into this issue.
+
+Comment:
+Issue 254 has been merged into this issue.
+
+Comment:
+Issue 315 has been merged into this issue.

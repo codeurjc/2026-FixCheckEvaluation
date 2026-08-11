@@ -1,0 +1,98 @@
+Summary: StackOverflow error on a call to 'JXPathContext.createPath()'
+
+Description:
+I'm running into a StackOverflow error on a call to
+'JXPathContext.createPath()' whenever I have a path that looks like
+'a/b[1]/c'.  I took a quick look at the code and it appears JXPath, when
+trying to create its parent pointer, simply recreates an equivalent
+pointer(???).
+
+Here is code to reproduce the problem.
+
+
+    Map map = new HashMap();
+    map.put("a", null);
+    
+    JXPathContext pathContext = JXPathContext.newContext(map);
+    pathContext.setFactory(new AbstractFactory() {
+      public boolean createObject(
+          JXPathContext context, Pointer pointer, Object parent, String
+name, int index) {
+
+        Map parentMap = (Map)parent;
+        System.out.println(parent + ":" + name + ":" + index);
+        if (index > -1) {
+          List list = (List)parentMap.get(name);
+          if (list == null) {
+            list = new ArrayList();
+          }
+          int size = list.size();
+          for (int i = size; i <= index; i++) {
+            list.add(i, null);
+          }
+          parentMap.put(name, list);
+        } else {
+          parentMap.put(name, new HashMap());
+        }
+        return true;
+      }
+      
+    });
+    pathContext.createPath("a/b[1]/c");
+
+***************
+
+I have continued looking into this, and found that the problem is that, if
+the List is created with a 'null' element, JXPath gets stuck in infinite
+recursion.
+
+To discover this, I changed my Factory to implement the following method:
+
+      public boolean createObject(
+          JXPathContext context, Pointer pointer, Object parent, 
+          String name, int index) {
+
+        if (pointer instanceof NodePointer) {
+          index = ((NodePointer)pointer).getIndex();
+        }
+        System.out.println(parent + ":" + name + ":" + index);
+        Map parentMap = (Map)parent;
+        if (index > -1) {
+          List list = (List)parentMap.get(name);
+          if (list == null) {
+            list = new ArrayList();
+          }
+          int size = list.size();
+          for (int i = size; i <= index; i++) {
+            list.add(i, new HashMap());  // !!!!!!  Don't set to 'null'
+          }
+          parentMap.put(name, list);
+        } else {
+          parentMap.put(name, new HashMap());
+        }
+        return true;
+      }
+
+Then I ran the following code:
+
+    pathContext.createPath("a/b[1]/c");
+    pathContext.createPath("a/b[2]/c");  // STACK OVERFLOW HERE
+
+Here is the stack trace at the beginning, where
+'ValueUtils.expandCollection()' is called.  It puts 'null' into the list,
+thus causing the stack overflow as we cycle between createPath() &
+createChild().
+
+Thread [main] (Suspended (breakpoint at line 227 in DynamicPropertyPointer))
+	DynamicPropertyPointer.createPath(JXPathContext) line: 227
+	DynamicPropertyPointer(PropertyPointer).createChild(JXPathContext,
+QName, int) line: 188
+	NullElementPointer.createPath(JXPathContext) line: 82
+	NullPointer.createPath(JXPathContext) line: 86
+	NullPropertyPointer.createPath(JXPathContext) line: 103
+	NullPointer.createPath(JXPathContext) line: 86
+	NullPropertyPointer.createPath(JXPathContext) line: 103
+	JXPathContextReferenceImpl.createPath(String, Expression) line: 447
+	JXPathContextReferenceImpl.createPath(String) line: 427
+	Test.test4() line: 75
+	Test.main(String[]) line: 38

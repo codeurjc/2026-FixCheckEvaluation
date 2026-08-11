@@ -1,0 +1,60 @@
+Summary: Codepoint U+007f appears raw in output
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Open http://closure-compiler.appspot.com/home in your browser
+2. Enter the source code: alert('\x7f')
+3. Hit the &quot;Compile&quot; button.
+
+What is the expected output?
+alert(&quot;\x7f&quot;)
+
+What do you see instead?
+alert(&quot;&quot;);
+
+
+<b>What version of the product are you using? On what operating system?</b>
+The version live on 11 April 2011.
+
+<b>Please provide any additional information below.</b>
+Codepoint U+007f is a delete control character and is the only non-printable ASCII codepoint that is not &lt;= U+0020.  http://www.fileformat.info/info/unicode/char/7f/index.htm
+
+It should probably not appear raw in emitted source code because, it can confuse encoders.
+
+Comment:
+It go to the code, but is non-visible.
+
+alert('\x7f'); // Result will have 11 bytes
+alert('');     // Result will have 10 bytes
+
+Comment:
+Yes.  It is there.  U+007f is not a printable character, so it should probably not appear in the output the way U+001f does not appear raw in the output.
+
+Comment:
+I haven't commonly seen the \x## encoding.  Is it consistently support by all browsers (by that I mean IE6-9, Chrome 10+, FF3+, Opera 11+, Safari 5)
+
+Comment:
+Closure compiler recognizes them just fine but does not seem to emit them.  The input
+
+    alert('\u007f')
+
+produces the same compiler output as
+
+    alert('\x7f')
+
+
+Section 7.8.4 of the EcmaScript 3 spec defines EscapeSequence thus
+
+EscapeSequence ::
+    CharacterEscapeSequence
+    OctalEscapeSequence
+    HexEscapeSequence
+    UnicodeEscapeSequence
+...
+HexEscapeSequence ::
+    x HexDigit HexDigit
+
+EcmaScript 3 disallows OctalEscapeSequence (but allows it as an optional extension in an annex) but allows \0 not followed by [0-9].
+
+Comment:
+This issue was closed by revision r1014.

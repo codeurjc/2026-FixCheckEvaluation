@@ -1,0 +1,29 @@
+Title: Attribute.getValue() broken for empty attributes since 1.11.1
+
+Body:
+```
+        Document doc = Jsoup.parse("<div hidden>");
+        Attributes attributes = doc.body().child(0).attributes();
+        System.out.println(String.format("Attr: '%s', value: '%s'", "hidden",
+                attributes.get("hidden")));
+
+        Attribute first = attributes.iterator().next();
+        System.out.println(String.format("Attr: '%s', value: '%s'",
+                first.getKey(), first.getValue()));
+```
+
+Expected output, as in 1.10.x
+```
+Attr: 'hidden', value: ''
+Attr: 'hidden', value: ''
+```
+
+Output in 1.11.1-1.11.3:
+```
+Attr: 'hidden', value: ''
+Attr: 'hidden', value: 'null'
+```
+
+
+Comment:
+Thanks! Fixed

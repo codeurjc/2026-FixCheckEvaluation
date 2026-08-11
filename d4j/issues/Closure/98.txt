@@ -1,0 +1,31 @@
+Summary: bad variable inlining in closure
+
+Description:
+// ==ClosureCompiler==
+// @compilation_level SIMPLE_OPTIMIZATIONS
+// @output_file_name default.js
+// @formatting pretty_print
+// ==/ClosureCompiler==
+
+function foo() {
+ var arr = [1, 2, 3, 4, 5];
+ for (var i = 0, l = arr.length; i &lt; l; i++) {
+   var j = arr[i];
+   (function() {
+     var k = j;
+     setTimeout(function() { console.log(k); }, 0);
+   })();
+ }
+}
+foo();
+
+&quot;k&quot; will get incorrectly inlined.
+
+Comment:
+Clearly a problem with InlineVariables
+
+Comment:
+yep. i know the exact problem. i'll have a patch tomorrow.
+
+Comment:
+This issue was closed by revision r241.

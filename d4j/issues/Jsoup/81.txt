@@ -1,0 +1,126 @@
+Title: Failure to guess correct XHTML encoding even when explicitly declared
+
+Body:
+```
+String encoding = "iso-8859-1";
+InputStream soup = new ByteArrayInputStream((
+    "<?xml version=\"1.0\" encoding=\"" + encoding + "\"?>" +
+    "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">" +
+    "<html xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en\" xml:lang=\"en\">Hellö Wörld!</html>"
+    ).getBytes(encoding));
+
+System.out.println(Jsoup.parse(soup, null, ""));
+```
+prints:
+
+```
+<!--?xml version="1.0" encoding="iso-8859-1"?--><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+ <head></head>
+ <body>
+  Hell� W�rld!
+ </body>
+</html>
+```
+
+instead of expected output:
+
+```
+<!--?xml version="1.0" encoding="iso-8859-1"?--><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+ <head></head>
+ <body>
+  Hellö Wörld!
+ </body>
+</html>
+```
+
+
+Comment:
+Use: 
+``` 
+System.out.println(Jsoup.parse(soup, null, "", Parser.xmlParser()));
+``` 
+Only by explicitly declaring xml parser, checking for encoding works:
+```
+  if (foundCharset == null && doc.childNodeSize() > 0 && doc.childNode(0) instanceof XmlDeclaration) {
+      XmlDeclaration prolog = (XmlDeclaration) doc.childNode(0);
+           if (prolog.name().equals("xml"))
+               foundCharset = prolog.attr("encoding");
+  }
+```
+Without that, `doc.childNode(0)` is not recognized as `instanceof XmlDeclaration`.
+
+Comment:
+@krystiangorecki this is still unexpected behavior, IMO. The html parser should, at a minimum, be able to deduce the encoding of an XHTML document when it's explicitly declared, as we are parsing "soup" from the web which **may or may not** be in xhtml format. (The html parser is already smart enough to parse the xml declaration as a "bogus" comment--it wouldn't be hard to then make use of the readily available "encoding" attribute.)
+
+Comment:
+This is the workaround I implemented, just in case anyone else needs a quick solution to this problem:
+
+```
+public Document parse(InputStream input, String encoding, String baseUri) throws IOException {
+    //workaround for Jsoup issue #1009
+    if (encoding == null) {
+        int c;
+        do {
+            c = input.read();
+        } while (c != -1 && Character.isWhitespace(c));
+
+        if (c != -1) {
+            int capacity = 256;
+            byte[] bytes = new byte[capacity];
+            int length = 0;
+            bytes[length++] = (byte)c;
+
+            if (c == '<') {
+                c = input.read();
+                if (c != -1) {
+                    bytes[length++] = (byte)c;
+                    if (c == '?') {
+                        c = input.read();
+
+                        while (c != -1) {
+                            if (length == capacity) {
+                                capacity *= 2;
+                                bytes = Arrays.copyOf(bytes, capacity);
+                            }
+                            bytes[length++] = (byte)c;
+
+                            if (c == '>') {
+                                if (length >= 20 && bytes[length - 2] == '?') {
+                                    String decl = "<" + new String(bytes, 2, length - 4) + ">";
+                                    Document doc = Jsoup.parse(decl, baseUri, Parser.xmlParser());
+                                    for (Element el : doc.children()) {
+                                        if ("xml".equalsIgnoreCase(el.tagName())) {
+                                            String enc = el.attr("encoding");
+                                            if (enc != null && !enc.isEmpty()) {
+                                                encoding = enc;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+
+                            c = input.read();
+                        }
+                    }
+                }
+
+            }
+
+            input = new SequenceInputStream(new ByteArrayInputStream(bytes, 0, length), input);
+        }
+
+    }
+
+    return Jsoup.parse(input, encoding, baseUri);
+}
+```
+
+Comment:
+FYI: I implemented the above workaround in [Any23](https://github.com/apache/any23) since this issue was causing one of our tests to fail when I changed the default html parser to Jsoup in [PR 58](https://github.com/apache/any23/pull/58).
+
+Comment:
+Thanks, fixed

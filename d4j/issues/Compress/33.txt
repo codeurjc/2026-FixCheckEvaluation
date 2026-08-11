@@ -1,0 +1,6 @@
+Summary: CompressorStreamFactory doesn't handle deflate streams with a zlib header
+
+Description:
+If you take a zlib / deflate compressed file, with the zlib header (eg the test file bla.tar.deflatez) and pass it to CompressorStreamFactory.createCompressorInputStream, it won't be detected and you'll get a CompressorException("No Compressor found for the stream signature.")
+
+While detecting header-less zlib files is probably too tricky to manage, those with the header ought to be possible to spot and handle

@@ -1,0 +1,44 @@
+Summary: compiler-20110811 crashes with index(1) must be less than size(1)
+
+Description:
+<b>What steps will reproduce the problem?</b>
+Run compiler on https://raw.github.com/scottschiller/SoundManager2/master/script/soundmanager2-nodebug.js
+
+You can copy this into the Appspot closure compiler to see the error:
+// ==ClosureCompiler==
+// @output_file_name default.js
+// @compilation_level SIMPLE_OPTIMIZATIONS
+// @code_url https://raw.github.com/scottschiller/SoundManager2/master/script/soundmanager2-nodebug.js
+// ==/ClosureCompiler==
+
+I've attached a dump of the error from appspot.
+
+(This is the popular SoundManager library for HTML5 audio)
+
+<b>What is the expected output? What do you see instead?</b>
+Got crash...
+
+<b>What version of the product are you using? On what operating system?</b>
+Latest (compiler-20110811). We were previously using the June build, and had no problems
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+The relevant portion of the start trace: 
+at com.google.common.base.Preconditions.checkElementIndex(Preconditions.java:423)
+at com.google.common.base.Preconditions.checkElementIndex(Preconditions.java:402)
+at com.google.common.collect.Lists$ReverseList.reverseIndex(Lists.java:873)
+at com.google.common.collect.Lists$ReverseList.get(Lists.java:904)
+at com.google.javascript.jscomp.InlineObjectLiterals$InliningBehavior.replaceAssignmentExpression(InlineObjectLiterals.java:349)
+at com.google.javascript.jscomp.InlineObjectLiterals$InliningBehavior.splitObject(InlineObjectLiterals.java:412)
+at com.google.javascript.jscomp.InlineObjectLiterals$InliningBehavior.afterExitScope(InlineObjectLiterals.java:104)
+at com.google.javascript.jscomp.ReferenceCollectingCallback.exitScope(ReferenceCollectingCallback.java:187)
+
+Comment:
+I got a fix for it.
+
+Comment:
+Issue 552 has been merged into this issue.
+
+Comment:
+This issue was closed by revision r1433.

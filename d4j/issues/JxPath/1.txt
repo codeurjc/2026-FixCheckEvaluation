@@ -1,0 +1,13 @@
+Summary: Descendant or self axis does not work correctly at root node
+
+Description:
+Given the following XML document: <root id="1234"/>
+and the XPath: //root/@id/text().
+
+JXPath returns null instead of "1234".
+
+JXPathContext context = JXPathContext.newContext(doc);
+assertEquals(value, context.selectSingleNode("//root/@id/text()"));
+
+The attached JUnit test highlights the problem. It seems that JXPath does not
+find the root node if it is accessed with the axis descendant-or-self.

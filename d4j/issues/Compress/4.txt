@@ -1,0 +1,8 @@
+Summary: Are the public finish() methods ArchiveOutputStream implementations necessary and safe?
+
+Description:
+Some of the ArchiveOutputStream implementations have public finish() methods. These are currently only called from the close() methods.
+
+Seems to me that there is no need to allow the finish() methods to be called externally, and the user can corrupt the output if they do.
+
+Surely the close() method is all that is needed?

@@ -1,0 +1,182 @@
+{
+  "project": "JxPath",
+  "updated_at": "2026-08-11T13:55:01.888707+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-12",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 483,
+      "fetched_at": "2026-08-11T13:54:58.901269+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-50",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1701,
+      "fetched_at": "2026-08-11T13:54:59.043893+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-68",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3344,
+      "fetched_at": "2026-08-11T13:54:59.187754+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-83",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 258,
+      "fetched_at": "2026-08-11T13:54:59.330257+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-89",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1120,
+      "fetched_at": "2026-08-11T13:54:59.471089+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-94",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 327,
+      "fetched_at": "2026-08-11T13:54:59.613618+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-93",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1542,
+      "fetched_at": "2026-08-11T13:54:59.756670+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-95",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 97,
+      "fetched_at": "2026-08-11T13:54:59.897071+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-95",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 97,
+      "fetched_at": "2026-08-11T13:55:00.038210+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-93",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1542,
+      "fetched_at": "2026-08-11T13:55:00.179397+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-97",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 795,
+      "fetched_at": "2026-08-11T13:55:00.322870+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-97",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 795,
+      "fetched_at": "2026-08-11T13:55:00.465554+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-97",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 795,
+      "fetched_at": "2026-08-11T13:55:00.605776+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-102",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 874,
+      "fetched_at": "2026-08-11T13:55:00.750067+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-100",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 568,
+      "fetched_at": "2026-08-11T13:55:00.890747+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-114",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 622,
+      "fetched_at": "2026-08-11T13:55:01.033252+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-109",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 462,
+      "fetched_at": "2026-08-11T13:55:01.174333+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-115",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 751,
+      "fetched_at": "2026-08-11T13:55:01.317430+00:00"
+    },
+    {
+      "bug_id": "19",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-125",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 884,
+      "fetched_at": "2026-08-11T13:55:01.460197+00:00"
+    },
+    {
+      "bug_id": "20",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-149",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 301,
+      "fetched_at": "2026-08-11T13:55:01.601763+00:00"
+    },
+    {
+      "bug_id": "21",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-151",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 951,
+      "fetched_at": "2026-08-11T13:55:01.744494+00:00"
+    },
+    {
+      "bug_id": "22",
+      "url": "https://issues.apache.org/jira/browse/JXPATH-154",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1971,
+      "fetched_at": "2026-08-11T13:55:01.888669+00:00"
+    }
+  ]
+}

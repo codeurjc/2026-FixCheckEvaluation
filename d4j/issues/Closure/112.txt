@@ -1,0 +1,38 @@
+Summary: Template types on methods incorrectly trigger inference of a template on the class if that template type is unknown
+
+Description:
+See i.e.
+
+
+
+/**
+  * @constructor
+  * @template CLASS
+  */
+var Class = function() {};
+
+/**
+  * @param {function(CLASS):CLASS} a
+  * @template T
+  */
+Class.prototype.foo = function(a) {
+  return 'string';
+};
+
+/** @param {number} a
+  * @return {string} */
+var a = function(a) { return '' };
+
+new Class().foo(a);
+
+
+The CLASS type is never specified. If the @template T line is removed from the foo method, the block compiles with but with the @annotation on the method, the compiler seems to try to infer CLASS from the usage and fails compilation.
+
+Comment:
+Thanks for the report.
+
+Comment:
+This issue was closed by revision b168c8822b2d.
+
+Comment:
+This issue was closed by revision b168c8822b2d.

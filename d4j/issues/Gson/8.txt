@@ -1,0 +1,568 @@
+Title: JNI Error in Android
+
+Body:
+I am getting a 'JNI DETECTED AN ERROR IN APPLICATION" while using gson 2.5.jar in Android. Can anyone tell me how to solve this? Appreciate it.
+I am using a sub-class of Parse Object using Parse SDK.
+Here is the stack trace: 
+
+```
+03-28 14:01:15.445: E/art(28683): JNI DETECTED ERROR IN APPLICATION: can't make objects of type java.util.concurrent.locks.Lock: 0x70dd7858
+03-28 14:01:15.445: E/art(28683):     in call to AllocObject
+03-28 14:01:15.445: E/art(28683):     from java.lang.Object sun.misc.Unsafe.allocateInstance(java.lang.Class)
+03-28 14:01:15.445: E/art(28683): "main" prio=5 tid=1 Runnable
+03-28 14:01:15.445: E/art(28683):   | group="main" sCount=0 dsCount=0 obj=0x7617aef8 self=0x7fa917c400
+03-28 14:01:15.445: E/art(28683):   | sysTid=28683 nice=0 cgrp=default sched=0/0 handle=0x7face5d2c0
+03-28 14:01:15.445: E/art(28683):   | state=R schedstat=( 657346072 17671229 611 ) utm=52 stm=13 core=1 HZ=100
+03-28 14:01:15.445: E/art(28683):   | stack=0x7fe28ac000-0x7fe28ae000 stackSize=8MB
+03-28 14:01:15.445: E/art(28683):   | held mutexes= "mutator lock"(shared held)
+03-28 14:01:15.445: E/art(28683):   at sun.misc.Unsafe.allocateInstance(Native method)
+03-28 14:01:15.445: E/art(28683):   at java.lang.reflect.Method.invoke!(Native method)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.internal.UnsafeAllocator$1.newInstance(UnsafeAllocator.java:48)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.internal.ConstructorConstructor$14.construct(ConstructorConstructor.java:223)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:207)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$1.read(ReflectiveTypeAdapterFactory.java:117)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:217)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$1.read(ReflectiveTypeAdapterFactory.java:117)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:217)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.Gson.fromJson(Gson.java:861)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.Gson.fromJson(Gson.java:826)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.Gson.fromJson(Gson.java:775)
+03-28 14:01:15.445: E/art(28683):   at com.google.gson.Gson.fromJson(Gson.java:747)
+03-28 14:01:15.445: E/art(28683):   at b5.project.medibro.FeedItemDetails.onCreate(FeedItemDetails.java:47)
+03-28 14:01:15.445: E/art(28683):   at android.app.Activity.performCreate(Activity.java:6583)
+03-28 14:01:15.445: E/art(28683):   at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1114)
+03-28 14:01:15.445: E/art(28683):   at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2531)
+03-28 14:01:15.445: E/art(28683):   at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:2666)
+03-28 14:01:15.445: E/art(28683):   at android.app.ActivityThread.-wrap11(ActivityThread.java:-1)
+03-28 14:01:15.445: E/art(28683):   at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1493)
+03-28 14:01:15.445: E/art(28683):   at android.os.Handler.dispatchMessage(Handler.java:111)
+03-28 14:01:15.445: E/art(28683):   at android.os.Looper.loop(Looper.java:207)
+03-28 14:01:15.445: E/art(28683):   at android.app.ActivityThread.main(ActivityThread.java:5769)
+03-28 14:01:15.445: E/art(28683):   at java.lang.reflect.Method.invoke!(Native method)
+03-28 14:01:15.445: E/art(28683):   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:789)
+03-28 14:01:15.445: E/art(28683):   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:679)
+```
+
+The error is occurring at the last line of this code:
+
+```
+        gson=new Gson();
+        String jsonObj=getIntent().getStringExtra("feedItem");
+        item = gson.fromJson(jsonObj, FeedItem.class);
+```
+
+I have logged the json string which I am getting. The formatted json string is 
+
+```
+{
+   "feedItemChannel":"mdldsrgXN1",
+   "estimatedData":{
+      "feedTopic":"Testing",
+      "feedComments":2,
+      "createdBy":"KXTQtpfBSW",
+      "feedQuestion":"Test Question ",
+      "feedDesc":"Test "
+   },
+   "hashedObjects":{
+
+   },
+   "isDeleted":false,
+   "isDeletingEventually":0,
+   "mutex":{
+
+   },
+   "operationSetQueue":[
+      {
+
+      }
+   ],
+   "saveEvent":{
+      "callbacks":[
+
+      ]
+   },
+   "state":{
+      "className":"FeedItem",
+      "createdAt":1458798818385,
+      "isComplete":true,
+      "objectId":"mdldsrgXN1",
+      "serverData":{
+         "feedTopic":"TestTopic",
+         "createdBy":"KXTQtpfBSW",
+         "feedComments":2,
+         "feedQuestion":"Test Question ",
+         "feedDesc":"Test "
+      },
+      "updatedAt":1458803553636
+   },
+   "taskQueue":{
+      "lock":{
+         "sync":{
+            "state":0
+         }
+      }
+   }
+}
+```
+
+
+Comment:
+Ok
+
+
+Comment:
+You're trying to deserliaze a type which has a Lock which can't be
+instantiated. Either mark it as transient or write a TypeAdapter if you're
+actually want the lock to be serialized.
+
+On Mon, Mar 28, 2016, 10:56 AM Alex Ironz notifications@github.com wrote:
+
+> OMG, Unsafe object allocation bug, i think using in popular libaray
+> non-documented API in client - a big mistake
+> 
+> —
+> You are receiving this because you are subscribed to this thread.
+> Reply to this email directly or view it on GitHub
+> https://github.com/google/gson/issues/817#issuecomment-202426835
+
+
+Comment:
+The catch here is there is no exception while running the app in some
+devices(tested it on One Plus Two, Worked fine, API 22) where as the
+exception is thrown while running the application in some other
+devices(Tested on Lenovo K3 Note, API 23, the exception is thrown). Unable to figure it out.
+
+Regards,
+Abhijith Gururaj
+
+On Mon, Mar 28, 2016 at 8:31 PM, Jake Wharton notifications@github.com
+wrote:
+
+> You're trying to deserliaze a type which has a Lock which can't be
+> instantiated. Either mark it as transient or write a TypeAdapter if you're
+> actually want the lock to be serialized.
+> 
+> On Mon, Mar 28, 2016, 10:56 AM Alex Ironz notifications@github.com
+> wrote:
+> 
+> > OMG, Unsafe object allocation bug, i think using in popular libaray
+> > non-documented API in client - a big mistake
+> > 
+> > —
+> > You are receiving this because you are subscribed to this thread.
+> > Reply to this email directly or view it on GitHub
+> > https://github.com/google/gson/issues/817#issuecomment-202426835
+> 
+> —
+> You are receiving this because you authored the thread.
+> Reply to this email directly or view it on GitHub
+> https://github.com/google/gson/issues/817#issuecomment-202429152
+
+
+Comment:
+It seems to behaves differently based on the underlying Android implementation, I used a simple test app:
+
+``` java
+public interface A {
+        void method();
+    }
+
+...
+UnsafeAllocator unsafeAllocator = UnsafeAllocator.create();
+        Log.d(TAG, "Try to allocate interface");
+        A a = null;
+        try {
+            a = unsafeAllocator.newInstance(A.class);
+        } catch (Exception e) {
+            Log.e(TAG, "", e);
+        }
+        Log.d(TAG, "Try to call a method on allocated interface");
+        a.method();
+        Log.d(TAG, "Method called");
+...
+```
+
+On Nexus 5X running Android N preview 1 that would cause VM to abort and report JNI error, then try to restart the app and immediately crash again entering a infinite loop
+
+```
+04-12 21:25:00.284 11396-11396/ionspin.com.unsafetest D/MainActivity: Try to allocate interface
+04-12 21:25:00.294 11396-11396/ionspin.com.unsafetest A/art: art/runtime/java_vm_ext.cc:468] JNI DETECTED ERROR IN APPLICATION: can't make objects of type ionspin.com.unsafetest.MainActivity$A: 0x12d79380
+04-12 21:25:00.295 11396-11396/ionspin.com.unsafetest A/art: art/runtime/java_vm_ext.cc:468]     in call to AllocObject
+04-12 21:25:00.295 11396-11396/ionspin.com.unsafetest A/art: art/runtime/java_vm_ext.cc:468]     from java.lang.Object sun.misc.Unsafe.allocateInstance(java.lang.Class)
+04-12 21:25:00.295 11396-11396/ionspin.com.unsafetest A/art: art/runtime/java_vm_ext.cc:468] "main" prio=5 tid=1 Runnable
+```
+
+But on Nexus 5 running Android 5.1.1, instantiation would succeed, while a method call would cause a segmentation fault
+
+```
+04-12 21:31:57.317 27351-27351/? D/MainActivity: Try to allocate interface
+04-12 21:31:57.317 27351-27351/? D/MainActivity: Try to call a method on allocated interface
+04-12 21:31:57.317 27351-27351/? A/libc: Fatal signal 11 (SIGSEGV), code 1, fault addr 0x2c in tid 27351 (.com.unsafetest)
+04-12 21:31:57.430 8534-8534/? I/DEBUG: *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+04-12 21:31:57.430 8534-8534/? I/DEBUG: Build fingerprint: 'google/hammerhead/hammerhead:5.1.1/LMY48M/2167285:user/release-keys'
+04-12 21:31:57.430 8534-8534/? I/DEBUG: Revision: '11'
+04-12 21:31:57.430 8534-8534/? I/DEBUG: ABI: 'arm'
+04-12 21:31:57.430 8534-8534/? I/DEBUG: pid: 27351, tid: 27351, name: .com.unsafetest  >>> ionspin.com.unsafetest <<<
+04-12 21:31:57.430 8534-8534/? I/DEBUG: signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x2c
+```
+
+While on LG D772 (G3 mini or something like that running 4.4.2) it actually threw the exception
+
+```
+04-12 21:38:04.219 7803-7803/ionspin.com.unsafetest D/MainActivity: Try to allocate interface
+04-12 21:38:04.239 7803-7803/ionspin.com.unsafetest E/MainActivity: java.lang.reflect.InvocationTargetException
+                                                                        at java.lang.reflect.Method.invokeNative(Native Method)
+                                                                        at java.lang.reflect.Method.invoke(Method.java:515)
+                                                                        at com.google.gson.internal.UnsafeAllocator$1.newInstance(UnsafeAllocator.java:48)
+```
+
+Unfortunately I don't have a device running Marshmallow to test on currently
+
+While I completely agree that either a transient modifier or a TypeAdapter implementation is the right solution for this problem, maybe adding a check if the class modifiers contain interface or abstract and throwing a RuntimeException could help spotting this kind of issue quicker. Especially on some versions of Android where the only feedback would be a segmentation fault.
+
+
+Comment:
+Hello guys. I am also facing similar issue. App crashes only on specific device. I am running my code on MotoG2 and it crashed with following error. 
+
+`A/art: art/runtime/java_vm_ext.cc:410] JNI DETECTED ERROR IN APPLICATION: can't make objects of type java.security.acl.Owner: 0x130821f0
+A/art: art/runtime/java_vm_ext.cc:410]     in call to AllocObject
+A/art: art/runtime/java_vm_ext.cc:410]     from java.lang.Object sun.misc.Unsafe.allocateInstance(java.lang.Class)
+A/art: art/runtime/java_vm_ext.cc:410] "OkHttp https://api.github.com/..." prio=5 tid=17 Runnable
+A/art: art/runtime/java_vm_ext.cc:410]   | group="main" sCount=0 dsCount=0 obj=0x13160760 self=0xb94bd270
+A/art: art/runtime/java_vm_ext.cc:410]   | sysTid=11595 nice=0 cgrp=default sched=0/0 handle=0xa1c89930
+A/art: art/runtime/java_vm_ext.cc:410]   | state=R schedstat=( 0 0 0 ) utm=14 stm=3 core=1 HZ=100
+A/art: art/runtime/java_vm_ext.cc:410]   | stack=0xa1b87000-0xa1b89000 stackSize=1038KB
+A/art: art/runtime/java_vm_ext.cc:410]   | held mutexes= "mutator lock"(shared held)
+A/art: art/runtime/java_vm_ext.cc:410]   native: #00 pc 00370c01  /system/lib/libart.so (art::DumpNativeStack(std::__1::basic_ostream<char, std::__1::char_traits<char> >&, int, char const*, art::ArtMethod*, void*)+160)
+A/art: art/runtime/java_vm_ext.cc:410]   native: #01 pc 0035054b  /system/lib/libart.so (art::Thread::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&) const+150)
+A/art: art/runtime/java_vm_ext.cc:410]   native: #02 pc 0025a50d  /system/lib/libart.so (art::JavaVMExt::JniAbort(char const*, char const*)+740)
+A/art: art/runtime/java_vm_ext.cc:410]   native: #03 pc 0025abe5  /system/lib/libart.so (art::JavaVMExt::JniAbortV(char const*, char const*, std::__va_list)+64)
+A/art: art/runtime/java_vm_ext.cc:410]   native: #04 pc 000fd2e1  /system/lib/libart.so (art::ScopedCheck::AbortF(char const*, ...)+32)
+A/art: art/runtime/java_vm_ext.cc:410]   native: #05 pc 00108459  /system/lib/libart.so (art::CheckJNI::AllocObject(_JNIEnv*, _jclass*)+584)
+A/art: art/runtime/java_vm_ext.cc:410]   native: #06 pc 00254bdd  /data/dalvik-cache/arm/system@framework@boot.oat (Java_sun_misc_Unsafe_allocateInstance__Ljava_lang_Class_2+96)
+A/art: art/runtime/java_vm_ext.cc:410]   at sun.misc.Unsafe.allocateInstance(Native method)
+A/art: art/runtime/java_vm_ext.cc:410]   at java.lang.reflect.Method.invoke!(Native method)
+A/art: art/runtime/java_vm_ext.cc:410]   at com.google.gson.internal.UnsafeAllocator$1.newInstance(UnsafeAllocator.java:48)
+A/art: art/runtime/java_vm_ext.cc:410]   at com.google.gson.internal.ConstructorConstructor$14.construct(ConstructorConstructor.java:223)
+A/art: art/runtime/java_vm_ext.cc:410]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:206)
+A/art: art/runtime/java_vm_ext.cc:410]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$1.read(ReflectiveTypeAdapterFactory.java:116)
+A/art: art/runtime/java_vm_ext.cc:410]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:216)
+A/art: art/runtime/java_vm_ext.cc:410]   at com.google.gson.internal.bind.TypeAdapterRuntimeTypeWrapper.read(TypeAdapterRuntimeTypeWrapper.java:40)
+A/art: art/runtime/java_vm_ext.cc:410]   at com.google.gson.internal.bind.CollectionTypeAdapterFactory$Adapter.read(CollectionTypeAdapterFactory.java:82)
+A/art: art/runtime/java_vm_ext.cc:410]   at com.google.gson.internal.bind.CollectionTypeAdapterFactory$Adapter.read(CollectionTypeAdapterFactory.java:61)
+A/art: art/runtime/java_vm_ext.cc:410]   at retrofit2.converter.gson.GsonResponseBodyConverter.convert(GsonResponseBodyConverter.java:37)
+A/art: art/runtime/java_vm_ext.cc:410]   at retrofit2.converter.gson.GsonResponseBodyConverter.convert(GsonResponseBodyConverter.java:25)
+A/art: art/runtime/java_vm_ext.cc:410]   at retrofit2.ServiceMethod.toResponse(ServiceMethod.java:117)
+A/art: art/runtime/java_vm_ext.cc:410]   at retrofit2.OkHttpCall.parseResponse(OkHttpCall.java:211)
+A/art: art/runtime/java_vm_ext.cc:410]   at retrofit2.OkHttpCall$1.onResponse(OkHttpCall.java:106)
+A/art: art/runtime/java_vm_ext.cc:410]   at okhttp3.RealCall$AsyncCall.execute(RealCall.java:133)
+A/art: art/runtime/java_vm_ext.cc:410]   at okhttp3.internal.NamedRunnable.run(NamedRunnable.java:32)
+A/art: art/runtime/java_vm_ext.cc:410]   at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+A/art: art/runtime/java_vm_ext.cc:410]   at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+A/art: art/runtime/java_vm_ext.cc:410]   at java.lang.Thread.run(Thread.java:818)
+A/art: art/runtime/java_vm_ext.cc:410] 
+A/art: art/runtime/runtime.cc:399] Runtime aborting...
+A/art: art/runtime/runtime.cc:399] Aborting thread:
+A/art: art/runtime/runtime.cc:399] "OkHttp https://api.github.com/..." prio=5 tid=17 Native
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=0 dsCount=0 obj=0x13160760 self=0xb94bd270
+A/art: art/runtime/runtime.cc:399]   | sysTid=11595 nice=0 cgrp=default sched=0/0 handle=0xa1c89930
+A/art: art/runtime/runtime.cc:399]   | state=R schedstat=( 0 0 0 ) utm=15 stm=5 core=1 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xa1b87000-0xa1b89000 stackSize=1038KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes= "abort lock"
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00370c01  /system/lib/libart.so (art::DumpNativeStack(std::__1::basic_ostream<char, std::__1::char_traits<char> >&, int, char const*, art::ArtMethod*, void*)+160)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 0035054b  /system/lib/libart.so (art::Thread::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&) const+150)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 003333ab  /system/lib/libart.so (art::AbortState::DumpThread(std::__1::basic_ostream<char, std::__1::char_traits<char> >&, art::Thread*) const+26)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 00333643  /system/lib/libart.so (art::Runtime::Abort()+562)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 000f470b  /system/lib/libart.so (art::LogMessage::~LogMessage()+2226)
+A/art: art/runtime/runtime.cc:399]   native: #05 pc 0025a837  /system/lib/libart.so (art::JavaVMExt::JniAbort(char const*, char const*)+1550)
+A/art: art/runtime/runtime.cc:399]   native: #06 pc 0025abe5  /system/lib/libart.so (art::JavaVMExt::JniAbortV(char const*, char const*, std::__va_list)+64)
+A/art: art/runtime/runtime.cc:399]   native: #07 pc 000fd2e1  /system/lib/libart.so (art::ScopedCheck::AbortF(char const*, ...)+32)
+A/art: art/runtime/runtime.cc:399]   native: #08 pc 00108459  /system/lib/libart.so (art::CheckJNI::AllocObject(_JNIEnv*, _jclass*)+584)
+A/art: art/runtime/runtime.cc:399]   native: #09 pc 00254bdd  /data/dalvik-cache/arm/system@framework@boot.oat (???)
+A/art: art/runtime/runtime.cc:399]   at sun.misc.Unsafe.allocateInstance(Native method)
+A/art: art/runtime/runtime.cc:399]   at java.lang.reflect.Method.invoke!(Native method)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.UnsafeAllocator$1.newInstance(UnsafeAllocator.java:48)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.ConstructorConstructor$14.construct(ConstructorConstructor.java:223)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:206)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$1.read(ReflectiveTypeAdapterFactory.java:116)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:216)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.TypeAdapterRuntimeTypeWrapper.read(TypeAdapterRuntimeTypeWrapper.java:40)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.CollectionTypeAdapterFactory$Adapter.read(CollectionTypeAdapterFactory.java:82)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.CollectionTypeAdapterFactory$Adapter.read(CollectionTypeAdapterFactory.java:61)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.converter.gson.GsonResponseBodyConverter.convert(GsonResponseBodyConverter.java:37)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.converter.gson.GsonResponseBodyConverter.convert(GsonResponseBodyConverter.java:25)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.ServiceMethod.toResponse(ServiceMethod.java:117)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.OkHttpCall.parseResponse(OkHttpCall.java:211)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.OkHttpCall$1.onResponse(OkHttpCall.java:106)
+A/art: art/runtime/runtime.cc:399]   at okhttp3.RealCall$AsyncCall.execute(RealCall.java:133)
+A/art: art/runtime/runtime.cc:399]   at okhttp3.internal.NamedRunnable.run(NamedRunnable.java:32)
+A/art: art/runtime/runtime.cc:399]   at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+A/art: art/runtime/runtime.cc:399]   at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.run(Thread.java:818)
+A/art: art/runtime/runtime.cc:399] Dumping all threads without appropriate locks held: thread list lock mutator lock
+A/art: art/runtime/runtime.cc:399] All threads:
+A/art: art/runtime/runtime.cc:399] DALVIK THREADS (19):
+A/art: art/runtime/runtime.cc:399] "OkHttp https://api.github.com/..." prio=5 tid=17 Runnable
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=0 dsCount=0 obj=0x13160760 self=0xb94bd270
+A/art: art/runtime/runtime.cc:399]   | sysTid=11595 nice=0 cgrp=default sched=0/0 handle=0xa1c89930
+A/art: art/runtime/runtime.cc:399]   | state=R schedstat=( 0 0 0 ) utm=17 stm=5 core=1 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xa1b87000-0xa1b89000 stackSize=1038KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes= "abort lock" "mutator lock"(shared held)
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00370c01  /system/lib/libart.so (art::DumpNativeStack(std::__1::basic_ostream<char, std::__1::char_traits<char> >&, int, char const*, art::ArtMethod*, void*)+160)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 0035054b  /system/lib/libart.so (art::Thread::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&) const+150)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 0035a1b3  /system/lib/libart.so (art::DumpCheckpoint::Run(art::Thread*)+442)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 0035ad5f  /system/lib/libart.so (art::ThreadList::RunCheckpoint(art::Closure*)+210)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 0035b29f  /system/lib/libart.so (art::ThreadList::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&)+142)
+A/art: art/runtime/runtime.cc:399]   native: #05 pc 003335b9  /system/lib/libart.so (art::Runtime::Abort()+424)
+A/art: art/runtime/runtime.cc:399]   native: #06 pc 000f470b  /system/lib/libart.so (art::LogMessage::~LogMessage()+2226)
+A/art: art/runtime/runtime.cc:399]   native: #07 pc 0025a837  /system/lib/libart.so (art::JavaVMExt::JniAbort(char const*, char const*)+1550)
+A/art: art/runtime/runtime.cc:399]   native: #08 pc 0025abe5  /system/lib/libart.so (art::JavaVMExt::JniAbortV(char const*, char const*, std::__va_list)+64)
+A/art: art/runtime/runtime.cc:399]   native: #09 pc 000fd2e1  /system/lib/libart.so (art::ScopedCheck::AbortF(char const*, ...)+32)
+A/art: art/runtime/runtime.cc:399]   native: #10 pc 00108459  /system/lib/libart.so (art::CheckJNI::AllocObject(_JNIEnv*, _jclass*)+584)
+A/art: art/runtime/runtime.cc:399]   native: #11 pc 00254bdd  /data/dalvik-cache/arm/system@framework@boot.oat (Java_sun_misc_Unsafe_allocateInstance__Ljava_lang_Class_2+96)
+A/art: art/runtime/runtime.cc:399]   at sun.misc.Unsafe.allocateInstance(Native method)
+A/art: art/runtime/runtime.cc:399]   at java.lang.reflect.Method.invoke!(Native method)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.UnsafeAllocator$1.newInstance(UnsafeAllocator.java:48)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.ConstructorConstructor$14.construct(ConstructorConstructor.java:223)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:206)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$1.read(ReflectiveTypeAdapterFactory.java:116)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.ReflectiveTypeAdapterFactory$Adapter.read(ReflectiveTypeAdapterFactory.java:216)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.TypeAdapterRuntimeTypeWrapper.read(TypeAdapterRuntimeTypeWrapper.java:40)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.CollectionTypeAdapterFactory$Adapter.read(CollectionTypeAdapterFactory.java:82)
+A/art: art/runtime/runtime.cc:399]   at com.google.gson.internal.bind.CollectionTypeAdapterFactory$Adapter.read(CollectionTypeAdapterFactory.java:61)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.converter.gson.GsonResponseBodyConverter.convert(GsonResponseBodyConverter.java:37)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.converter.gson.GsonResponseBodyConverter.convert(GsonResponseBodyConverter.java:25)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.ServiceMethod.toResponse(ServiceMethod.java:117)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.OkHttpCall.parseResponse(OkHttpCall.java:211)
+A/art: art/runtime/runtime.cc:399]   at retrofit2.OkHttpCall$1.onResponse(OkHttpCall.java:106)
+A/art: art/runtime/runtime.cc:399]   at okhttp3.RealCall$AsyncCall.execute(RealCall.java:133)
+A/art: art/runtime/runtime.cc:399]   at okhttp3.internal.NamedRunnable.run(NamedRunnable.java:32)
+A/art: art/runtime/runtime.cc:399]   at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+A/art: art/runtime/runtime.cc:399]   at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.run(Thread.java:818)
+A/art: art/runtime/runtime.cc:399] 
+A/art: art/runtime/runtime.cc:399] "main" prio=5 tid=1 Native
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x742de2a0 self=0xb8340590
+A/art: art/runtime/runtime.cc:399]   | sysTid=10957 nice=0 cgrp=default sched=0/0 handle=0xb6f82b34
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=198 stm=46 core=1 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xbe5f2000-0xbe5f4000 stackSize=8MB
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: sys_epoll_wait+0x2bc/0x398
+A/art: art/runtime/runtime.cc:399]   kernel: sys_epoll_pwait+0x124/0x130
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00043174  /system/lib/libc.so (__epoll_pwait+20)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 00019447  /system/lib/libc.so (epoll_pwait+26)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 00019455  /system/lib/libc.so (epoll_wait+6)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 00012c6f  /system/lib/libutils.so (android::Looper::pollInner(int)+102)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 00012eeb  /system/lib/libutils.so (android::Looper::pollOnce(int, int*, int*, void**)+130)
+A/art: art/runtime/runtime.cc:399]   native: #05 pc 00082619  /system/lib/libandroid_runtime.so (android::NativeMessageQueue::pollOnce(_JNIEnv*, _jobject*, int)+22)
+A/art: art/runtime/runtime.cc:399]   native: #06 pc 0000056d  /data/dalvik-cache/arm/system@framework@boot.oat (Java_android_os_MessageQueue_nativePollOnce__JI+96)
+A/art: art/runtime/runtime.cc:399]   at android.os.MessageQueue.nativePollOnce(Native method)
+A/art: art/runtime/runtime.cc:399]   at android.os.MessageQueue.next(MessageQueue.java:323)
+A/art: art/runtime/runtime.cc:399]   at android.os.Looper.loop(Looper.java:135)
+A/art: art/runtime/runtime.cc:399]   at android.app.ActivityThread.main(ActivityThread.java:5443)
+A/art: art/runtime/runtime.cc:399]   at java.lang.reflect.Method.invoke!(Native method)
+A/art: art/runtime/runtime.cc:399]   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:728)
+A/art: art/runtime/runtime.cc:399]   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:618)
+A/art: art/runtime/runtime.cc:399] 
+A/art: art/runtime/runtime.cc:399] "Signal Catcher" prio=5 tid=2 WaitingInMainSignalCatcherLoop
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x12cc00a0 self=0xb92e64f0
+A/art: art/runtime/runtime.cc:399]   | sysTid=10962 nice=0 cgrp=default sched=0/0 handle=0xb4515930
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=3 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xb4419000-0xb441b000 stackSize=1014KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: do_sigtimedwait+0x168/0x1b8
+A/art: art/runtime/runtime.cc:399]   kernel: sys_rt_sigtimedwait+0xa0/0x114
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00042978  /system/lib/libc.so (__rt_sigtimedwait+12)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 0001bf3b  /system/lib/libc.so (sigwait+22)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 0033a799  /system/lib/libart.so (art::SignalCatcher::WaitForSignal(art::Thread*, art::SignalSet&)+76)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 0033b903  /system/lib/libart.so (art::SignalCatcher::Run(void*)+226)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 00041687  /system/lib/libc.so (__pthread_start(void*)+30)
+A/art: art/runtime/runtime.cc:399]   native: #05 pc 0001911b  /system/lib/libc.so (__start_thread+6)
+A/art: art/runtime/runtime.cc:399]   (no managed stack frames)
+A/art: art/runtime/runtime.cc:399] 
+A/art: art/runtime/runtime.cc:399] "JDWP" prio=5 tid=3 WaitingInMainDebuggerLoop
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x12cc30a0 self=0xb92e92f8
+A/art: art/runtime/runtime.cc:399]   | sysTid=10964 nice=0 cgrp=default sched=0/0 handle=0xb4411930
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xb4315000-0xb4317000 stackSize=1014KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: poll_schedule_timeout+0x3c/0x60
+A/art: art/runtime/runtime.cc:399]   kernel: do_select+0x4a4/0x54c
+A/art: art/runtime/runtime.cc:399]   kernel: core_sys_select+0x11c/0x318
+A/art: art/runtime/runtime.cc:399]   kernel: sys_pselect6+0x234/0x24c
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 000440b4  /system/lib/libc.so (__pselect6+20)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 0001b28d  /system/lib/libc.so (select+60)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 00401243  /system/lib/libart.so (art::JDWP::JdwpAdbState::ProcessIncoming()+218)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 00266c2f  /system/lib/libart.so (art::JDWP::JdwpState::Run()+314)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 00267aad  /system/lib/libart.so (art::JDWP::StartJdwpThread(void*)+16)
+A/art: art/runtime/runtime.cc:399]   native: #05 pc 00041687  /system/lib/libc.so (__pthread_start(void*)+30)
+A/art: art/runtime/runtime.cc:399]   native: #06 pc 0001911b  /system/lib/libc.so (__start_thread+6)
+A/art: art/runtime/runtime.cc:399]   (no managed stack frames)
+A/art: art/runtime/runtime.cc:399] 
+A/art: art/runtime/runtime.cc:399] "ReferenceQueueDaemon" prio=5 tid=4 Waiting
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x12cbae80 self=0xb92e79f0
+A/art: art/runtime/runtime.cc:399]   | sysTid=10965 nice=0 cgrp=default sched=0/0 handle=0xb430b930
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xb4209000-0xb420b000 stackSize=1038KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait_queue_me+0xe0/0x108
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait+0x170/0x238
+A/art: art/runtime/runtime.cc:399]   kernel: do_futex+0xfc/0x9fc
+A/art: art/runtime/runtime.cc:399]   kernel: sys_futex+0x80/0x160
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00016a58  /system/lib/libc.so (syscall+28)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 000f6c59  /system/lib/libart.so (art::ConditionVariable::Wait(art::Thread*)+96)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 002bec69  /system/lib/libart.so (art::Monitor::Wait(art::Thread*, long long, int, bool, art::ThreadState)+1176)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 002bf9c7  /system/lib/libart.so (art::Monitor::Wait(art::Thread*, art::mirror::Object*, long long, int, bool, art::ThreadState)+142)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 002d128b  /system/lib/libart.so (art::Object_wait(_JNIEnv*, _jobject*)+38)
+A/art: art/runtime/runtime.cc:399]   native: #05 pc 0000037f  /data/dalvik-cache/arm/system@framework@boot.oat (Java_java_lang_Object_wait__+74)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Object.wait!(Native method)
+A/art: art/runtime/runtime.cc:399]   - waiting on <0x050d46f8> (a java.lang.Class<java.lang.ref.ReferenceQueue>)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Daemons$ReferenceQueueDaemon.run(Daemons.java:147)
+A/art: art/runtime/runtime.cc:399]   - locked <0x050d46f8> (a java.lang.Class<java.lang.ref.ReferenceQueue>)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.run(Thread.java:818)
+A/art: art/runtime/runtime.cc:399] 
+A/art: art/runtime/runtime.cc:399] "FinalizerDaemon" prio=5 tid=5 Waiting
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x12cbaee0 self=0xb8536ff8
+A/art: art/runtime/runtime.cc:399]   | sysTid=10966 nice=0 cgrp=default sched=0/0 handle=0xb4201930
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=1 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xb40ff000-0xb4101000 stackSize=1038KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait_queue_me+0xe0/0x108
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait+0x170/0x238
+A/art: art/runtime/runtime.cc:399]   kernel: do_futex+0xfc/0x9fc
+A/art: art/runtime/runtime.cc:399]   kernel: sys_futex+0x80/0x160
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00016a58  /system/lib/libc.so (syscall+28)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 000f6c59  /system/lib/libart.so (art::ConditionVariable::Wait(art::Thread*)+96)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 002bec69  /system/lib/libart.so (art::Monitor::Wait(art::Thread*, long long, int, bool, art::ThreadState)+1176)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 002bf9c7  /system/lib/libart.so (art::Monitor::Wait(art::Thread*, art::mirror::Object*, long long, int, bool, art::ThreadState)+142)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 002d12c5  /system/lib/libart.so (art::Object_waitJI(_JNIEnv*, _jobject*, long long, int)+44)
+A/art: art/runtime/runtime.cc:399]   native: #05 pc 0000056d  /data/dalvik-cache/arm/system@framework@boot.oat (Java_java_lang_Object_wait__JI+96)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Object.wait!(Native method)
+A/art: art/runtime/runtime.cc:399]   - waiting on <0x0e16f7d1> (a java.lang.ref.ReferenceQueue)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Object.wait(Object.java:423)
+A/art: art/runtime/runtime.cc:399]   at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:101)
+A/art: art/runtime/runtime.cc:399]   - locked <0x0e16f7d1> (a java.lang.ref.ReferenceQueue)
+A/art: art/runtime/runtime.cc:399]   at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:72)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Daemons$FinalizerDaemon.run(Daemons.java:185)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.run(Thread.java:818)
+A/art: art/runtime/runtime.cc:399] 
+A/art: art/runtime/runtime.cc:399] "FinalizerWatchdogDaemon" prio=5 tid=6 Sleeping
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x12cbaf40 self=0xb853aa88
+A/art: art/runtime/runtime.cc:399]   | sysTid=10967 nice=0 cgrp=default sched=0/0 handle=0xb40f7930
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xb3ff5000-0xb3ff7000 stackSize=1038KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait_queue_me+0xe0/0x108
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait+0x170/0x238
+A/art: art/runtime/runtime.cc:399]   kernel: do_futex+0xfc/0x9fc
+A/art: art/runtime/runtime.cc:399]   kernel: sys_futex+0x80/0x160
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00016a5c  /system/lib/libc.so (syscall+32)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 000f6ed9  /system/lib/libart.so (art::ConditionVariable::TimedWait(art::Thread*, long long, int)+120)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 002be9a7  /system/lib/libart.so (art::Monitor::Wait(art::Thread*, long long, int, bool, art::ThreadState)+470)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 002bf9c7  /system/lib/libart.so (art::Monitor::Wait(art::Thread*, art::mirror::Object*, long long, int, bool, art::ThreadState)+142)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 0001c063  /data/dalvik-cache/arm/system@framework@boot.oat (Java_java_lang_Thread_sleep__Ljava_lang_Object_2JI+126)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.sleep!(Native method)
+A/art: art/runtime/runtime.cc:399]   - sleeping on <0x0bef6236> (a java.lang.Object)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.sleep(Thread.java:1031)
+A/art: art/runtime/runtime.cc:399]   - locked <0x0bef6236> (a java.lang.Object)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.sleep(Thread.java:985)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Daemons$FinalizerWatchdogDaemon.sleepFor(Daemons.java:273)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Daemons$FinalizerWatchdogDaemon.waitForFinalization(Daemons.java:284)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Daemons$FinalizerWatchdogDaemon.run(Daemons.java:232)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.run(Thread.java:818)
+A/art: art/runtime/runtime.cc:399] 
+A/art: art/runtime/runtime.cc:399] "HeapTaskDaemon" prio=5 tid=7 Blocked
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x12cbafa0 self=0xb92e6d50
+A/art: art/runtime/runtime.cc:399]   | sysTid=10968 nice=0 cgrp=default sched=0/0 handle=0xab135930
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=3 stm=2 core=0 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xab033000-0xab035000 stackSize=1038KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait_queue_me+0xe0/0x108
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait+0x170/0x238
+A/art: art/runtime/runtime.cc:399]   kernel: do_futex+0xfc/0x9fc
+A/art: art/runtime/runtime.cc:399]   kernel: sys_futex+0x80/0x160
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00016a5c  /system/lib/libc.so (syscall+32)
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 000f6ed9  /system/lib/libart.so (art::ConditionVariable::TimedWait(art::Thread*, long long, int)+120)
+A/art: art/runtime/runtime.cc:399]   native: #02 pc 001d7265  /system/lib/libart.so (art::gc::TaskProcessor::GetTask(art::Thread*)+240)
+A/art: art/runtime/runtime.cc:399]   native: #03 pc 001d7711  /system/lib/libart.so (art::gc::TaskProcessor::RunAllTasks(art::Thread*)+72)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 0000037f  /data/dalvik-cache/arm/system@framework@boot.oat (Java_dalvik_system_VMRuntime_runHeapTasks__+74)
+A/art: art/runtime/runtime.cc:399]   at dalvik.system.VMRuntime.runHeapTasks(Native method)
+A/art: art/runtime/runtime.cc:399]   - waiting to lock an unknown object
+A/art: art/runtime/runtime.cc:399]   at java.lang.Daemons$HeapTaskDaemon.run(Daemons.java:355)
+A/art: art/runtime/runtime.cc:399]   at java.lang.Thread.run(Thread.java:818)
+A/art: art/runtime/runtime.cc:399] 
+A/art: art/runtime/runtime.cc:399] "Binder_1" prio=5 tid=8 Native
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x12ccb0a0 self=0xb92e9ee0
+A/art: art/runtime/runtime.cc:399]   | sysTid=10970 nice=0 cgrp=default sched=0/0 handle=0xa4b1e930
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xa4a22000-0xa4a24000 stackSize=1014KB
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: binder_thread_read+0x8e8/0xdd0
+A/art: art/runtime/runtime.cc:399]   kernel: binder_ioctl+0x420/0x860
+A/art: art/runtime/runtime.cc:399]   kernel: do_vfs_ioctl+0x3f4/0x5a8
+A/art: art/runtime/runtime.cc:399]   kernel: sys_ioctl+0x6c/0x7c
+A/art: art/runtime/runtime.cc:399]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+A/art: art/runtime/runtime.cc:399]   | stack=0xa491e000-0xa4920000 stackSize=1014KB
+A/art: art/runtime/runtime.cc:399]   kernel: do_vfs_ioctl+0x3f4/0x5a8
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #00 pc 00043388  /system/lib/libc.so (__ioctl+8)
+A/art: art/runtime/runtime.cc:399]   native: #04 pc 00012eeb  /system/lib/libutils.so (android::Looper::pollOnce(int, int*, int*, void**)+130)
+A/art: art/runtime/runtime.cc:399]   native: #08 pc 00041687  /system/lib/libc.so (__pthread_start(void*)+30)
+A/art: art/runtime/runtime.cc:399] "hwuiTask1" prio=5 tid=15 Native
+A/art: art/runtime/runtime.cc:399]   | group="" sCount=1 dsCount=0 obj=0x12fec0a0 self=0xb944bce0
+A/art: art/runtime/runtime.cc:399]   | held mutexes=
+A/art: art/runtime/runtime.cc:399]   kernel: futex_wait_queue_me+0xe0/0x108
+A/art: art/runtime/runtime.cc:399]   kernel: sys_futex+0x80/0x160
+A/art: art/runtime/runtime.cc:399]   kernel: ret_fast_syscall+0x0/0x30
+A/art: art/runtime/runtime.cc:399]   native: #01 pc 000414a3  /system/lib/libc.so (__pthread_cond_timedwait_relative(pthread_cond_internal_t*, pthread_mutex_t*, timespec const*)+56)
+A/libc: Fatal signal 6 (SIGABRT), code -6 in tid 11595 (.github.com/...)`
+
+However, I ran the same on my emulator(Nexus 5) and I runs perfectly. 
+
+Kindly share what I am missing. Thanks!
+
+Comment:
+I have similiar error when change connection wifi to simcard.
+
+Comment:
+I am facing similar error. My gson version is 2.8.6 and My Android App crashes in only one user who use OPPO Reno. It crashed with following error.  Can someone help me?
+
+#00 pc 00000000004dc048  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.internal.UnsafeAllocator.create+1192)     
+#01 pc 00000000004d9ebc  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.internal.ConstructorConstructor.get+684)     
+#02 pc 00000000005ec54c  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.internal.bind.ReflectiveTypeAdapterFactory.create+156)     
+#03 pc 00000000004d3d6c  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.Gson.getAdapter+796)     
+#04 pc 00000000005eb724  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.internal.bind.ReflectiveTypeAdapterFactory.createBoundField+372)     
+#05 pc 00000000005ebda8  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.internal.bind.ReflectiveTypeAdapterFactory.getBoundFields+1096)     
+#06 pc 00000000005ec594  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.internal.bind.ReflectiveTypeAdapterFactory.create+228)     
+#07 pc 00000000004d3d6c  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.Gson.getAdapter+796)     
+#08 pc 00000000005e89e0  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.internal.bind.CollectionTypeAdapterFactory.create+416)     
+#09 pc 00000000004d3d6c  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.Gson.getAdapter+796)     
+#10 pc 00000000004d3228  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.Gson.fromJson+328)     
+#11 pc 00000000004d39d4  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (com.google.gson.Gson.fromJson+244)     
+#12 pc 00000000008b4860  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (f0.a.a.a0.e.h.e.k+560)     
+#13 pc 00000000008d0fbc  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (f0.a.a.a0.e.h.f.t+556)     
+#14 pc 00000000008e0aa0  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (EditorModule$b.invokeSuspend+4048)     
+#15 pc 000000000093f59c  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (q0.t.j.a.a.resumeWith+140)     
+#16 pc 0000000000942790  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (r0.a.k0.run+2752)     
+#17 pc 0000000000270604  /system/framework/arm64/boot.oat (java.util.concurrent.Executors$RunnableAdapter.call+68) (BuildId: b400a5930699fdc369bc39cc120f0f3d2b579a7f)     
+#18 pc 0000000000323cf8  /system/framework/arm64/boot.oat (java.util.concurrent.FutureTask.run+200) (BuildId: b400a5930699fdc369bc39cc120f0f3d2b579a7f)     
+#19 pc 00000000003e417c  /system/framework/arm64/boot.oat (java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run+140) (BuildId: b400a5930699fdc369bc39cc120f0f3d2b579a7f)     
+#20 pc 0000000000396de8  /system/framework/arm64/boot.oat (java.util.concurrent.ThreadPoolExecutor.runWorker+984) (BuildId: b400a5930699fdc369bc39cc120f0f3d2b579a7f)     
+#21 pc 0000000000393b40  /system/framework/arm64/boot.oat (java.util.concurrent.ThreadPoolExecutor$Worker.run+64) (BuildId: b400a5930699fdc369bc39cc120f0f3d2b579a7f)     
+#22 pc 00000000001f8728  /system/framework/arm64/boot.oat (java.lang.Thread.run+72) (BuildId: b400a5930699fdc369bc39cc120f0f3d2b579a7f)     
+#23 pc 0000000000846d30  /data/app/com.coloros.gallery3d-8UnmKogdiRn8BbCBUHwcSg==/oat/arm64/base.odex (f0.a.a.w.u.d$a.run+80)     
+#24 pc 0000000000137334  /apex/com.android.runtime/lib64/libart.so (art_quick_invoke_stub+548) (BuildId: d405c8d09efb4f1b6efa45a24f6291a8)     
+#25 pc 0000000000145fec  /apex/com.android.runtime/lib64/libart.so (art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char const*)+244) (BuildId: d405c8d09efb4f1b6efa45a24f6291a8)     
+#26 pc 00000000004b1cc0  /apex/com.android.runtime/lib64/libart.so (art::(anonymous namespace)::InvokeWithArgArray(art::ScopedObjectAccessAlreadyRunnable const&, art::ArtMethod*, art::(anonymous namespace)::ArgArray*, art::JValue*, char const*)+104) (BuildId: d405c8d09efb4f1b6efa45a24f6291a8)     
+#27 pc 00000000004b2dd4  /apex/com.android.runtime/lib64/libart.so (art::InvokeVirtualOrInterfaceWithJValues(art::ScopedObjectAccessAlreadyRunnable const&, _jobject*, _jmethodID*, jvalue const*)+416) (BuildId: d405c8d09efb4f1b6efa45a24f6291a8)     
+#28 pc 00000000004f3798  /apex/com.android.runtime/lib64/libart.so (art::Thread::CreateCallback(void*)+1176) (BuildId: d405c8d09efb4f1b6efa45a24f6291a8)     
+#29 pc 00000000000da1a0  /apex/com.android.runtime/lib64/bionic/libc.so (__pthread_start(void*)+36) (BuildId: 9c968730cee26016ccc9ed9e8449ea5b)     
+#30 pc 00000000000769d4  /apex/com.android.runtime/lib64/bionic/libc.so (__start_thread+64) (BuildId: 9c968730cee26016ccc9ed9e8449ea5b)
+

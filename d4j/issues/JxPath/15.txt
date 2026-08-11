@@ -1,0 +1,17 @@
+Summary: Core union operation does not sort result nodes according to document order
+
+Description:
+Source document:
+<MAIN><A>avalue</A><B>bvalue</B></MAIN>
+
+According to string() function defintion:
+"A node-set is converted to a string by returning the string-value of the node in the node-set that is first in document order. If the node-set is empty, an empty string is returned."
+
+Following XPath calculated incorrectly:
+ string(/MAIN/B | /MAIN/A)
+
+Expected result: "avalue"
+Actual value: "bvalue"
+
+Reason:
+sorting of result nodes is missing from CoreOperationUnion

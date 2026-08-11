@@ -1,0 +1,9 @@
+Summary: Flat3Map.remove() does not return the correct value when size <= 3
+
+Description:
+        final Flat3Map m = new Flat3Map();
+        m.put( new Integer( 1 ), new Integer( 1 ) );
+        m.put( new Integer( 0 ), new Integer( 0 ) );
+        System.out.println( m.remove( new Integer( 1 ) ) );
+
+The above code will print "0" when it should print "1"

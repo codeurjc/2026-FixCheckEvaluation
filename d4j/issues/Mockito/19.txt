@@ -1,0 +1,40 @@
+Title: InjectMocks injects mock into wrong field
+
+Body:
+Using `1.10.19`.
+
+When using `@InjectMocks` on some Android `TextView`s, the mock is injected into the wrong field.
+
+We have two fields, `txtGateView` & `txtNextStep` in a class, and our test mocks out `txtNextStep`, then tried to inject. This field is injected wrong, see screenshot.
+
+![image](https://cloud.githubusercontent.com/assets/1404810/7410003/4f200580-ef2b-11e4-9c39-7a699dc4fefa.png)
+
+From our quick testing, the name `txtNextView` doesn't matter, that can be changed. But both `txtGateView` and `txtGateLabel` messed things up. If we mock out both fields, it works correctly.
+
+Testproject: https://github.com/SimenB/emptyandroid
+
+I don't know if it's because it's Android, but it was easiest for me to create a minimal test from existing code.
+
+
+Comment:
+@SimenB Maybe txtNextStep TextView Class Mocking the aneunge not work properly?
+A bug or would not even be on @InjectMocks features?
+
+
+Comment:
+I have answered a similar question on Stackoverflow and you can find my investigations at http://stackoverflow.com/a/29954211/2761676
+
+
+Comment:
+@JeremybellEU Yeah, that seems to be the same thing.
+While it explains _why_ it happens, I still consider it to be a bug...
+
+
+Comment:
+Not a bug, it is just something that was left off.
+
+Thanks @JeremybellEU, I'll look into your PR. Note the merge is gonna happen in 2.x line (which is beta and subject to important changes, both internally and API wise).
+
+
+Comment:
+After I commented I realised I probably knew how to fix it, so I hope the PR is useful =]. Looking forward to Mockito 2.0.

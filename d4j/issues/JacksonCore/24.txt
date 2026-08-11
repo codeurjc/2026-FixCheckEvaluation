@@ -1,0 +1,17 @@
+Title: Add new exception type `InputCoercionException` to be used for failed coercions like overflow for `int`
+
+Body:
+Currently problems like overflow for numeric type (when JSON number value exceeds range of requested target type like `int`) simply use `JsonParseException` to indicate the problem (both at streaming and databind level).
+
+But it would be better if we could use more targeted exception, to let calling application potentially handle problems differently. We can also add some metadata about type of failure, such as initial token type and expected target type.
+It is also true that coercion failures -- where we start from valid JSON value, but fail to convert into desired target type -- are not parse (decode) problems at all, but rather mismatch problems.
+
+So let's add something like `InputCoercionException`, which extends `JsonProcessingException`, but not `JsonParseException`.
+
+With 3.x we may want to tackle other problems: for example, lack of context for "lower level" `JsonProcessingException`s (compared to `JsonMappingException`)
+
+
+
+
+Comment:
+Also: to still allow catching "all reader-side streaming exception", add intermediate `StreamReadException`.

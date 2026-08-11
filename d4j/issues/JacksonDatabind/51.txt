@@ -1,0 +1,197 @@
+Title: Generic type returned from type id resolver seems to be ignored
+
+Body:
+https://github.com/benson-basis/jackson-custom-mess-tc
+
+Here's the situation, with Jackson 2.7.4.
+
+I have a TypeIdResolver that returns a JavaType for a generic type. However, something seems to be forgetting/erasing the generic, as it is failing to use the generic type param to understand the type of a field in the class.
+
+All the information is in the test case, so I'm not putting any code to read here in the issue.
+
+
+Comment:
+Here's the sort-of-a-culprit in TypeDeserializerBase. Even though I've returned a carefully parameterized type, this code is reducing it to the non-parameterized type!
+
+```
+else {
+                /* 16-Dec-2010, tatu: Since nominal type we get here has no (generic) type parameters,
+                 *   we actually now need to explicitly narrow from base type (which may have parameterization)
+                 *   using raw type.
+                 *
+                 *   One complication, though; can not change 'type class' (simple type to container); otherwise
+                 *   we may try to narrow a SimpleType (Object.class) into MapType (Map.class), losing actual
+                 *   type in process (getting SimpleType of Map.class which will not work as expected)
+                 */
+                if ((_baseType != null)
+                        && _baseType.getClass() == type.getClass()) {
+                    /* 09-Aug-2015, tatu: Not sure if the second part of the check makes sense;
+                     *   but it appears to check that JavaType impl class is the same which is
+                     *   important for some reason?
+                     *   Disabling the check will break 2 Enum-related tests.
+                     */
+                    type = ctxt.getTypeFactory().constructSpecializedType(_baseType, type.getRawClass());
+                }
+                deser = ctxt.findContextualValueDeserializer(type, _property);
+```
+
+
+Comment:
+Here's a workaround which is certainly not a fix:
+
+```
+/******************************************************************************
+ ** This data and information is proprietary to, and a valuable trade secret
+ ** of, Basis Technology Corp.  It is given in confidence by Basis Technology
+ ** and may only be used as permitted under the license agreement under which
+ ** it has been distributed, and in no other way.
+ **
+ ** Copyright (c) 2015 Basis Technology Corporation All rights reserved.
+ **
+ ** The technical data and information provided herein are provided with
+ ** `limited rights', and the computer software provided herein is provided
+ ** with `restricted rights' as those terms are defined in DAR and ASPR
+ ** 7-104.9(a).
+ ******************************************************************************/
+
+package tc;
+
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.DeserializationConfig;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.jsontype.NamedType;
+import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
+import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
+import com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer;
+import com.fasterxml.jackson.databind.jsontype.impl.AsExternalTypeDeserializer;
+import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
+import com.fasterxml.jackson.databind.jsontype.impl.AsWrapperTypeDeserializer;
+import com.fasterxml.jackson.databind.jsontype.impl.StdTypeResolverBuilder;
+
+import java.util.Collection;
+
+/**
+ *
+ */
+public class ResolverBuilder extends StdTypeResolverBuilder {
+    @Override
+    public TypeDeserializer buildTypeDeserializer(DeserializationConfig config,
+                                                  JavaType baseType, Collection<NamedType> subtypes)
+    {
+        if (_idType == JsonTypeInfo.Id.NONE) { return null; }
+
+        TypeIdResolver idRes = idResolver(config, baseType, subtypes, false, true);
+
+        // First, method for converting type info to type id:
+        switch (_includeAs) {
+        case WRAPPER_ARRAY:
+            return new AsArrayTypeDeserializer(baseType, idRes,
+                    _typeProperty, _typeIdVisible, _defaultImpl);
+        case PROPERTY:
+        case EXISTING_PROPERTY: // as per [#528] same class as PROPERTY
+            return new AsPropertyTypeDeserializer(baseType, idRes,
+                    _typeProperty, _typeIdVisible, _defaultImpl, _includeAs);
+        case WRAPPER_OBJECT:
+            return new AsWrapperTypeDeserializer(baseType, idRes,
+                    _typeProperty, _typeIdVisible, _defaultImpl);
+        case EXTERNAL_PROPERTY:
+            // null out the base type, this might work around the problem.
+            return new AsExternalTypeDeserializer(null, idRes,
+                    _typeProperty, _typeIdVisible, _defaultImpl);
+        }
+        throw new IllegalStateException("Do not know how to construct standard type serializer for inclusion type: "+_includeAs);
+    }
+}
+
+```
+
+
+Comment:
+Would it be possible to check this with 2.8.0.rc2? There were small leftover issues in type specialization code that could not be fully resolved in 2.7, so handling is bit different (not a lot, just a bit) with 2.8.
+
+
+Comment:
+Sure. Either of us could change the version in the repo :-). One sec.
+
+On Fri, Jun 17, 2016 at 4:13 PM, Tatu Saloranta notifications@github.com
+wrote:
+
+> Would it be possible to check this with 2.8.0.rc2? There were small
+> leftover issues in type specialization code that could not be fully
+> resolved in 2.7, so handling is bit different (not a lot, just a bit) with
+> 2.8.
+> 
+> —
+> You are receiving this because you authored the thread.
+> Reply to this email directly, view it on GitHub
+> https://github.com/FasterXML/jackson-databind/issues/1270#issuecomment-226870382,
+> or mute the thread
+> https://github.com/notifications/unsubscribe/ADM9zy6COF7RMTcxcYChiddhyEoJT3Dwks5qMv__gaJpZM4I4hgy
+> .
+
+
+Comment:
+Except that I have to see where JsonTypeIdResolver went to in 2.8.0.
+
+On Fri, Jun 17, 2016 at 4:41 PM, Benson Margulies benson@basistech.com
+wrote:
+
+> Sure. Either of us could change the version in the repo :-). One sec.
+> 
+> On Fri, Jun 17, 2016 at 4:13 PM, Tatu Saloranta notifications@github.com
+> wrote:
+> 
+> > Would it be possible to check this with 2.8.0.rc2? There were small
+> > leftover issues in type specialization code that could not be fully
+> > resolved in 2.7, so handling is bit different (not a lot, just a bit) with
+> > 2.8.
+> > 
+> > —
+> > You are receiving this because you authored the thread.
+> > Reply to this email directly, view it on GitHub
+> > https://github.com/FasterXML/jackson-databind/issues/1270#issuecomment-226870382,
+> > or mute the thread
+> > https://github.com/notifications/unsubscribe/ADM9zy6COF7RMTcxcYChiddhyEoJT3Dwks5qMv__gaJpZM4I4hgy
+> > .
+
+
+Comment:
+Trying to look into this: was able to reproduce failure with test project, with current `master` (2.8.0-SNAPSHOT).
+
+
+Comment:
+@benson-basis I am guessing that this does indeed get into the nasty party of type specialization code, as generics are not part of "well-known" types (`Map`s, `Collection`s). Use of "raw" type declaration in `Base` could be related; but changing it to `Base<?>` does not solve the problem, although it does change the exception.
+
+Did you find that use of `EXTERNAL_PROPERTY` is required for the fail, or does it just happen to be part of failing case?
+
+
+Comment:
+I didn't try it with non-EXTERNAL.
+
+In the code I posted above, the change I made was to stop passing a base to the AsExernalTypeResolver, but you'd think the same principle would apply to the other cases. It uses the base to go out of its way to stomp on the generic.
+
+The comment in AsExternalTypeResolver says something about enums failing if it doesn't stomp.
+
+``` case EXTERNAL_PROPERTY:
+            // null out the base type, this might work around the problem.
+            return new AsExternalTypeDeserializer(null, idRes,
+                    _typeProperty, _typeIdVisible, _defaultImpl);
+
+```
+```
+
+
+Comment:
+I think this would probably apply to other types too. And come to think of it, I am thinking that generics probably will not work, for the simple reason that type ids are for the class and not for generic variations -- generic variations can not be detected by runtime thanks to Java type erasure. At least not without custom handlers, that is, default handling has no benefit or need to do so.
+
+Still, failure mode I see is odd, so I am not yet ready to claim this is working as expected.
+
+
+Comment:
+Ok, I think I did find the specific culprit, within `TypeDeserializer` call to `TypeFactory.constructSpecializedType()`. Assumption is made that since annotation-based approach can only provide type-erased "raw" type, this is passed. In your case type resolver can produce fully generic type, and thus dropping that will drop appropriate parameterization.
+
+I'll have to think of how to properly address this, balancing specific fix (simple enough, would solve test as-is) with hope to handle more generic case. I am thinking that perhaps avoiding specialization call in case given type has type parameters would be a reasonable match; I'll see how that works.
+
+
+Comment:
+Ok, yes. A simple fix works for this case, so I'll go with that. I have slight nagging suspicion that there might be a theoretical problem with some combination of things (namely, non-custom annotation where subtype is generic), but since all unit tests pass I think I'll take my chances for now, and handle complications if they arise.

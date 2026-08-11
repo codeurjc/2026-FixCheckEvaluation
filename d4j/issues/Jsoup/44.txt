@@ -1,0 +1,130 @@
+Title: Unexpected elements inside table are moved to wrong location
+
+Body:
+This commit https://github.com/jhy/jsoup/commit/e99193605b688e923d20054c13db897cff751607 introduced a bug where handling of unexpected elements inside a table element changed, resulting in the unexpected elements being pushed further up the document than before.
+
+I have constructed a minimal repro. Before the commit in question, the unexpected p tag would continue to be positioned after the comment (with some elements being closed early etc. to support this). After the commit, the p tag and its contents are moved up more than one table level, and now appear after the comment tag.
+
+Obviously this input HTML is very broken and bad, but it seems that the change in behaviour was unintended. 
+
+copying @jaredstehler  
+
+```
+@Test
+public void testInvalidTableContents() throws IOException {
+    File in = getFile("/htmltests/table-invalid-elements.html");
+    Document doc = Jsoup.parse(in, "UTF-8");
+    doc.outputSettings().prettyPrint(true);
+    String rendered = doc.toString();
+    int endOfEmail = rendered.indexOf("Comment");
+    int guarantee = rendered.indexOf("Why am I here?");
+    assertTrue("Comment not found", endOfEmail > -1);
+    assertTrue("Search text not found", guarantee > -1);
+    assertTrue("Search text did not come after comment", guarantee > endOfEmail);
+}
+```
+
+Uses the following fixture:
+
+```
+<html>
+    <body>
+        <table>
+            <tr>
+                <td>
+                    <table>
+                        <tr>
+                            <!--Comment-->
+                            <table>
+                                <p>Why am I here?</p>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+```
+
+
+Comment:
+Thanks. I reviewed the commit and can't immediately see the problem or where it regressed. 
+
+
+Comment:
+So the issue seems to be that the pattern 
+
+```
+boolean processed = tb.processEndTag("table");
+if (processed)
+  return tb.process(t);
+```
+
+is broken with the change to reuse end tags via the `processEndTag()` method, in that it affects the tag referenced at `t`.
+
+For example, in handleMissingTr() (https://github.com/jhy/jsoup/blob/master/src/main/java/org/jsoup/parser/HtmlTreeBuilderState.java#L1135) :
+
+```
+        private boolean handleMissingTr(Token t, TreeBuilder tb) {
+            boolean processed = tb.processEndTag("tr");
+            if (processed)
+                return tb.process(t);
+            else
+                return false;
+```
+
+after returning from `tb.processEndTag("tr")`, the `name` property of `t` has been changed from `table` to `tr`, causing it not to fall into the appropriate condition during the subsequent `tb.process(t)` here: https://github.com/jhy/jsoup/blob/master/src/main/java/org/jsoup/parser/HtmlTreeBuilderState.java#L1052-L1053
+
+There may be other places where this is affecting things, but this is one which seems dangerous.
+
+The issue as we're seeing it is that the attached html parses into the following DOM:
+
+```
+<html>
+ <head></head>
+ <body> 
+  <table> 
+   <tbody>
+    <tr> 
+     <td> <p>Why am I here?</p>
+      <table> 
+       <tbody>
+        <tr> 
+         <!--Comment--> 
+        </tr>   
+       </tbody>
+      </table> </td> 
+    </tr> 
+   </tbody>
+  </table>   
+ </body>
+</html>
+```
+
+where the previous jsoup (and indeed, chrome browser) parse into:
+
+```
+<html><head></head><body>
+        <table>
+            <tbody><tr>
+                <td>
+                    <table>
+                        <tbody><tr>
+                            <!--Comment-->
+                            </tr></tbody></table><p>Why am I here?</p><table>
+
+
+                    </table>
+                </td>
+            </tr>
+        </tbody></table>
+
+
+</body></html>
+```
+
+I'll open a PR with the aforementioned test case, and more specific changes getting it to pass.
+
+
+Comment:
+Thanks very much for your work on this.

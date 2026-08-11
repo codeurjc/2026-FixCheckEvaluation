@@ -1,0 +1,13 @@
+Summary: An unnamed function statement statements should generate a parse error
+
+Description:
+An unnamed function statement statements should generate a parse error, but it does not, for example:
+
+function () {};
+
+Note: Unnamed function expression are legal:
+
+(function(){});
+
+Comment:
+This issue was closed by revision r797.

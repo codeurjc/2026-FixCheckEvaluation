@@ -1,0 +1,22 @@
+Summary: Overly aggressive comma removal
+
+Description:
+When I compile the following code using simple optimizations, 
+function Test(n) {
+  var i = 0;
+  return typeof n !== &quot;undefined&quot; ? (i = n.length) : (n = &quot;foo&quot;), i
+}
+var dummy = &quot;6chars&quot;;
+console &amp;&amp; console.log( Test(dummy) );
+
+I get this:
+function Test(a) {
+  return 0
+}
+var dummy = &quot;6chars&quot;;
+console &amp;&amp; console.log(Test(dummy));
+
+Which provides a different result than the original code.
+
+Comment:
+This is fixed in revision https://code.google.com/p/closure-compiler/source/detail?r=49f54b28376a4ed5f72ec52d314020bd1f6cf3c6

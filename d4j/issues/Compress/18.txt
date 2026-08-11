@@ -1,0 +1,52 @@
+Summary: Long directory names can not be stored in a tar archive because of error when writing PAX headers
+
+Description:
+Trying to add a directory to the TAR Archive that has a name longer than 100 bytes generates an exception with a stack trace similar to the following:
+
+{noformat}
+java.io.IOException: request to write '114' bytes exceeds size in header of '0' bytes for entry './PaxHeaders.X/layers/openstreetmap__osm.disy.net/.tiles/1.0.0/openstreetmap__osm.disy.net/default/'
+
+            at org.apache.commons.compress.archivers.tar.TarArchiveOutputStream.write(TarArchiveOutputStream.java:385)
+
+            at java.io.OutputStream.write(Unknown Source)
+
+            at org.apache.commons.compress.archivers.tar.TarArchiveOutputStream.writePaxHeaders(TarArchiveOutputStream.java:485)
+
+            at org.apache.commons.compress.archivers.tar.TarArchiveOutputStream.putArchiveEntry(TarArchiveOutputStream.java:312)
+
+            at net.disy.lib.io.tar.TarUtilities.addFile(TarUtilities.java:116)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:158)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.addDirectory(TarUtilities.java:162)
+
+            at net.disy.lib.io.tar.TarUtilities.tar(TarUtilities.java:77)
+
+            at net.disy.lib.io.tar.TarUtilities.tar(TarUtilities.java:42)
+
+            at net.disy.gisterm.tilecacheset.export.TileCacheSetExporter.tarTreeStructure(TileCacheSetExporter.java:262)
+
+            at net.disy.gisterm.tilecacheset.export.TileCacheSetExporter.export(TileCacheSetExporter.java:111)
+
+            at net.disy.gisterm.tilecacheset.desktop.controller.ExportController$1.run(ExportController.java:81)
+
+            ... 2 more
+{noformat}
+
+Informal source code investigation points to the problem being that for directory entries the code assumes that the length is 0 in putArchiveEntry (see TarArchiveOutputStream:321 ) but when writing the data, it actually writes some data (the filename) and the length written (filename size) is larger than the length expected (0).

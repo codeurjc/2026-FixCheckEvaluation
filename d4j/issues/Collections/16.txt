@@ -1,0 +1,15 @@
+Summary: SetUniqueList.subList().contains() method checks against full parent list, not sublist range
+
+Description:
+The view returned by the subList() method of a SetUniqueList checks contains() against the set of the original list.
+
+As shown by the following test snippet.
+
+		List list = new ArrayList();
+		List uniqueList = SetUniqueList.decorate(list);
+		uniqueList.add("Hello");
+		uniqueList.add("World");
+		List subList = list.subList(0, 0);
+		List subUniqueList = uniqueList.subList(0, 0);
+		assertFalse(subList.contains("World")); // passes
+		assertFalse(subUniqueList.contains("World")); // fails

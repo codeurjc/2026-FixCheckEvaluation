@@ -1,0 +1,100 @@
+Title: wrong parsing with ParseSettings.preserveCase
+
+Body:
+jsoup version:1.11.3
+when using case sensitive settings,  parse wrong 
+```java 
+public class TestJsoupParser {
+
+    public static void main(String[] args) {
+        Parser parser = Parser.htmlParser();
+        parser.settings(ParseSettings.preserveCase); // this line
+        String html = "<div class=\"bdsharebuttonbox\">"
+                + "<A class=bds_more href=\"http://share.baidu.com/code#\" data-cmd=\"more\">分享到：</A>"
+                + "<A title=分享到QQ空间 class=bds_qzone href=\"http://share.baidu.com/code#\" data-cmd=\"qzone\">"
+                + "</A><A title=分享到新浪微博 class=bds_tsina href=\"http://share.baidu.com/code#\" data-cmd=\"tsina\"></A>"
+                + "<A title=分享到腾讯微博 class=bds_tqq href=\"http://share.baidu.com/code#\" data-cmd=\"tqq\"></A>"
+                + "<A title=分享到人人网 class=bds_renren href=\"http://share.baidu.com/code#\" data-cmd=\"renren\"></A>"
+                + "<A title=分享到微信 class=bds_weixin href=\"http://share.baidu.com/code#\" data-cmd=\"weixin\"></A>"
+                + "</div>\r\n";
+        Document doc = Jsoup.parse(html, "", parser);
+        System.out.println(doc.html());
+    }
+    
+
+}
+```
+
+the result is:
+
+```
+<html>
+ <head></head>
+ <body>
+  <div class="bdsharebuttonbox">
+   <A class="bds_more" href="http://share.baidu.com/code#" data-cmd="more">
+    分享到：
+   </A>
+   <A class="bds_more" href="http://share.baidu.com/code#" data-cmd="more">
+    <A title="分享到QQ空间" class="bds_qzone" href="http://share.baidu.com/code#" data-cmd="qzone"></A>
+    <A title="分享到QQ空间" class="bds_qzone" href="http://share.baidu.com/code#" data-cmd="qzone">
+     <A title="分享到新浪微博" class="bds_tsina" href="http://share.baidu.com/code#" data-cmd="tsina"></A>
+     <A title="分享到新浪微博" class="bds_tsina" href="http://share.baidu.com/code#" data-cmd="tsina">
+      <A title="分享到腾讯微博" class="bds_tqq" href="http://share.baidu.com/code#" data-cmd="tqq"></A>
+      <A title="分享到腾讯微博" class="bds_tqq" href="http://share.baidu.com/code#" data-cmd="tqq">
+       <A title="分享到人人网" class="bds_renren" href="http://share.baidu.com/code#" data-cmd="renren"></A>
+       <A title="分享到人人网" class="bds_renren" href="http://share.baidu.com/code#" data-cmd="renren">
+        <A title="分享到微信" class="bds_weixin" href="http://share.baidu.com/code#" data-cmd="weixin"></A>
+       </A>
+      </A>
+     </A>
+    </A>
+   </A>
+  </div>
+  <A class="bds_more" href="http://share.baidu.com/code#" data-cmd="more">
+   <A title="分享到QQ空间" class="bds_qzone" href="http://share.baidu.com/code#" data-cmd="qzone">
+    <A title="分享到新浪微博" class="bds_tsina" href="http://share.baidu.com/code#" data-cmd="tsina">
+     <A title="分享到腾讯微博" class="bds_tqq" href="http://share.baidu.com/code#" data-cmd="tqq">
+      <A title="分享到人人网" class="bds_renren" href="http://share.baidu.com/code#" data-cmd="renren">
+       <A title="分享到微信" class="bds_weixin" href="http://share.baidu.com/code#" data-cmd="weixin"> 
+       </A>
+      </A>
+     </A>
+    </A>
+   </A>
+  </A>
+ </body>
+</html>
+```
+
+however, when not use preserveCase , result is right
+```
+<html>
+ <head></head>
+ <body>
+  <div class="bdsharebuttonbox">
+   <a class="bds_more" href="http://share.baidu.com/code#" data-cmd="more">分享到：</a>
+   <a title="分享到QQ空间" class="bds_qzone" href="http://share.baidu.com/code#" data-cmd="qzone"></a>
+   <a title="分享到新浪微博" class="bds_tsina" href="http://share.baidu.com/code#" data-cmd="tsina"></a>
+   <a title="分享到腾讯微博" class="bds_tqq" href="http://share.baidu.com/code#" data-cmd="tqq"></a>
+   <a title="分享到人人网" class="bds_renren" href="http://share.baidu.com/code#" data-cmd="renren"></a>
+   <a title="分享到微信" class="bds_weixin" href="http://share.baidu.com/code#" data-cmd="weixin"></a>
+  </div> 
+ </body>
+</html>
+```
+
+Comment:
+see #1150
+
+Comment:
+the reasion is:
+methods in HtmlTreeBuilder，the tag name is get by Element‘s nodeName() which can be case sensitive。
+
+however in HtmlTreeBuilderState the tag name is get by normalName() which is lowercase.  when call 
+method in HtmlTreeBuilder you pass lowercase as the param，but HtmlTreeBuilder use nodeName() to compare 
+
+And the static class contants ，like label array，  all element is in lowercase
+
+Comment:
+Thanks for identifying this! Fixed.

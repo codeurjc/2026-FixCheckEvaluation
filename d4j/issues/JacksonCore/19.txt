@@ -1,0 +1,39 @@
+Title: ArrayIndexOutOfBoundsException: 200 on floating point number with exactly 200-length decimal part
+
+Body:
+Very similar issue to #160 and #157 
+With `jackson-core 2.8.1` when attempting to parse fractional number that has exactly 200 numbers in the decimal part and some random fractional part then java.lang.ArrayIndexOutOfBoundsException: 200 is thrown.
+
+```
+public class Test {
+    public static void main(String[] args) throws IOException {
+        StringBuilder input = new StringBuilder();
+        for (int i = 1; i < 201; i++) {
+            input.append(1);
+        }
+        input.append(".0");
+
+        JsonFactory factory = new JsonFactory();
+
+        JsonParser parser =
+                factory.createParser(new ByteArrayInputStream(input.toString().getBytes(Charset.forName("UTF-8"))));
+        parser.nextToken();
+    }
+}
+```
+
+Produces:
+`Exception in thread "main" java.lang.ArrayIndexOutOfBoundsException: 200
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser._parseFloat(UTF8StreamJsonParser.java:1576)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser._parseNumber2(UTF8StreamJsonParser.java:1509)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser._parsePosNumber(UTF8StreamJsonParser.java:1410)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser._nextTokenNotInObject(UTF8StreamJsonParser.java:876)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser.nextToken(UTF8StreamJsonParser.java:772)`
+
+
+Comment:
+Thank you for reporting this, obviously needs to be fixed. I can also check if this affects 2.7.
+
+
+Comment:
+Fixed for 2.7.8 / 2.8.3.

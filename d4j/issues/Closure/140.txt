@@ -1,0 +1,21 @@
+Summary: Google Common Loader Extern
+
+Description:
+I needed this for one of my projects.
+
+Chad Killingsworth
+
+Comment:
+Robert, mind doing a code review?
+
+Comment:
+Looks fine.  LGTM.
+
+Comment:
+You are fine with it? We don't need to go through the normal review process?
+
+Comment:
+This issue was closed by revision r149.
+
+Comment:
+oops, sorry. something in the repository sync process got messed up.

@@ -1,0 +1,107 @@
+Title: Argument matcher anyXxx() (i.e. anyString(), anyList()) should not match nulls
+
+Body:
+This is a bug I'm seeing in 1.10.8 version (older version has the same issue - tested with 1.9.0).
+
+Given:
+
+``` java
+Function<Object, Integer> function = Mockito.mock(Function.class);
+when(function.apply(Mockito.anyString())).thenReturn(1);
+Integer result = function.apply(2);
+```
+
+Expected behavior:
+
+``` java
+result == null;
+```
+
+Actual behavior:
+
+``` java
+result == 1;
+```
+
+Note that the function is called with an integer (not a string), and still the mocked function return the value which it should return only when a string is passed. The same works when using anyBoolean() or any other methof from any\* family.
+
+
+Comment:
+Let's fix it in Mockito 2.0
+
+
+Comment:
+I'm currently looking at fixing this.
+
+Just to confirm: the current anyX() behaviour is to just accept anything of any type at all (i.e. anyString()/anyInteger()/etc are all the same as anyObject()), and we'd prefer to instead make all of these methods (except anyObject) actually do type checking, and match only nulls and instances of the specified type. Is that right? I'm basing this on https://code.google.com/p/mockito/issues/detail?id=122, which I hope isn't too out of date.
+
+
+Comment:
+I think that anyX should not pass for nulls, and should only pass when the object is an instance of given type. Dev team, any thoughts? Might be worth asking on the mailing list what the users think.
+
+We might also change isA matcher to be consistent and not pass for nulls. This would effectively make anyX an alias to isA.
+
+
+Comment:
+The anyX() should either respect the expectation or not exist at all. Working just like anyObject() make it confusing and also pollute the API with a large number of methods.
+
+
+Comment:
+I'm with you.
+
+
+Comment:
+@szczepiq That's actually the current behaviour of isA, it currently does not match nulls: https://github.com/mockito/mockito/blob/master/src/org/mockito/internal/matchers/InstanceOf.java#L24
+
+I think this means we just want to change all of `anyX()` to be an alias to `isA(X.class)`.
+
+anyObject() still seems like an interesting case there though with this. Having it match nulls makes this API confusingly inconsistent, but I think there is still a strong use case for an ultra-general 'give me anything at all' matcher.
+
+We could make anyObject() an alias for `any(Object.class)` (so it doesn't accept nulls), and then add `any()` (simpler) or `anything()` (reads nicer in stub setup calls) matchers? I think those could more reasonably accept nulls without feeling inconsistent.
+
+Obviously this is all not nicely backward compatible, I'm assuming you're fine with that, since you're heading for 2.0. It's definitely something that will catch people out when they migrate though.
+
+
+Comment:
+I think I wouldn't bother changing anyObject(). It's consistent with the family of anyX() methods: anyInt() anyString(), etc. I like the idea of any() alias to anyObject(). Perhaps we could even deprecate anyObject() in favor of any() but I'd rather keep it separate as it is not a backwards incompat change and can be released any time.
+
+> Obviously this is all not nicely backward compatible
+
+In the changeset, you can include a change to 'version.properties' file that modifes the version to "2.0.0-beta". You'll be the first to code Mockito 2.0 feature! :) We would stay on '-beta' version for some time until we make all backwards incompatible changes. Feel free to help more if you want!
+
+
+Comment:
+> It's consistent with the family of anyX() methods: anyInt() anyString(), etc.
+
+I don't think it is, is it? With these changes, the below will pass:
+
+``` java
+when(mock.stringMethod(anyString())).thenReturn("matched");
+when(mock.objectMethod(anyObject())).thenReturn("matched");
+
+assertEquals("matched", mock.stringMethod("string"));
+assertEquals(null, mock.stringMethod(null));
+// vs:
+assertEquals("matched", mock.objectMethod(new Object()));
+assertEquals("matched", mock.objectMethod(null)); // inconsistent
+```
+
+> Feel free to help more if you want!
+
+Very happy to help out more. Any specific issues you want looking at, or issues that are definitely ready for dev, or should I just dive in?
+
+
+Comment:
+You can start with this issue :) Let's avoid changing the existing behavior of anyObject() now. We can however think about deprecating it with something like any() (separate discussion).
+
+
+Comment:
+PR now in. I've left `anyObject()`, `any()` and `any(X.class)` as is for now (matching everything, including nulls), and just fixed `anyX()` to not match nulls (`anyX()` == `isA(X.class)`)
+
+
+Comment:
+Included in 2.0.0-beta. Thanks for help!
+
+
+Comment:
+For reference purpose see related work in #510 as well

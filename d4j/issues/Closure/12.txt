@@ -1,0 +1,66 @@
+Summary: Try/catch blocks incorporate code not inside original blocks
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+Starting with this code:
+
+-----
+function a() {
+ var x = '1';
+ try {
+  x += somefunction();
+ } catch(e) {
+ }
+ x += &quot;2&quot;;
+ try {
+  x += somefunction();
+ } catch(e) {
+ }
+ document.write(x);
+}
+
+a();
+a();
+-----
+
+It gets compiled to:
+
+-----
+function b() {
+  var a;
+  try {
+    a = &quot;1&quot; + somefunction()
+  }catch(c) {
+  }
+  try {
+    a = a + &quot;2&quot; + somefunction()
+  }catch(d) {
+  }
+  document.write(a)
+}
+b();
+b();
+-----
+
+<b>What is the expected output? What do you see instead?</b>
+
+The problem is that it's including the constant &quot;1&quot; and &quot;2&quot; inside the try block when the shouldn't be. When executed uncompiled, the script prints &quot;1212&quot;. When compiled, the script prints &quot;undefinedundefined&quot;.
+
+This behavior doesn't happen if the entire function gets inlined, or if the code between the two try blocks is sufficiently complex.
+
+
+<b>What version of the product are you using? On what operating system?</b>
+
+Closure Compiler (http://code.google.com/closure/compiler)
+Version: 20120430 (revision 1918)
+Built on: 2012/04/30 18:02
+java version &quot;1.6.0_33&quot;
+Java(TM) SE Runtime Environment (build 1.6.0_33-b03-424-11M3720)
+Java HotSpot(TM) 64-Bit Server VM (build 20.8-b03-424, mixed mode)
+
+Comment:
+thanks for the report!
+
+Comment:
+This issue was closed by revision r2136.

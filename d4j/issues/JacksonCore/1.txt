@@ -1,0 +1,28 @@
+Title: NullPointerException thrown when NaN read as BigDecimal
+
+Body:
+(moved from https://github.com/FasterXML/jackson/issues/4 reported by @jroper)
+
+---
+
+If `JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS` is turned on, then when NaN is encountered, it will be reported as being a float number token. Subsequently invoking getDecimalNumber throws an NPE:
+
+```
+NullPointerException: null (TextBuffer.java:394)
+com.fasterxml.jackson.core.util.TextBuffer.contentsAsDecimal(TextBuffer.java:394)
+com.fasterxml.jackson.core.base.ParserBase._parseSlowFloatValue(ParserBase.java:799)
+com.fasterxml.jackson.core.base.ParserBase._parseNumericValue(ParserBase.java:781)
+ com.fasterxml.jackson.core.base.ParserBase.getDecimalValue(ParserBase.java:711)
+```
+
+By the way, the expected behaviour here I would say would be to throw NumberFormatException, this is what is thrown by the BigDecimal constructor when you pass in Double.NaN or any of the infinity double values.
+
+I'm not sure, but maybe this NPE is also an issue for integers too, and the expected behaviour for them would also be to throw NumberFormatException.
+
+
+Comment:
+Hmmh. With master branch (2.3.0-SNAPSHOT), it looks like we actually get `NumberFormatException` already?
+
+
+Comment:
+Ok this probably depends on code path. I improved handling to add a proper error message, and trying to ensure it'll always be `NumberFormatException`. Fix will be in 2.3.0, since it needed some refactoring.

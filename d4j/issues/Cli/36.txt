@@ -1,0 +1,24 @@
+Summary: HelpFormatter#setOptionComparator(null) doesn't display the values in inserted order
+
+Description:
+{code:java}
+OptionGroup group = new OptionGroup();
+Option h = Option.builder("h").build();
+Option s = Option.builder("s").build();
+Option b = Option.builder("b").build();
+Option t = Option.builder("t").build();
+group.addOption(h)
+    .addOption(s)
+    .addOption(b)
+    .addOption(t);
+Options options = new Options();
+options.addOptionGroup(group);
+options.addOption(Option.builder("o").build());
+HelpFormatter formatter = new HelpFormatter();
+formatter.setOptionComparator(null);
+formatter.printHelp("cmd", "", options, null);
+{code}
+
+This code does print the options(1. Group, 2. Option "o") in the order of insertion but the groups order of display is messed up.
+
+The OptionGroup internally uses a HashMap. If that could be replaced with a *LinkedHashMap* this issue can be solved.

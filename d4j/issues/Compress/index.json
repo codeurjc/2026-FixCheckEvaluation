@@ -1,0 +1,382 @@
+{
+  "project": "Compress",
+  "updated_at": "2026-08-11T13:51:08.789367+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-28",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1243,
+      "fetched_at": "2026-08-11T13:51:02.302713+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-11",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 720,
+      "fetched_at": "2026-08-11T13:51:02.442449+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-64",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 435,
+      "fetched_at": "2026-08-11T13:51:02.583003+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-64",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 435,
+      "fetched_at": "2026-08-11T13:51:02.723603+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-87",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 894,
+      "fetched_at": "2026-08-11T13:51:02.863276+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-94",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1483,
+      "fetched_at": "2026-08-11T13:51:03.005333+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-114",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 551,
+      "fetched_at": "2026-08-11T13:51:03.145823+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-113",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 360,
+      "fetched_at": "2026-08-11T13:51:03.286297+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-160",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3072,
+      "fetched_at": "2026-08-11T13:51:03.430442+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-164",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1265,
+      "fetched_at": "2026-08-11T13:51:03.569761+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-171",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 608,
+      "fetched_at": "2026-08-11T13:51:03.712588+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-178",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3270,
+      "fetched_at": "2026-08-11T13:51:03.851726+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-176",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1140,
+      "fetched_at": "2026-08-11T13:51:03.993182+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-181",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3034,
+      "fetched_at": "2026-08-11T13:51:04.131063+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-187",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 857,
+      "fetched_at": "2026-08-11T13:51:04.271739+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-191",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 480,
+      "fetched_at": "2026-08-11T13:51:04.413571+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-197",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 622,
+      "fetched_at": "2026-08-11T13:51:04.554295+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-203",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2715,
+      "fetched_at": "2026-08-11T13:51:04.692958+00:00"
+    },
+    {
+      "bug_id": "19",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-228",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 586,
+      "fetched_at": "2026-08-11T13:51:04.834427+00:00"
+    },
+    {
+      "bug_id": "20",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-236",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 288,
+      "fetched_at": "2026-08-11T13:51:04.975661+00:00"
+    },
+    {
+      "bug_id": "21",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-252",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1220,
+      "fetched_at": "2026-08-11T13:51:05.117509+00:00"
+    },
+    {
+      "bug_id": "22",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-253",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 622,
+      "fetched_at": "2026-08-11T13:51:05.257401+00:00"
+    },
+    {
+      "bug_id": "23",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-256",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1425,
+      "fetched_at": "2026-08-11T13:51:05.397571+00:00"
+    },
+    {
+      "bug_id": "24",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-262",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 789,
+      "fetched_at": "2026-08-11T13:51:05.537676+00:00"
+    },
+    {
+      "bug_id": "25",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-264",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3497,
+      "fetched_at": "2026-08-11T13:51:05.678154+00:00"
+    },
+    {
+      "bug_id": "26",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-277",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1016,
+      "fetched_at": "2026-08-11T13:51:05.818972+00:00"
+    },
+    {
+      "bug_id": "27",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-278",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3794,
+      "fetched_at": "2026-08-11T13:51:05.960195+00:00"
+    },
+    {
+      "bug_id": "28",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-279",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 922,
+      "fetched_at": "2026-08-11T13:51:06.102254+00:00"
+    },
+    {
+      "bug_id": "29",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-306",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 334,
+      "fetched_at": "2026-08-11T13:51:06.242557+00:00"
+    },
+    {
+      "bug_id": "30",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-309",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1703,
+      "fetched_at": "2026-08-11T13:51:06.383146+00:00"
+    },
+    {
+      "bug_id": "31",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-301",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 8814,
+      "fetched_at": "2026-08-11T13:51:06.524341+00:00"
+    },
+    {
+      "bug_id": "32",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-314",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2078,
+      "fetched_at": "2026-08-11T13:51:06.665643+00:00"
+    },
+    {
+      "bug_id": "33",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-316",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 510,
+      "fetched_at": "2026-08-11T13:51:06.806161+00:00"
+    },
+    {
+      "bug_id": "34",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-321",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 3004,
+      "fetched_at": "2026-08-11T13:51:06.949351+00:00"
+    },
+    {
+      "bug_id": "35",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-335",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 501,
+      "fetched_at": "2026-08-11T13:51:07.090102+00:00"
+    },
+    {
+      "bug_id": "36",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-348",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 564,
+      "fetched_at": "2026-08-11T13:51:07.232391+00:00"
+    },
+    {
+      "bug_id": "37",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-355",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 596,
+      "fetched_at": "2026-08-11T13:51:07.373584+00:00"
+    },
+    {
+      "bug_id": "38",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-356",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1253,
+      "fetched_at": "2026-08-11T13:51:07.514851+00:00"
+    },
+    {
+      "bug_id": "39",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-351",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 274,
+      "fetched_at": "2026-08-11T13:51:07.655781+00:00"
+    },
+    {
+      "bug_id": "40",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-363",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1865,
+      "fetched_at": "2026-08-11T13:51:07.795738+00:00"
+    },
+    {
+      "bug_id": "41",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-367",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 500,
+      "fetched_at": "2026-08-11T13:51:07.937145+00:00"
+    },
+    {
+      "bug_id": "42",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-379",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2232,
+      "fetched_at": "2026-08-11T13:51:08.077316+00:00"
+    },
+    {
+      "bug_id": "43",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-394",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1862,
+      "fetched_at": "2026-08-11T13:51:08.217930+00:00"
+    },
+    {
+      "bug_id": "44",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-412",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 683,
+      "fetched_at": "2026-08-11T13:51:08.358808+00:00"
+    },
+    {
+      "bug_id": "45",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-411",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 327,
+      "fetched_at": "2026-08-11T13:51:08.502289+00:00"
+    },
+    {
+      "bug_id": "46",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-416",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 656,
+      "fetched_at": "2026-08-11T13:51:08.643724+00:00"
+    },
+    {
+      "bug_id": "47",
+      "url": "https://issues.apache.org/jira/browse/COMPRESS-436",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1253,
+      "fetched_at": "2026-08-11T13:51:08.789328+00:00"
+    }
+  ]
+}

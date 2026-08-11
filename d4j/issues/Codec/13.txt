@@ -1,0 +1,11 @@
+Summary: NullPointerException in DoubleMetaPhone.isDoubleMetaphoneEqual when using empty strings
+
+Description:
+{{isDoubleMetaphoneEqual}} does not work with empty strings: The following test throws a {{NullPointerException}}:
+
+{code:java}
+  public void test1() throws Throwable {
+    org.apache.commons.codec.language.DoubleMetaphone var0 = new org.apache.commons.codec.language.DoubleMetaphone();
+    boolean var3 = var0.isDoubleMetaphoneEqual("", "", false);
+  }
+{code}

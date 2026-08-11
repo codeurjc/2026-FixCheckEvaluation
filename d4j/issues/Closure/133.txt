@@ -1,0 +1,16 @@
+Summary: Exception when parsing erroneous jsdoc: /**@return {@code foo} bar   *    baz. */
+
+Description:
+The following causes an exception in JSDocInfoParser.
+
+/** 
+ * @return {@code foo} bar 
+ *    baz. */
+var x;
+
+
+
+Fix to follow.
+
+Comment:
+This issue was closed by revision 4fbbc47cb18f.

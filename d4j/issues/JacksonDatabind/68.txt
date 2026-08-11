@@ -1,0 +1,170 @@
+Title: ACCEPT_SINGLE_VALUE_AS_ARRAY partially broken in 2.7.x, 2.8.x
+
+Body:
+In 2.7.x, 2.8.x versions following test fails with an exception:
+
+```
+public class Test {
+    private static final String JSON = "[{\"message\":\"messageHere\"}]";
+
+    static class A {
+        List<B> bs = Collections.emptyList();
+
+        @JsonCreator
+        A(final List<B> bs) {
+            this.bs = bs;
+        }
+    }
+
+    static class B {
+        List<C> cs = Collections.emptyList();
+
+        @JsonCreator
+        B(final List<C> cs) {
+            this.cs = cs;
+        }
+    }
+
+    public static class C {
+        String message;
+
+        @JsonCreator
+        C(@JsonProperty("message") String message) {
+            this.message = message;
+        }
+    }
+
+    @Test
+    public void test() throws IOException {
+        ObjectMapper om = new ObjectMapper();
+        om.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
+        om.readValue(JSON, A.class);
+    }
+}
+
+
+com.fasterxml.jackson.databind.exc.InputMismatchException: Can not construct instance of com.fasterxml.jackson.databind.creators.JsonCreatorWithCollectionTest$B, problem: no suitable constructor found, can not deserialize from Object value (missing default constructor or creator, or perhaps need to add/enable type information?)
+ at [Source: [{"message":"site is missing from bid request (breq) object"}]; line: 1, column: 3] (through reference chain: java.util.ArrayList[0])
+
+    at com.fasterxml.jackson.databind.exc.InputMismatchException.from(InputMismatchException.java:58)
+    at com.fasterxml.jackson.databind.DeserializationContext.reportInputMismatch(DeserializationContext.java:1354)
+    at com.fasterxml.jackson.databind.DeserializationContext.handleMissingInstantiator(DeserializationContext.java:1019)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.deserializeFromObjectUsingNonDefault(BeanDeserializerBase.java:1207)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserializeFromObject(BeanDeserializer.java:314)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:148)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:289)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:261)
+    at com.fasterxml.jackson.databind.deser.std.CollectionDeserializer.deserialize(CollectionDeserializer.java:26)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.deserializeFromArray(BeanDeserializerBase.java:1336)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer._deserializeOther(BeanDeserializer.java:174)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:150)
+    at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3806)
+    at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2849)
+    at com.fasterxml.jackson.databind.creators.JsonCreatorWithCollectionTest.test(JsonCreatorWithCollectionTest.java:51)
+```
+
+While on 2.5 and 2.6 it works fine.
+
+
+Comment:
+Thank you for the test. I'll have to re-read this some more to know if this is a bug or not.
+The challenge is multiple levels of containment, and to what degree should it work in ambiguous cases.
+But perhaps the underlying problem itself is something different. :)
+
+
+Comment:
+@cowtowncoder It works fine in 2.6.x and 2.5.x branches and we use and rely on this ability. So, for us, it's definitely a bug and a blocker for updating... Thanks!
+
+
+Comment:
+I run into what I think is the same issue. Here's the test
+
+```
+package com.addthis.codec;
+
+import java.io.IOException;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.junit.Assert;
+import org.junit.Test;
+
+public class MyTest {
+
+    @Test
+    public void test() throws IOException {
+        A<String> a = new ObjectMapper().readValue("\"test\"", new TypeReference<A<String>>() {});
+        Assert.assertEquals("test", a.value);
+    }
+
+    @Test
+    public void test2() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
+        A<List<String>> a = objectMapper.readValue("\"test2\"", new TypeReference<A<List<String>>>() {});
+        List<String> expected = new ArrayList<>();
+        expected.add("test2");
+        Assert.assertEquals(expected, a.value);
+    }
+
+    public static class A<T> {
+
+        private T value;
+
+        @JsonCreator
+        public A(T value) {
+            this.value = value;
+        }
+    }
+}
+```
+
+`test2` succeeds with 2.5.4, but fails with 2.8.4. The exception is:
+
+```
+com.fasterxml.jackson.databind.JsonMappingException: Can not construct instance of com.addthis.codec.MyTest$A: no String-argument constructor/factory method to deserialize from String value ('test2')
+ at [Source: "test2"; line: 1, column: 1]
+
+    at com.fasterxml.jackson.databind.JsonMappingException.from(JsonMappingException.java:270)
+    at com.fasterxml.jackson.databind.DeserializationContext.instantiationException(DeserializationContext.java:1456)
+    at com.fasterxml.jackson.databind.DeserializationContext.handleMissingInstantiator(DeserializationContext.java:1012)
+    at com.fasterxml.jackson.databind.deser.ValueInstantiator._createFromStringFallbacks(ValueInstantiator.java:370)
+    at com.fasterxml.jackson.databind.deser.std.StdValueInstantiator.createFromString(StdValueInstantiator.java:315)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.deserializeFromString(BeanDeserializerBase.java:1279)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer._deserializeOther(BeanDeserializer.java:159)
+    at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:150)
+    at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3798)
+    at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2861)
+    at com.addthis.codec.MyTest.test2(MyTest.java:28)
+...
+```
+
+
+Comment:
+@yuesong thank you for providing an additional test. While it is not certain it's the same issue (error message differs), that sounds plausible.
+
+
+Comment:
+Ok; I suspect 2nd failure at least is due to #1010, so that there are 2 separate delegators. And perhaps/probably 1st one too. So there's something I can try to resolve; array-delegator is set correctly, but not used.
+
+
+Comment:
+Ok, fixed for 2.8.5.
+
+
+Comment:
+Yay! Thanks @cowtowncoder!
+
+
+Comment:
+Thanks!
+
+
+Comment:
+Thank you for reporting this. I am in the process of releasing 2.8.5 today; only partially completed but hopefully all modules out within 24 hours.

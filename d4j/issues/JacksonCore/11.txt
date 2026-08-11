@@ -1,0 +1,207 @@
+Title: ArrayIndexOutOfBoundsException: 128 when repeatedly serializing to a byte array
+
+Body:
+```
+java.lang.ArrayIndexOutOfBoundsException: 128
+    at com.fasterxml.jackson.core.sym.ByteQuadsCanonicalizer.addName(ByteQuadsCanonicalizer.java:853)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser.addName(UTF8StreamJsonParser.java:2340)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser.findName(UTF8StreamJsonParser.java:2224)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser.parseLongName(UTF8StreamJsonParser.java:1831)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser.parseMediumName2(UTF8StreamJsonParser.java:1786)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser.parseMediumName(UTF8StreamJsonParser.java:1743)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser._parseName(UTF8StreamJsonParser.java:1678)
+    at com.fasterxml.jackson.core.json.UTF8StreamJsonParser.nextFieldName(UTF8StreamJsonParser.java:1007)
+    at com.fasterxml.jackson.databind.deser.std.MapDeserializer._readAndBindStringMap(MapDeserializer.java:471)
+    at com.fasterxml.jackson.databind.deser.std.MapDeserializer.deserialize(MapDeserializer.java:341)
+    at com.fasterxml.jackson.databind.deser.std.MapDeserializer.deserialize(MapDeserializer.java:26)
+    at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:3702)
+    at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:2824)
+    at com.kryptnostic.services.v1.SmokeTests.spamAddIndexPair(SmokeTests.java:605)
+    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.lang.reflect.Method.invoke(Method.java:497)
+    at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:47)
+    at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+    at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:44)
+    at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+    at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+    at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:271)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:70)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:50)
+    at org.junit.runners.ParentRunner$3.run(ParentRunner.java:238)
+    at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:63)
+    at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:236)
+    at org.junit.runners.ParentRunner.access$000(ParentRunner.java:53)
+    at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:229)
+    at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+    at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+    at org.junit.runners.ParentRunner.run(ParentRunner.java:309)
+    at org.eclipse.jdt.internal.junit4.runner.JUnit4TestReference.run(JUnit4TestReference.java:50)
+    at org.eclipse.jdt.internal.junit.runner.TestExecution.run(TestExecution.java:38)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:459)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:675)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.run(RemoteTestRunner.java:382)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.main(RemoteTestRunner.java:192)
+```
+
+Repro: 
+
+```
+@Test
+public void spamTest() {
+        ObjectMapper mapper = new ObjectMapper();
+        Map<ObjectUserKey, ServerIndexPair> ssip = Maps.newConcurrentMap();
+        for ( int i = 0; i < 10000; ++i ) {
+            byte[] indexPairBytes = new byte[ 2080 ];
+            new Random().nextBytes( indexPairBytes );
+            ServerIndexPair sip = new ServerIndexPair( indexPairBytes );
+
+            byte[] s = mapper.writeValueAsBytes( ImmutableMap.of( UUID
+                    .randomUUID().toString(), sip ) );
+            Map<String, ServerIndexPair> metadata = mapper.readValue( s,
+                    new TypeReference<Map<String, ServerIndexPair>>() {} );
+            for ( Entry<String, ServerIndexPair> metadataEntry : metadata.entrySet() ) {
+                ServerIndexPair indexPair = metadataEntry.getValue();
+                ssip.put( new ObjectUserKey( metadataEntry.getKey(), user ),
+                        indexPair );
+            }
+            logger.error( "Iteration: {}", i );
+        }
+}
+```
+
+```
+public class ServerIndexPair {
+    public static final String INDEX_PAIR_FIELD = "indexPair";
+    private final byte[]       indexPair;
+
+    @JsonCreator
+    public ServerIndexPair( @JsonProperty( INDEX_PAIR_FIELD ) byte[] indexPair ) {
+        Preconditions.checkState( indexPair.length == 2080, "Index pair must be 2080 bytes long." );
+        this.indexPair = indexPair;
+    }
+
+    @JsonProperty( INDEX_PAIR_FIELD )
+    public byte[] getIndexPair() {
+        return indexPair;
+    }
+}
+```
+
+```
+public class ObjectUserKey {
+    public static final String SEPARATOR = ":";
+    private final String       objectId;
+    private final UUID         userKey;
+
+    @JsonCreator
+    public ObjectUserKey(
+            @JsonProperty( Names.ID_FIELD ) String objectId,
+            @JsonProperty( Names.USER_FIELD ) UUID userKey ) {
+        super();
+        this.objectId = objectId;
+        this.userKey = userKey;
+    }
+
+    @JsonProperty( Names.ID_FIELD )
+    public String getObjectId() {
+        return objectId;
+    }
+
+    @JsonProperty( Names.USER_FIELD )
+    public UUID getUserKey() {
+        return userKey;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ( ( objectId == null ) ? 0 : objectId.hashCode() );
+        return result;
+    }
+
+    @Override
+    public boolean equals( Object obj ) {
+        if ( this == obj ) {
+            return true;
+        }
+        if ( obj == null ) {
+            return false;
+        }
+        if ( !( obj instanceof ObjectUserKey ) ) {
+            return false;
+        }
+        ObjectUserKey other = (ObjectUserKey) obj;
+        if ( objectId == null ) {
+            if ( other.objectId != null ) {
+                return false;
+            }
+        }
+        if ( userKey == null ) {
+            if ( other.userKey != null ) {
+                return false;
+            }
+        }
+        if ( !objectId.equals( other.objectId ) ) {
+            return false;
+        }
+        if ( !userKey.equals( other.userKey ) ) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        return userKey + SEPARATOR + objectId;
+    }
+
+    public static ObjectUserKey fromString( String value ) {
+        int index = value.lastIndexOf( ObjectUserKey.SEPARATOR );
+        Preconditions.checkState( index > -1, "Separator character " + SEPARATOR
+                + " should be present for ObjectUserKey" );
+        String userKeyString = value.substring( 0, index );
+        String objectIdString = value.substring( index + 1 );
+        UUID userKey = UUID.fromString( userKeyString );
+        return new ObjectUserKey( objectIdString, userKey );
+    }
+
+    public byte[] asBytes() {
+        return this.toString().getBytes();
+    }
+
+}
+```
+
+
+Comment:
+UPVOTE!!!!!!
+
+
+Comment:
++1
+
+
+Comment:
+I suspect this is same as continuation of #207, so it is being worked on. Nasty one obviously.
+Will link that issue back to this one.
+
+
+Comment:
+The underlying problem same as what was left over from #207 (there were two unrelated problems, but further reports were added in the issue). I used modified test case from that bug (to avoid dependency to `ObjectMapper`), but I am confident this fixes the root cause.
+
+Fix will be part of 2.6.2, to be released relatively soon: I will just need to over list of all bugs submitted during past couple of weeks to bundle up all critical fixes.
+
+
+Comment:
+Thanks, we'll be sure to test it out
+
+
+Comment:
+hi @cowtowncoder, pending a fix version, is there any workaround for this (eg. disable the ByteQuadsCanonicalizer)?
+
+
+Comment:
+@simonbasle Yes, disable `JsonFactory.Feature.CANONICALIZE_FIELD_NAMES`. That will avoid canonicalization.

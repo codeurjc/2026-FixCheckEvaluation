@@ -1,0 +1,34 @@
+Title: Could handle missing tag ends (>) better
+
+Body:
+We are using Jsoup to parse HTML documents from some external websites, which are not under our control. A few days ago, one of these sites updated their website, and introduced a bug, causing our crawling to fail spectacularly. The HTML which was broken looked a bit like this:
+
+```
+<td class="my-cell"
+   <div class="great-formatting">100</div>
+</td>
+```
+
+As you can see, the TD is missing a closing `>`, while we did a `document.select("div.great-formatting")`. This failed, because Jsoup couldn't parse the document correctly anymore. 
+
+I understand it's a very edge case, and maybe very hard to fix. However, for us it was a production issue, and caused us quite a few headaches. Right now, we have a sort of preprocessor running over the HTML to close all elements which should be closed, but it would be much nicer if Jsoup would handle this out of the box. 
+
+
+Comment:
+Thanks for the report. This is implemented per the HTML5 spec and is the same way browsers run. (That sounds like an excuse or cop-out, but I just mean it for context.)
+
+I think if we see a < that would be an attribute name we could assume the intent was to start a new tag, not to get an attribute with a < in its name. Even moreso if there was a newline between them (although the state machine doesn't know the latter atm).
+
+
+Comment:
+Hi, thanks for fixing this issue, much appreciated!
+
+Comment:
+Hi,
+
+Just a quick one regarding this issue as I can see it's now closed, we are also using jsoup to parse HTML documents from external websites, but we run a testing tool and would need to know if something about the website was incorrect. Is this behaviour configurable?
+
+Thanks.
+
+Comment:
+@akaakuk you can enable error tracking if you want to catch error during parsing. 

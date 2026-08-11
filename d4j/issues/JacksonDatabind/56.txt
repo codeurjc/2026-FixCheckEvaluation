@@ -1,0 +1,22 @@
+Title: Deserializing locale assumes JDK separator (underscore), does not accept RFC specified (hyphen)
+
+Body:
+When deserializing a locale Jackson currently uses the underscore character as the separator rather than the dash.  Specifically, in FromStringDeserializer.java line 234:
+
+```
+int ix = value.indexOf('_');
+```
+
+Many locale implementations use dash as the separator as per https://tools.ietf.org/html/rfc5646
+
+Given the RFC states that only the characters a-z A-Z and - are valid it should be possible to leave the current code in for backward-compatibility but it should also check for  '-' as a separator.
+
+
+Comment:
+@mcdee Thank you for reporting this: sounds like a bug indeed.
+
+Do you know of an existing JDK provided `Locale` value that would exhibit this? Would be great to have a unit test against regression, beyond fixing the issue itself.
+
+
+Comment:
+Actually I think JDK always uses underscore, so I'll have to just test deserializer with made-up codes.

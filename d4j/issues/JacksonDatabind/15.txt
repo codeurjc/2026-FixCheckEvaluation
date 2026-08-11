@@ -1,0 +1,144 @@
+Title: XmlAdapter result marshaling error in case of ValueType=Object 
+
+Body:
+Hi,
+
+I have an error "com.fasterxml.jackson.databind.JsonMappingException: No serializer found for class java.lang.String and no properties discovered to create BeanSerializer" in case of using custom XmlAdapter with such declaration:
+
+``` java
+public static class IntegerListXmlAdapter extends XmlAdapter<Object, List<Integer>> {
+        ...
+        @Override
+        public Object marshal(List<Integer> list) throws Exception {
+            return Joiner.on(",").join(list);
+        }
+}
+```
+
+If change declaration of this class to "extends XmlAdapter<String, List<Integer>>" it works good.
+
+Full example:
+
+``` java
+public class IntegerListXmlAdapterTest {
+    @Test
+    public void testBasic() throws JsonProcessingException {
+        ObjectMapper mapper = (new ObjectMapper()).setAnnotationIntrospector(new JaxbAnnotationIntrospector());
+        SomeIntListHolder listHolder = new SomeIntListHolder();
+        listHolder.setListOne(asList(1, 2, 3));
+        System.out.println(mapper.writeValueAsString(listHolder));
+    }
+
+    public static class IntegerListXmlAdapter extends XmlAdapter<Object, List<Integer>> {
+        @Override
+        public List<Integer> unmarshal(Object value) throws Exception {return null;}
+
+        @Override
+        public Object marshal(List<Integer> list) throws Exception {
+            return Joiner.on(",").join(list);
+        }
+    }
+
+    public static class IntegerListToStringXmlAdapter extends XmlAdapter<String, List<Integer>> {
+        public List<Integer> unmarshal(String value) throws Exception {return null;}
+
+        public String marshal(List<Integer> list) throws Exception {
+            return Joiner.on(",").join(list);
+        }
+    }
+
+    @XmlRootElement
+    @XmlAccessorType(XmlAccessType.NONE)
+    public static class SomeIntListHolder {
+
+        @XmlAttribute
+        @XmlJavaTypeAdapter(IntegerListXmlAdapter.class)
+        private List<Integer> listOne;
+
+        public List<Integer> getListOne() {
+            return listOne;
+        }
+
+        public void setListOne(List<Integer> listOne) {
+            this.listOne = listOne;
+        }
+    }
+}
+```
+
+In this state with last Jackson version we will get an error
+
+```
+com.fasterxml.jackson.databind.JsonMappingException: No serializer found for class java.lang.String and no properties discovered to create BeanSerializer (to avoid exception, disable SerializationFeature.FAIL_ON_EMPTY_BEANS) ) (through reference chain: SomeIntListHolder["listOne"])
+    at com.fasterxml.jackson.databind.ser.impl.UnknownSerializer.failForEmpty(UnknownSerializer.java:59)
+    at com.fasterxml.jackson.databind.ser.impl.UnknownSerializer.serialize(UnknownSerializer.java:26)
+    at com.fasterxml.jackson.databind.ser.std.StdDelegatingSerializer.serialize(StdDelegatingSerializer.java:157)
+    at com.fasterxml.jackson.databind.ser.BeanPropertyWriter.serializeAsField(BeanPropertyWriter.java:575)
+    at com.fasterxml.jackson.databind.ser.std.BeanSerializerBase.serializeFields(BeanSerializerBase.java:663)
+    at com.fasterxml.jackson.databind.ser.BeanSerializer.serialize(BeanSerializer.java:156)
+    at com.fasterxml.jackson.databind.ser.DefaultSerializerProvider.serializeValue(DefaultSerializerProvider.java:129)
+    at com.fasterxml.jackson.databind.ObjectMapper._configAndWriteValue(ObjectMapper.java:3385)
+    at com.fasterxml.jackson.databind.ObjectMapper.writeValueAsString(ObjectMapper.java:2779)
+```
+
+But if we change XmlJavaTypeAdapter to IntegerListToStringXmlAdapter error will be fixed and code will work fine.
+This error exists only in Jackson 2, we have this code with Object generic on Jackson 1 and get an issue only during migration to new major version.
+
+This concrete error can be fixed by hack in com.fasterxml.jackson.databind.ser.std.StdDelegatingSerializer:
+
+``` java
+    @Override
+    public void serialize(Object value, JsonGenerator gen, SerializerProvider provider) throws IOException
+    {
+        Object delegateValue = convertValue(value);
+        // should we accept nulls?
+        if (delegateValue == null) {
+            provider.defaultSerializeNull(gen);
+            return;
+        }
+
+        //original code:
+        //_delegateSerializer.serialize(delegateValue, gen, provider);
+
+        JsonSerializer<Object> delegateSerializer;
+        if (_delegateSerializer instanceof UnknownSerializer) {
+            delegateSerializer =  provider.findValueSerializer(delegateValue.getClass());
+        } else {
+            delegateSerializer = _delegateSerializer;
+        }
+
+        delegateSerializer.serialize(delegateValue, gen, provider);
+    }
+```
+
+You can find test class here: https://github.com/Spikhalskiy/jackson_xmladapter__bug/blob/master/src/test/java/IntegerListXmlAdapterTest.java
+
+and hacked serializer code here: https://github.com/Spikhalskiy/jackson_xmladapter__bug/blob/master/src/main/java/com/fasterxml/jackson/databind/ser/std/StdDelegatingSerializer.java
+
+Now test passing in this repo because of fake StdDelegatingSerializer in classpath - try to delete it to get an issue.
+
+
+Comment:
+Sounds like a bug. There are some issues with handling XmlAdapter, but I hope this one is something easier to handle.
+
+
+Comment:
+@cowtowncoder It's not an issue with XmlAdapter only, I wrote a unit test for native Converter and get the same result. You can find my research and possible fix in #732
+
+
+Comment:
+Ah. Only now fully understood the issue -- right, dynamic meaning that since type is not specified as anything more than `java.lang.Object`, converter can not access it yet.
+I was able to use the provided test which is great, and I think I can use the pull request (big thanks for providing that!) as the starting point. I may choose slightly different route for tackling, but the basic idea is sound and I like it.
+
+
+Comment:
+@cowtowncoder Thanks a lot for your update! We are really waiting a fix for this issue, because our migrating on 2 major version has been stuck in it and we don't want to produce own forks/builds.
+
+
+Comment:
+No problem. This will be in 2.5.3; in the meantime perhaps you can try SNAPSHOT build locally?
+Unfortunately we just released 2.5.2 recently so 2.5.3 may take a couple of weeks. But the fix is in at any rate.
+
+
+Comment:
+@cowtowncoder Sure, we will make SNAPSHOT build. By "we don't want to produce own forks/builds" I mean we don't want to create forks with our own fixes not included in main repo and that we will need to adopt for future versions. Make a temporary build is not an issue. Thanks!

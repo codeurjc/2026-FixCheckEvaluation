@@ -1,0 +1,12 @@
+Title: Parse failed with org.jsoup.select.Selector$SelectorParseException when selector has unbalanced '(' or '[' or ')' or ']' 
+
+Body:
+Selector I am having as following div.card-content2:has(a.subtitle[title= MySubTitle:)]) OR a.title[title=MyTitle :] ]
+
+
+Comment:
+Query should allow escaping special characters part of text in the query e.g., ()[]
+
+
+Comment:
+Thanks - if you quote the value it now works, like `[data='MyTitle :]']`

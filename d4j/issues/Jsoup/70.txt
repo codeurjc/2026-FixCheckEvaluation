@@ -1,0 +1,27 @@
+Title: Whitespaces not properly handled in <pre> tag
+
+Body:
+If a "pre" tag contains deep nested tags, whitespaces in nested tags are not preserved.
+## Example:
+
+```
+String s = "<pre><code>\n"
+        + "  message <span style=\"color:red\"> other   \n    message  with \n"
+        + "   whitespaces      </span>\n"
+        + "</code></pre>";
+    Document doc = Jsoup.parse(s);
+    System.out.println(doc.select("pre").first().outerHtml());
+```
+
+Will output:
+&lt;pre&gt;&lt;code&gt;
+  &nbsp;&nbsp;message &lt;span style="color:red"&gt; other message with whiptespaces &lt;/span&gt;
+&lt;/pre&gt;&lt;/code&gt;
+
+---
+
+Output is OK if we omit the "code" tag
+
+
+Comment:
+Thanks, fixed.

@@ -1,0 +1,29 @@
+Summary: Add support for data members on interfaces
+
+Description:
+/**
+ * @interface
+ */
+function I() {};
+
+/** @type {string} */
+I.prototype.foobar;
+
+/**
+ * @constructor
+ * @implements {I}
+ */
+function C() {
+  // No warning generated here.
+  this.foobar = 2;
+};
+
+/** @type {I} */
+var test = new C(); 
+alert(test.foobar);
+
+Comment:
+Just an update here.  I made a couple of changes last year to improve date member support, and they are properly checked on prototype definitions (For the sample above, C.prototype.foobar = 2 would generate an error)
+
+Comment:
+This issue was closed by revision r829.

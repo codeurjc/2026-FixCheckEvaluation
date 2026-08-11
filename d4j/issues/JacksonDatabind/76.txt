@@ -1,0 +1,117 @@
+Title: Missing properties when deserializing using a builder class with a non-default constructor and a mutator annotated with `@JsonUnwrapped`
+
+Body:
+When deserializing using a builder class with a non-default constructor and any number of mutator methods annotated with @JsonUnwrapped, the `BuilderBasedDeserializer::deserializeUsingPropertyBasedWithUnwrapped` method cuts short the process of adding SettableBeanProperties.
+
+The logic dictates that once all properties necessary to construct the builder have been found, the builder is constructed using all known SettableBeanProperties that have been found up to that point in the tokenizing process.
+
+Therefore, in the case that the builder has a single property required for construction, and that property is found anywhere other than at the end of the JSON content, any properties subsequent to the constructor property are not evaluated and are left with their default values.
+
+Given the following classes:
+```java
+@JsonDeserialize(builder = Employee.Builder.class)
+public class Employee {
+    private final long id;
+    private final Name name;
+    private final int age;
+
+    private Employee(Builder builder) {
+        id = builder.id;
+        name = builder.name;
+        age = builder.age;
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public Name getName() {
+        return name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    @JsonPOJOBuilder(withPrefix = "set")
+    public static class Builder {
+        private final long id;
+        private Name name;
+        private int age;
+
+        @JsonCreator
+        public Builder(@JsonProperty("emp_id") long id) {
+            this.id = id;
+        }
+
+        @JsonUnwrapped
+        public void setName(Name name) {
+            this.name = name;
+        }
+
+        @JsonProperty("emp_age")
+        public void setAge(int age) {
+            this.age = age;
+        }
+
+        public Employee build() {
+            return new Employee(this);
+        }
+    }
+}
+
+public class Name {
+    private final String first;
+    private final String last;
+
+    @JsonCreator
+    public Name(
+        @JsonProperty("emp_first_name") String first,
+        @JsonProperty("emp_last_name") String last
+    ) {
+        this.first = first;
+        this.last = last;
+    }
+
+    public String getFirst() {
+        return first;
+    }
+
+    public String getLast() {
+        return last;
+    }
+}
+```
+And given the following JSON string:
+```json
+{
+    "emp_age": 30,
+    "emp_id": 1234,
+    "emp_first_name": "John",
+    "emp_last_name": "Doe"
+}
+```
+We will see the following output:
+```java
+Employee emp = new ObjectMapper().readValue(json, Employee.class);
+
+System.out.println(emp.getAge()); // 30
+System.out.println(emp.getId()); // 1234
+System.out.println(emp.getName()); // null
+```
+However, if we place the `emp_id` property at the end of the JSON string, we would get the following output:
+```java
+Employee emp = new ObjectMapper().readValue(json, Employee.class);
+
+System.out.println(emp.getAge()); // 30
+System.out.println(emp.getId()); // 1234
+System.out.println(emp.getName()); // Name Object
+```
+If we were to place `emp_age` and `emp_first_name` and `emp_last_name` all after the `emp_id` property in the JSON string, we would get the following output:
+```java
+Employee emp = new ObjectMapper().readValue(json, Employee.class);
+
+System.out.println(emp.getAge()); // 0
+System.out.println(emp.getId()); // 1234
+System.out.println(emp.getName()); // null
+```

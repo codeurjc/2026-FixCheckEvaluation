@@ -1,0 +1,658 @@
+{
+  "project": "Jsoup",
+  "updated_at": "2026-08-11T13:59:46.282205+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://github.com/jhy/jsoup/issues/23",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 400
+    },
+    {
+      "bug_id": "2",
+      "url": "https://github.com/jhy/jsoup/issues/22",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 944
+    },
+    {
+      "bug_id": "3",
+      "url": "https://github.com/jhy/jsoup/issues/21",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 678
+    },
+    {
+      "bug_id": "4",
+      "url": "https://github.com/jhy/jsoup/issues/31",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 632
+    },
+    {
+      "bug_id": "5",
+      "url": "https://github.com/jhy/jsoup/issues/32",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1454
+    },
+    {
+      "bug_id": "6",
+      "url": "https://github.com/jhy/jsoup/issues/34",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 808
+    },
+    {
+      "bug_id": "7",
+      "url": "https://github.com/jhy/jsoup/issues/43",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 567
+    },
+    {
+      "bug_id": "8",
+      "url": "https://github.com/jhy/jsoup/issues/45",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 404
+    },
+    {
+      "bug_id": "9",
+      "url": "https://github.com/jhy/jsoup/issues/46",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 659
+    },
+    {
+      "bug_id": "10",
+      "url": "https://github.com/jhy/jsoup/issues/49",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1133
+    },
+    {
+      "bug_id": "11",
+      "url": "https://github.com/jhy/jsoup/issues/36",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 324
+    },
+    {
+      "bug_id": "12",
+      "url": "https://github.com/jhy/jsoup/issues/52",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 457
+    },
+    {
+      "bug_id": "13",
+      "url": "https://github.com/jhy/jsoup/issues/97",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 330
+    },
+    {
+      "bug_id": "14",
+      "url": "https://github.com/jhy/jsoup/issues/82",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2012
+    },
+    {
+      "bug_id": "15",
+      "url": "https://github.com/jhy/jsoup/issues/104",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1985
+    },
+    {
+      "bug_id": "16",
+      "url": "https://github.com/jhy/jsoup/issues/109",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 361
+    },
+    {
+      "bug_id": "17",
+      "url": "https://github.com/jhy/jsoup/issues/107",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 563
+    },
+    {
+      "bug_id": "18",
+      "url": "https://github.com/jhy/jsoup/issues/110",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 699
+    },
+    {
+      "bug_id": "19",
+      "url": "https://github.com/jhy/jsoup/issues/127",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1428
+    },
+    {
+      "bug_id": "20",
+      "url": "https://github.com/jhy/jsoup/issues/134",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1163
+    },
+    {
+      "bug_id": "21",
+      "url": "https://github.com/jhy/jsoup/issues/179",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1460
+    },
+    {
+      "bug_id": "22",
+      "url": "https://github.com/jhy/jsoup/issues/184",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 583
+    },
+    {
+      "bug_id": "23",
+      "url": "https://github.com/jhy/jsoup/issues/145",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1156
+    },
+    {
+      "bug_id": "24",
+      "url": "https://github.com/jhy/jsoup/issues/115",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1345
+    },
+    {
+      "bug_id": "25",
+      "url": "https://github.com/jhy/jsoup/issues/167",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1066
+    },
+    {
+      "bug_id": "26",
+      "url": "https://github.com/jhy/jsoup/issues/154",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 965
+    },
+    {
+      "bug_id": "27",
+      "url": "https://github.com/jhy/jsoup/issues/215",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2842
+    },
+    {
+      "bug_id": "28",
+      "url": "https://github.com/jhy/jsoup/issues/224",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2003
+    },
+    {
+      "bug_id": "29",
+      "url": "https://github.com/jhy/jsoup/issues/168",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1336
+    },
+    {
+      "bug_id": "30",
+      "url": "https://github.com/jhy/jsoup/issues/246",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 3654
+    },
+    {
+      "bug_id": "31",
+      "url": "https://github.com/jhy/jsoup/issues/242",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1501
+    },
+    {
+      "bug_id": "32",
+      "url": "https://github.com/jhy/jsoup/issues/278",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 457
+    },
+    {
+      "bug_id": "33",
+      "url": "https://github.com/jhy/jsoup/issues/305",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1043
+    },
+    {
+      "bug_id": "34",
+      "url": "https://github.com/jhy/jsoup/issues/349",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1210
+    },
+    {
+      "bug_id": "35",
+      "url": "https://github.com/jhy/jsoup/issues/313",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 830
+    },
+    {
+      "bug_id": "36",
+      "url": "https://github.com/jhy/jsoup/issues/321",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 635
+    },
+    {
+      "bug_id": "37",
+      "url": "https://github.com/jhy/jsoup/issues/368",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 339
+    },
+    {
+      "bug_id": "38",
+      "url": "https://github.com/jhy/jsoup/issues/364",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 591
+    },
+    {
+      "bug_id": "39",
+      "url": "https://github.com/jhy/jsoup/issues/348",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 890
+    },
+    {
+      "bug_id": "40",
+      "url": "https://github.com/jhy/jsoup/issues/460",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 964
+    },
+    {
+      "bug_id": "41",
+      "url": "https://github.com/jhy/jsoup/issues/537",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1351
+    },
+    {
+      "bug_id": "42",
+      "url": "https://github.com/jhy/jsoup/issues/489",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 5531
+    },
+    {
+      "bug_id": "43",
+      "url": "https://github.com/jhy/jsoup/issues/554",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 776
+    },
+    {
+      "bug_id": "44",
+      "url": "https://github.com/jhy/jsoup/issues/552",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 3963
+    },
+    {
+      "bug_id": "45",
+      "url": "https://github.com/jhy/jsoup/issues/575",
+      "tracker": "github",
+      "status": "not-found",
+      "chars": 0,
+      "fetched_at": "2026-08-11T13:59:46.281403+00:00"
+    },
+    {
+      "bug_id": "46",
+      "url": "https://github.com/jhy/jsoup/issues/523",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2937
+    },
+    {
+      "bug_id": "47",
+      "url": "https://github.com/jhy/jsoup/issues/528",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 3182
+    },
+    {
+      "bug_id": "48",
+      "url": "https://github.com/jhy/jsoup/issues/618",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2411
+    },
+    {
+      "bug_id": "49",
+      "url": "https://github.com/jhy/jsoup/issues/689",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1447
+    },
+    {
+      "bug_id": "50",
+      "url": "https://github.com/jhy/jsoup/issues/695",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 688
+    },
+    {
+      "bug_id": "51",
+      "url": "https://github.com/jhy/jsoup/issues/667",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1208
+    },
+    {
+      "bug_id": "52",
+      "url": "https://github.com/jhy/jsoup/issues/701",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 904
+    },
+    {
+      "bug_id": "53",
+      "url": "https://github.com/jhy/jsoup/issues/611",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 434
+    },
+    {
+      "bug_id": "54",
+      "url": "https://github.com/jhy/jsoup/issues/721",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1481
+    },
+    {
+      "bug_id": "55",
+      "url": "https://github.com/jhy/jsoup/issues/746",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 828
+    },
+    {
+      "bug_id": "56",
+      "url": "https://github.com/jhy/jsoup/issues/408",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1413
+    },
+    {
+      "bug_id": "57",
+      "url": "https://github.com/jhy/jsoup/issues/759",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 735
+    },
+    {
+      "bug_id": "58",
+      "url": "https://github.com/jhy/jsoup/issues/245",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2169
+    },
+    {
+      "bug_id": "59",
+      "url": "https://github.com/jhy/jsoup/issues/793",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 502
+    },
+    {
+      "bug_id": "60",
+      "url": "https://github.com/jhy/jsoup/issues/803",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 3765
+    },
+    {
+      "bug_id": "61",
+      "url": "https://github.com/jhy/jsoup/issues/814",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 3074
+    },
+    {
+      "bug_id": "62",
+      "url": "https://github.com/jhy/jsoup/issues/819",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 600
+    },
+    {
+      "bug_id": "63",
+      "url": "https://github.com/jhy/jsoup/issues/868",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1514
+    },
+    {
+      "bug_id": "64",
+      "url": "https://github.com/jhy/jsoup/issues/906",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1671
+    },
+    {
+      "bug_id": "65",
+      "url": "https://github.com/jhy/jsoup/issues/807",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2058
+    },
+    {
+      "bug_id": "66",
+      "url": "https://github.com/jhy/jsoup/issues/951",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1777
+    },
+    {
+      "bug_id": "67",
+      "url": "https://github.com/jhy/jsoup/issues/955",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1154
+    },
+    {
+      "bug_id": "68",
+      "url": "https://github.com/jhy/jsoup/issues/966",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 12986
+    },
+    {
+      "bug_id": "69",
+      "url": "https://github.com/jhy/jsoup/issues/429",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1118
+    },
+    {
+      "bug_id": "70",
+      "url": "https://github.com/jhy/jsoup/issues/722",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 676
+    },
+    {
+      "bug_id": "71",
+      "url": "https://github.com/jhy/jsoup/issues/550",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2279
+    },
+    {
+      "bug_id": "72",
+      "url": "https://github.com/jhy/jsoup/issues/972",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 457
+    },
+    {
+      "bug_id": "73",
+      "url": "https://github.com/jhy/jsoup/issues/977",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 6527
+    },
+    {
+      "bug_id": "74",
+      "url": "https://github.com/jhy/jsoup/issues/978",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 896
+    },
+    {
+      "bug_id": "75",
+      "url": "https://github.com/jhy/jsoup/issues/985",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1435
+    },
+    {
+      "bug_id": "76",
+      "url": "https://github.com/jhy/jsoup/issues/825",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1637
+    },
+    {
+      "bug_id": "77",
+      "url": "https://github.com/jhy/jsoup/issues/998",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 743
+    },
+    {
+      "bug_id": "78",
+      "url": "https://github.com/jhy/jsoup/issues/980",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 6860
+    },
+    {
+      "bug_id": "79",
+      "url": "https://github.com/jhy/jsoup/issues/1032",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 931
+    },
+    {
+      "bug_id": "80",
+      "url": "https://github.com/jhy/jsoup/issues/1015",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 897
+    },
+    {
+      "bug_id": "81",
+      "url": "https://github.com/jhy/jsoup/issues/1009",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 4876
+    },
+    {
+      "bug_id": "82",
+      "url": "https://github.com/jhy/jsoup/issues/1007",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2888
+    },
+    {
+      "bug_id": "83",
+      "url": "https://github.com/jhy/jsoup/issues/797",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1823
+    },
+    {
+      "bug_id": "84",
+      "url": "https://github.com/jhy/jsoup/issues/848",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 7525
+    },
+    {
+      "bug_id": "85",
+      "url": "https://github.com/jhy/jsoup/issues/1159",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 545
+    },
+    {
+      "bug_id": "86",
+      "url": "https://github.com/jhy/jsoup/issues/1139",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2059
+    },
+    {
+      "bug_id": "87",
+      "url": "https://github.com/jhy/jsoup/issues/1149",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 4644
+    },
+    {
+      "bug_id": "88",
+      "url": "https://github.com/jhy/jsoup/issues/1065",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 728
+    },
+    {
+      "bug_id": "89",
+      "url": "https://github.com/jhy/jsoup/issues/1107",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 935
+    },
+    {
+      "bug_id": "90",
+      "url": "https://github.com/jhy/jsoup/issues/1172",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 1608
+    },
+    {
+      "bug_id": "91",
+      "url": "https://github.com/jhy/jsoup/issues/1192",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 2548
+    },
+    {
+      "bug_id": "92",
+      "url": "https://github.com/jhy/jsoup/issues/1219",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 942
+    },
+    {
+      "bug_id": "93",
+      "url": "https://github.com/jhy/jsoup/issues/1231",
+      "tracker": "github",
+      "status": "cached",
+      "chars": 560
+    }
+  ]
+}

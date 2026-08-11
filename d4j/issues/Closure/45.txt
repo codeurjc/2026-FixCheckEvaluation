@@ -1,0 +1,32 @@
+Summary: Assignment removed when used as an expression result to Array.push
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Open online closure-compiler
+2. Input code:
+  function f() {
+    var a = [], b;
+    a.push(b = []);
+    b[0] = 1;
+    return a;
+  }
+3. Press [Compile]
+
+<b>What is the expected output? What do you see instead?</b>
+Except OK.
+Output: function f(){var a=[];a.push([]);return a}; //wrong
+
+<b>What version of the product are you using? On what operating system?</b>
+Current online version.
+
+Comment:
+Verified in simple and advanced mode in command line compiler as well.
+
+Comment:
+Seems RemoveUnusedVariables is the culprit.
+
+Comment:
+I have a fix pending.
+
+Comment:
+This issue was closed by revision r1674.

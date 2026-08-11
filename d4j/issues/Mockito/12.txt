@@ -1,0 +1,31 @@
+Summary: @Captor annotation might lead to NPE during autounboxing when capturing primitives
+
+Description:
+Say I have a
+@Captor ArgumentCaptor&lt;Double&gt; fooCaptor;
+
+I'd like to have it capture primitive double arguments, but the annotation
+gives me an Object captor.
+
+Unfortunately this also fails in a non-obvious way. I get a
+NullPointerException because fooCaptor.capture() returns an Object, which
+obviously cannot be unboxed to a double.
+
+It might be nice if @Captor had an optional parameter for specifying the
+class. This would make one say the type twice in these cases (curse you,
+erasure!), but otherwise one would be forced to remove the @Captor
+annotation, which I'd personally consider even more ugly.
+
+Comment:
+Looks like there was already some discussion about autoboxing in issue 99.
+
+Comment:
+Hey,
+
+The problem you described is fixable. I can defer parametrized type using reflection
+and create captor for the right type. This means no more NPE at autounboxing.
+
+Thanks a lot for reporting!
+
+Comment:
+This issue was closed by revision r1981.

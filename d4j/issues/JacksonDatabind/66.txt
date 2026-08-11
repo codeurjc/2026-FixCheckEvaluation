@@ -1,0 +1,100 @@
+Title: Failure with custom Enum key deserializer, polymorphic types
+
+Body:
+Normally the `JsonParser` and the `DeserializationContext` is passed to a `Module`'s `JsonDeserializer`. 
+
+However, in the `MapDeserializer`, when deserializing a `Map` with an `Enum` key, the `KeyDeserializer` doesn't accept the `JsonParser` as an argument:
+
+https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/deser/std/MapDeserializer.java#L453
+    Object key = keyDes.deserializeKey(keyStr, ctxt);
+
+and the `StdKeyDeserializer.DelegatingKD` uses the context's parser
+
+https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/deser/std/StdKeyDeserializer.java#L315
+   Object result = _delegate.deserialize(ctxt.getParser(), ctxt);
+
+When the type info field is missing from the json, the `DeserializationContext`'s `JsonParser`'s token is `END_OBJECT` (presumably because it `nextToken`'d through the object to find type and whiffed). 
+
+This makes the module fail since the `JsonParser` in the `Module` is wrong, i.e. not the same as the `JsonParser` in the `MapDeserializer`.
+
+Class:
+
+    import com.fasterxml.jackson.annotation.JsonTypeInfo;
+    
+    import java.util.Map;
+    
+    import static com.fasterxml.jackson.annotation.JsonTypeInfo.Id.NAME;
+    
+    @JsonTypeInfo(use = NAME, property = "@type", defaultImpl = SuperType.class)
+    public class SuperType {
+        private Map<SuperTypeEnum, String> someMap;
+    
+        public Map<SuperTypeEnum, String> getSomeMap() {
+            return someMap;
+        }
+    
+        public void setSomeMap(Map<SuperTypeEnum, String> someMap) {
+            this.someMap = someMap;
+        }
+    }
+
+Enum:
+
+    public enum SuperTypeEnum {
+        FOO
+    }
+
+
+Test:
+
+    import com.fasterxml.jackson.core.JsonParser;
+    import com.fasterxml.jackson.databind.DeserializationContext;
+    import com.fasterxml.jackson.databind.JsonDeserializer;
+    import com.fasterxml.jackson.databind.ObjectMapper;
+    import com.fasterxml.jackson.databind.module.SimpleModule;
+    import org.junit.*;
+
+    import java.io.IOException;
+
+    import static org.junit.Assert.assertEquals;
+
+    public class TestDeserializeType {
+
+        @Test
+        public void testNoTypeShouldDeserialize() throws IOException {
+            String json = "{\"someMap\": {\"FOO\": \"bar\"}}";
+            ObjectMapper mapper = new ObjectMapper();
+            SuperType superType = mapper.readValue(json, SuperType.class);
+            assertEquals("Deserialized someMap.FOO should equal bar", "bar", superType.getSomeMap().get(SuperTypeEnum.FOO));
+        }
+
+        @Test
+        public void testNoTypeWithModuleShouldDeserialize() throws IOException {
+            String json = "{\"someMap\": {\"FOO\": \"bar\"}}";
+            ObjectMapper mapper = new ObjectMapper();
+            SimpleModule simpleModule = new SimpleModule();
+            simpleModule.addDeserializer(SuperTypeEnum.class, new JsonDeserializer<SuperTypeEnum>() {
+                @Override
+                public SuperTypeEnum deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                        throws IOException {
+
+                    return SuperTypeEnum.valueOf(jsonParser.getText());
+                }
+            });
+            mapper.registerModule(simpleModule);
+
+            SuperType superType = mapper.readValue(json, SuperType.class);
+            assertEquals("Deserialized someMap.FOO should equal bar", "bar", superType.getSomeMap().get(SuperTypeEnum.FOO));
+        }
+    }
+
+
+Comment:
+Thank you for reporting this. It sounds like work-around used to allow some value deserializers to be used as key deserializers has some issues.
+
+
+Comment:
+Wow. Not sure why I implemented delegating key deserializer that way; it's wrong -- should not delegate original parser in general, and in this case parser would be wrong due to buffering needed for type id.
+Anyway: better way is to construct bogus `TokenBuffer` as `JsonParser` and add key (that has already been accessed and is passed as the argument), give that parser; it's safer and necessary here.
+
+Thank you for reporting this, providing test case! Fixed for 2.8.5, to be released relatively soon (within next week or two).

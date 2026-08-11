@@ -1,0 +1,49 @@
+Summary: Deep Stubs are not serializable
+
+Description:
+<b>What steps will reproduce the problem?</b>
+import org.junit.Test;
+import org.mockito.Matchers;
+import org.mockito.Mockito;
+
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
+import java.util.Map;
+
+public class DeepStubsAreNotSerializableTest {
+
+  @Test
+  public void name() throws Exception {
+    Map map = Mockito.mock(Map.class, Mockito.RETURNS_DEEP_STUBS);
+
+    Mockito.when(map.entrySet().contains(Matchers.anyString())).thenReturn(false);
+
+    ByteArrayOutputStream serialized = new ByteArrayOutputStream();
+    new ObjectOutputStream(serialized).writeObject(map);
+  }
+}
+
+<b>What is the expected output? What do you see instead?</b>
+java.io.NotSerializableException: org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs$1
+	at java.io.ObjectOutputStream.writeObject0(ObjectOutputStream.java:1180)
+	at java.io.ObjectOutputStream.writeObject(ObjectOutputStream.java:346)
+        ...
+
+<b>Please use labels and text to provide additional information.</b>
+Mockito 1.9.5, and earlier versions
+
+Comment:
+Have you been working on that or is it possible to start this one?
+
+Comment:
+You can start this one, but it's gonna be a challenging one, as it involves some new code regarding generics.
+
+Anyway ou can still work on serialization when generics are not involved. That'll be very helpful.
+
+And if you feel to do the complete job that will be even more awesome. Also feel free to discuss the design with me as the generics discovery code is kind of tricky.
+
+Comment:
+Ok - thought that it will be faster ;) Will try to work on this in free time.
+
+Comment:
+PR for the non generic work - https://github.com/mockito/mockito/pull/30

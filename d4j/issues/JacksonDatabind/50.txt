@@ -1,0 +1,243 @@
+Title: `@JsonIdentityInfo` deserialization fails with combination of forward references, `@JsonCreator`
+
+Body:
+As a follow-up to bug #1255, the patch I provided exposes related deserialization problems.
+I have attached a small project ('jackson-test.zip') to demonstrate these issues. When run with both patches from #1255, the output is provided in the attached 'both.txt'. When run with just the first patch from #1255, the output is provided in the attached 'first.txt'.
+Important points:
+1. When the object expressed as an id is contained within a collection or map (List in this example), deserialization works correctly. When it is a field of an object, deserialization is broken.
+2. This particular example doesn't have forward references, but it does have cycles. Nevertheless, I have seen situations where non-cyclical forward-references also do not deserialize properly, with the same caveat as in 1.
+[jackson-test.zip](https://github.com/FasterXML/jackson-databind/files/301884/jackson-test.zip)
+[both.txt](https://github.com/FasterXML/jackson-databind/files/301885/both.txt)
+[first.txt](https://github.com/FasterXML/jackson-databind/files/301886/first.txt)
+
+
+Comment:
+I've attached a new version of the test project that also includes forward references. You can see that problem is the same for the cyclical reference to the parent and for the forward reference.
+[jackson-test2.zip](https://github.com/FasterXML/jackson-databind/files/301899/jackson-test2.zip)
+[forward-both.txt](https://github.com/FasterXML/jackson-databind/files/301900/forward-both.txt)
+[forward-first.txt](https://github.com/FasterXML/jackson-databind/files/301901/forward-first.txt)
+
+
+Comment:
+I think I'm experiencing a similar issue regarding deserialization and cyclic references - during deserialization, Jackson attempts to resolve some fields (like the `@class` field) in a wrong object (wrong scope, the scope before). This results in exceptions like `Unexpected token (END_OBJECT), expected FIELD_NAME: missing property '@class' that is to contain type id` but also `Unrecognized field`. Very hard to explain and visualize. @arifogel Do you think this is relevant to the original issue?
+
+
+Comment:
+What happens is that when an unresolved reference is encountered, an UnresolvedForwardReference is thrown. If you look at the code, this is only caught properly in CollectionDeserializer and MapDeserializer. It does not appear to be handled correctly in BeanDeserializer. So what happens is that when an UnresolvedReference is encountered as a field of a bean, an exception gets thrown that goes down the stack until a MapDeserializer or a CollectionDeserializer catch block is encountered. If there is no such deserializer on the stack, then the error message that eventually gets output is correct (a message about an unresolved forward reference). However if it gets caught in a MapDeserializer or CollectionDeserializer, then all hell breaks loose. Deserialization continues on the bean fields in JSON, but the deserializer thinks it's in a map or collection down the stack. So then nonsensical error messages get output about how the next field after the UnresolvedForwardReference is not compatible with the value type in the map or collection being deserialized.
+I attempted to fix this by adding catch block in BeanDeserializer (the 2nd patch I provided in discussion of bug #1255), but while it stops the crashes, the resulting deserialized objects can still have incorrect values in the case of forward/cyclical references (as noted in this bug description).
+EDIT:
+@jannispl is this explanation consistent with your observations?
+
+
+Comment:
+Lack of catching for beans is particularly puzzling since that is the main use case.
+So going back to the original pr, #388 (and issue #351) (they were missing from release notes for reason, added), I think that bean property handling should be included via `ObjectIdReferenceProperty`, and question would be why this isn't triggered in test cases. I will try to see what tests uncover.
+
+
+Comment:
+Hmmh. So tests use Creators (constructors). That's typically something that does not mix very well with Object ids, so that's bit of a warning sign. But would explain why it could be an as-of-yet-not-working case.
+
+
+Comment:
+Yes. Unfortunately I cannot avoid using creators in my use case without very significant rewrites to my data model. So I am effectively blocked on this bug at work. Please let me know if there is anything else I can do to help.
+
+
+Comment:
+Oh and I should comment that the Creators don't seem to be a problem when the field is wrapped in a list (as in the test cases provided), so I'm hoping it won't be too hard to generalize what has been done for objects in maps and collections to beans.
+
+
+Comment:
+Looks like failure that I see is `No _idValue when handleIdValue called`, so in some ways it looks like initialization might be missing. This could be a good sign.
+
+Fundamental theoretical problem with Creators is that not all cycles can be ever resolved: if a refers to b, and b refers to a (directly or indirectly), then only one of references can be passed via creator.
+So although I hope many cases can be supported, there are some hard limits to keep in mind.
+
+Another thing to keep in mind is this: even when using `@JsonCreator`, it is also possible to use setters: so -- for example -- all non-reference properties can be passed via Creator, and references then passed via setter (or directly assigned to Field).
+So hybrid schemes are possible.
+
+I think I will try to see if locally modifying properties to use setters or fields would make specific test pass. That gives some information on where problems reside.
+
+
+Comment:
+But why does this case work properly for the parentAsList property, but not
+the parent property? This suggests to be that we are not dealing with a
+fundamental theoretical limitation here, but an implementation problem.
+On Jun 7, 2016 8:59 PM, "Tatu Saloranta" notifications@github.com wrote:
+
+> Looks like failure that I see is No _idValue when handleIdValue called,
+> so in some ways it looks like initialization might be missing. This could
+> be a good sign.
+> 
+> Fundamental theoretical problem with Creators is that not all cycles can
+> be ever resolved: if a refers to b, and b refers to a (directly or
+> indirectly), then only one of references can be passed via creator.
+> So although I hope many cases can be supported, there are some hard limits
+> to keep in mind.
+> 
+> Another thing to keep in mind is this: even when using @JsonCreator, it
+> is also possible to use setters: so -- for example -- all non-reference
+> properties can be passed via Creator, and references then passed via setter
+> (or directly assigned to Field).
+> So hybrid schemes are possible.
+> 
+> I think I will try to see if locally modifying properties to use setters
+> or fields would make specific test pass. That gives some information on
+> where problems reside.
+> 
+> —
+> You are receiving this because you were mentioned.
+> Reply to this email directly, view it on GitHub
+> https://github.com/FasterXML/jackson-databind/issues/1261#issuecomment-224481212,
+> or mute the thread
+> https://github.com/notifications/unsubscribe/AHYSEneiHN6j2ScTgguyVlo1U_IcgSU2ks5qJj4agaJpZM4IvkKy
+> .
+
+
+Comment:
+@arifogel I agree. But I did want to mention eventual challenge in trying to use Creators for Object Id references, to make sure limitations are not a surprise.
+
+
+Comment:
+So what discipline do you recommend exactly?
+Should JsonCreator still set every field?
+Should reference fields always be non-final and have a corresponding setter
+(and is that irrelevant when using JsonCreator)?
+How exactly does one instantiate the hybrid approach?
+On Jun 7, 2016 9:14 PM, "Tatu Saloranta" notifications@github.com wrote:
+
+> @arifogel https://github.com/arifogel I agree. But I did want to
+> mention eventual challenge in trying to use Creators for Object Id
+> references, to make sure limitations are not a surprise.
+> 
+> —
+> You are receiving this because you were mentioned.
+> Reply to this email directly, view it on GitHub
+> https://github.com/FasterXML/jackson-databind/issues/1261#issuecomment-224482826,
+> or mute the thread
+> https://github.com/notifications/unsubscribe/AHYSEj42CDhAespjTzS89wRPVukhgdMLks5qJkG3gaJpZM4IvkKy
+> .
+
+
+Comment:
+@arifogel I would suggest using fields (or setters) for reference properties (except that Collection/Map values appear to be safe as per your comments), and creator for everything else. Nice thing about using fields is that it is possible to keep them private or protected.
+
+As to resolving issues with creator-passed references: looks like test case passes if only fields (or setters) are used, for what that is worth. I did not try anything fancier, just simple replacement.
+Next step is to reintroduce a failure and see why expected handling is by-passed.
+It is possible that this could be related to other known issues with Creator property handling (to be worked on 2.9 I hope). That would be both good and bad; good in that it would get resolved along with other work; bad in that I know that work involved is sizable and requires rewrite of property discovery and resolution.
+
+
+Comment:
+@arifogel I actually suspect the example case is indeed impossible (either in general, even with straight java; or with the Jackson deserialization works, more on that below): note that setup code itself does not pass `child5` as "favorite child" for constructor of `parent` -- it can't. Instead test calls setter for that.
+This is needed to break the cycle.
+
+So what object model needs to do is the same here; remove "favorite child" property from constructor, and leave setter. With that modification test passes locally for me.
+
+As to Jackson limitations: when dealing with Creators, all parameters must be resolvable when matching JSON Object is complete. Unlike with setter/field injection where deferral of Object Id resolution is possible with catching of exception, it can not be done with Creators because they can only be called once; and further Creator must be called to create the instance. For Collections this is different: they are not created using Creator, but simple no-arguments constructor; and elements may be added afterwards. It would be possible to force failure if custom Creator creator, taking all elements as array/Collection argument, was used; test does not do it and I don't think it is common usage pattern. I think this explains difference you saw wrt Collection/Map case compared to POJOs-with-creator.
+
+I'll try to think of better exception to throw, however; current message is not useful at all.
+
+
+Comment:
+Thanks! I don't think I need to set references in constructors in my main
+project, so at least now I know how to modify my code to avoid this problem.
+On Jun 7, 2016 10:14 PM, "Tatu Saloranta" notifications@github.com wrote:
+
+> @arifogel https://github.com/arifogel I actually suspect the example
+> case is indeed impossible (either in general, even with straight java; or
+> with the Jackson deserialization works, more on that below): note that
+> setup code itself does not pass child5 as "favorite child" for
+> constructor of parent -- it can't. Instead test calls setter for that.
+> This is needed to break the cycle.
+> 
+> So what object model needs to do is the same here; remove "favorite child"
+> property from constructor, and leave setter. With that modification test
+> passes locally for me.
+> 
+> As to Jackson limitations: when dealing with Creators, all parameters must
+> be resolvable when matching JSON Object is complete. Unlike with
+> setter/field injection where deferral of Object Id resolution is possible
+> with catching of exception, it can not be done with Creators because they
+> can only be called once; and further Creator must be called to create the
+> instance. For Collections this is different: they are not created using
+> Creator, but simple no-arguments constructor; and elements may be added
+> afterwards. It would be possible to force failure if custom Creator
+> creator, taking all elements as array/Collection argument, was used; test
+> does not do it and I don't think it is common usage pattern. I think this
+> explains difference you saw wrt Collection/Map case compared to
+> POJOs-with-creator.
+> 
+> I'll try to think of better exception to throw, however; current message
+> is not useful at all.
+> 
+> —
+> You are receiving this because you were mentioned.
+> Reply to this email directly, view it on GitHub
+> https://github.com/FasterXML/jackson-databind/issues/1261#issuecomment-224489648,
+> or mute the thread
+> https://github.com/notifications/unsubscribe/AHYSEuUD55tTQ2cIZzIhdukZPiZPoJ0rks5qJk_MgaJpZM4IvkKy
+> .
+
+
+Comment:
+@arifogel Right, I wanted to make sure there is a work-around. I believe there is still something off with handling, so I hope to play with the setup: I added a modified version as a failing test (one with creators used for everything).
+
+
+Comment:
+OK I implemented the workaround in my code, but I still ran into a similar problem as the one for which I produced the second patch in #1255. The problem is more or less the same: unresolved references for NON-CREATOR properties are properly lazily resolved when they are a value in a collection or map, but not when they are the NON-CREATOR property itself. In the latter case, the exception is caught too far below; the parser continues chomping away at the remaining properties in the bean with the unresolved reference, while the deserializer thinks it's at least one level up from said bean.
+
+See the new attached patch. I'll follow up later on with a modified small example.
+[patch.txt](https://github.com/FasterXML/jackson-databind/files/305452/patch.txt)
+
+EDIT:
+This time I did a more comprehensive check to see that my most complex objects are serialized identically both initially and after deserializing and reserializing.
+
+
+Comment:
+On further reflection, I think it may make sense to combine this patch with the 2nd one from #1255, with one modification: the handleResolvedForwardReference function from the 2nd patch from #1255 (in the version of BeanReferring that deals with creator properties) should check to see if the value is null, and if so, throw an Exception stating that there is a cycle of final creator fields among objects.
+
+To be clear, the purpose of BOTH of these patches is to fix handling of unresolved forward references to objects that are direct bean properties so that they are [correctly] handled the same way as values in collections and maps.
+EDIT:
+If your comment:
+
+> As to Jackson limitations: when dealing with Creators, all parameters must be resolvable when matching JSON Object is complete. Unlike with setter/field injection where deferral of Object Id resolution is possible with catching of exception, it can not be done with Creators because they can only be called once; and further Creator must be called to create the instance. For Collections this is different: they are not created using Creator, but simple no-arguments constructor; and elements may be added afterwards. It would be possible to force failure if custom Creator creator, taking all elements as array/Collection argument, was used; test does not do it and I don't think it is common usage pattern. I think this explains difference you saw wrt Collection/Map case compared to POJOs-with-creator.
+
+applies to creator properties even when there are no cycles, then never mind about using the 2nd patch from #1255.
+
+
+Comment:
+Hmm.. I'm having trouble reproducing my problem with a small example. Better wait on this..
+
+
+Comment:
+OK @cowtowncoder, I figured it out. My project was taking a different code path than the example you modified. I had JsonCreator functions that took a multitude of non-reference fields that were not being output initially because they were null-valued and I had @JsonInclude(Include.NON_NULL) set. Then when they were being deserialized, since not all creator properties were present, BeanDeserializer._deserializeUsingPropertyBased never thought that we were done with creator properties. As such, non-creator reference properties were deserialized using buffer.bufferProperty(prop, _deserializeWithErrorWrapping(p, ctxt, prop)) in the same function. This call did not have proper handling for unresolved forward references, unlike the deserialize call after the comment "// or just clean?".
+
+My fix was to modify my code to not have creator properties that could be null-valued.
+
+So basically the patch I've provided in this issue added that handling to the later code path. I should note that if someone constructs JSON by hand with non-creator reference properties appearing before creator properties, this problem may still pop up. I don't think it's reasonable that field ordering in the JSON should impact execution. In fact, the current serialization code is ugly because it refuses to put fields strictly in alphabetical order, but rather puts creator properties first (I assume to prevent this problem). So I still think my patch (or something similar) should be applied, since it appears to enable arbitrary field ordering.
+Now that I know what caused the problem, I can also provide you with a smaller example (when I have some more free time).
+
+
+Comment:
+Here is a small example demonstrating the error. Note that simply by adding '@JsonIgnore' to Child.getParent, you can avert the crash.
+[jackson-test.zip](https://github.com/FasterXML/jackson-databind/files/305765/jackson-test.zip)
+[unmodified.txt](https://github.com/FasterXML/jackson-databind/files/305766/unmodified.txt)
+[with-json-ignore-getparent.txt](https://github.com/FasterXML/jackson-databind/files/305767/with-json-ignore-getparent.txt)
+
+
+Comment:
+Almost forgot to mention: when you apply my patch, then you get the output in with-json-ignore-getparent.txt even without adding the JsonIgnore annotation. This indicates that this is an inconsistency between handling of unresolved forward references in beans vs maps and collections.
+EDIT: I mean you get the correct output for everything when you apply the patch.
+
+
+Comment:
+@arifogel Thanks. I agree in that ordering should not matter; serialization order is mostly optimization, not related to correctness of deserialization (but helps in common case as deserializer can avoid possibly costly buffering; just does not count on it). My main concern with original patch was just that adding second place for handling should not be done to cover other problems, so it'd be good to know why initial handling for bean properties was not working. I guess I still don't fully understand that.
+
+But I hope looking through examples helps. I think @pgelinas implemented original handling so I'll see if he might have suggestions as well.
+
+
+Comment:
+In updated tests there seems to be some problem with type resolution, so that array of `Child` instances somehow is not recognized as such. Or perhaps token buffering is incorrectly handled. Regardless there is something wrong there; I can see a failure.
+
+
+Comment:
+@arifogel After reading through the latest patch it is nice and small, and does fix the issue! Thank you very much for going through the code and figuring out the solution to this problem. It goes in 2.8.0 (.rc2); I am bit hesitant to try to backport it in 2.7.

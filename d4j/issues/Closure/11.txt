@@ -1,0 +1,73 @@
+Summary: Record type invalid property not reported on function with @this annotation
+
+Description:
+Code:
+
+var makeClass = function(protoMethods) {
+  var clazz = function() {
+    this.initialize.apply(this, arguments);
+  }
+  for (var i in protoMethods) {
+    clazz.prototype[i] = protoMethods[i];
+  }
+
+  return clazz;
+}
+
+/**
+ * @constructor
+ * @param {{name: string, height: number}} options
+ */
+var Person = function(options){};
+Person = makeClass(/** @lends Person.prototype */ {
+  /**
+   * @this {Person}
+   * @param {{name: string, height: number}} options
+   */
+  initialize: function(options) {
+    /** @type {string} */ this.name_ = options.thisPropDoesNotExist;
+  },
+
+  /**
+   * @param {string} message
+   * @this {Person}
+   */
+  say: function(message) {
+    window.console.log(this.name_ + ' says: ' + message);
+  }
+});
+
+
+var joe = new Person({name: 'joe', height: 300});
+joe.say('hi');
+
+
+compiled with:
+java -jar build/compiler.jar --formatting=PRETTY_PRINT --jscomp_error=checkTypes --jscomp_error=externsValidation --compilation_level=SIMPLE_OPTIMIZATIONS repro.js
+
+
+I would expect an error on this line:
+    /** @type {string} */ this.name_ = options.thisPropDoesNotExist;
+
+which works in other contexts.
+
+Thanks!
+
+Comment:
+Here's a much simpler repro case:
+
+/**
+ * @constructor
+ */
+var Person = function(){};
+Person.prototype.bar = function(options) {
+  this.x = options.thisPropDoesNotExist;
+};
+
+something very weird is going on, because making very small changes make the warning appear (i.e., changing "options.thisPropDoesNotExist" to "+ options.thisPropDoesNotExist"
+
+Comment:
+oh, i see the problem. by some weird coincidence, dimitris pointed this out to me yesterday.
+
+Comment:
+This issue was closed by revision r2185.

@@ -1,0 +1,12 @@
+Summary: alert(/ / / / /)
+
+Description:
+alert(/ / / / /);
+output: alert(/ /// /);
+should be: alert(/ // / /);
+
+Comment:
+this will be a fun one to fix, i think. thanks!
+
+Comment:
+fixed by r1678

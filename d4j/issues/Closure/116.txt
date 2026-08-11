@@ -1,0 +1,148 @@
+Summary: Erroneous optimization in ADVANCED_OPTIMIZATIONS mode
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+1. Create a file input.js with the following &quot;minimal&quot; test case:
+
+    window[&quot;anchor&quot;] = function (obj, modifiesProp) {
+        return (function (saved) {
+            return modifiesProp(obj) + saved;
+        })(obj[&quot;prop&quot;]);
+    }
+
+2. Compile it with:
+
+    java -jar .../build/compiler.jar                    \
+        --compilation_level ADVANCED_OPTIMIZATIONS      \
+        --warning_level VERBOSE                         \
+        --externs window.js                             \
+        --js input.js                                   \
+        --js_output_file output.js
+
+3. That's all!
+
+What is the expected output?
+
+    window.foo=function(a,b){var HOLD=a.prop;return b(a)+HOLD};
+
+What do you see instead?
+
+    window.foo=function(a,b){return b(a)+a.prop};
+
+Note how this is semantically very different if modifiesProp/b (whose
+semantics are unknown to the compiler) side-effects a.prop.
+
+The evaluation order of + is well-defined in EcmaScript 5, but even
+then, this happens even if one substitutes the , (comma) operator.
+
+<b>What version of the product are you using? On what operating system?</b>
+
+Git HEAD
+
+    commit 4a62ee4bca02169dd77a6f26ed64a624b3f05f95
+    Author: Chad Killingsworth &lt;chadkillingsworth@missouristate.edu&gt;
+    Date:   Wed Sep 25 14:52:28 2013 -0500
+    
+        Add history.state to html5 externs
+
+on Linux.
+
+Comment:
+I had another look at this, and have cooked up the attached patch, which
+*seems* safe (as it only disables optimizations), but wreaks havoc in
+the inliner's test suite.
+
+Disabling "direct call node" inlining on Node.mayHaveSideEffects() may
+seem a bit drastic, but a downstream pass still performs inlining—while
+introducing the required temp!—on my small test case.  Not sure if/when
+that pass is activated, though, so the change may have a more dramatic
+effect on some code bases.
+
+Unfortunately, I lack the time to study the innards of Closure and sift
+through these failures; it would be great if somebody familiar with the
+compiler could comment on the next steps to undertake.
+
+Cheers,
+Damien Diederen
+
+Comment:
+ouch, thanks for the report.  The change in the patch is overly aggressive: we don't need to do this if there aren't any arguments or all of the arguments are literals or otherwise can't be side-effected.
+
+If you want to try your hand at a better patch:
+
+change "canInlineReferenceDirectly" to check if the function body has side-effects and if it does back out if any of the arguments can be side-effected (NodeUtil.canBeSideEffected)
+
+Comment:
+Hi John,
+
+Thanks for the suggestions!
+
+I had a stab at fixing this in a less impactful way (patch attached),
+and am now down to eight failing tests; here is a quick/preliminary
+analysis:
+
+ 1. testInlineFunctions6: Now introduces extra temps;
+
+ 2. testInlineFunctions22: Idem;
+
+ 3. testInlineFunctions23: Idem;
+
+ 4. testDoubleInlining1: The argument is possibly modified, but in a
+    tail position;
+
+ 5. testNoInlineIfParametersModified8: The serialized results match, but
+    the test-generated tree includes an additional BLOCK for some
+    reason;
+
+ 6. testNoInlineIfParametersModified9: Idem;
+
+ 7. testIssue1101: My own test; same extra BLOCK;
+
+ 8. testBug4944818: Haven't looked into it.
+
+Feel free to write down further clues that you may have, in case I
+manage to have another look at this before your team gets to it.
+
+Cheers, -D
+
+Comment:
+https://codereview.appspot.com/14124043/
+
+Comment:
+Can you sign a CLA? https://code.google.com/p/closure-compiler/wiki/Contributors
+
+Comment:
+I'll take it from here.
+
+Comment:
+Hi John, Chad,
+
+I have submitted an electronically signed individual CLA; it should be
+"processed shortly"; the "key" was p9iNysFj43uDtUPeRrKvGNQ.
+
+Cheers, -D
+
+Comment:
+This issue was closed by revision b80dfd3b0e5e.
+
+Comment:
+This issue was closed by revision 4597738e8898.
+
+Comment:
+This was rollback due to some internal issues.  I hope to take another look this week.
+
+Comment:
+This issue was closed by revision b80dfd3b0e5e.
+
+Comment:
+This issue was closed by revision 4597738e8898.
+
+Comment:
+This issue was closed by revision 038da2119223.
+
+Comment:
+This issue was closed by revision 038da2119223.
+
+Comment:
+Finally got to bump the version of closure used in my project, and can confirm the fix.  Thanks!

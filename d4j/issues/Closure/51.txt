@@ -1,0 +1,10 @@
+Summary: -0.0 becomes 0 even in whitespace mode
+
+Description:
+Affects dart: http://code.google.com/p/dart/issues/detail?id=146
+
+Comment:
+This issue was closed by revision r1519.
+
+Comment:
+This issue was closed by revision r1754.

@@ -1,0 +1,230 @@
+{
+  "project": "Collections",
+  "updated_at": "2026-08-11T13:51:02.155504+00:00",
+  "bugs": [
+    {
+      "bug_id": "1",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-217",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 994,
+      "fetched_at": "2026-08-11T13:50:58.247741+00:00"
+    },
+    {
+      "bug_id": "2",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-214",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 458,
+      "fetched_at": "2026-08-11T13:50:58.389967+00:00"
+    },
+    {
+      "bug_id": "3",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-219",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 256,
+      "fetched_at": "2026-08-11T13:50:58.531971+00:00"
+    },
+    {
+      "bug_id": "4",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-228",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 475,
+      "fetched_at": "2026-08-11T13:50:58.672642+00:00"
+    },
+    {
+      "bug_id": "5",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-249",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 280,
+      "fetched_at": "2026-08-11T13:50:58.813451+00:00"
+    },
+    {
+      "bug_id": "6",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-261",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 354,
+      "fetched_at": "2026-08-11T13:50:58.953409+00:00"
+    },
+    {
+      "bug_id": "7",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-278",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 382,
+      "fetched_at": "2026-08-11T13:50:59.094888+00:00"
+    },
+    {
+      "bug_id": "8",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-220",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1208,
+      "fetched_at": "2026-08-11T13:50:59.238355+00:00"
+    },
+    {
+      "bug_id": "9",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-271",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 527,
+      "fetched_at": "2026-08-11T13:50:59.380118+00:00"
+    },
+    {
+      "bug_id": "10",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-240",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 256,
+      "fetched_at": "2026-08-11T13:50:59.520676+00:00"
+    },
+    {
+      "bug_id": "11",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-266",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 541,
+      "fetched_at": "2026-08-11T13:50:59.661803+00:00"
+    },
+    {
+      "bug_id": "12",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-271",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 527,
+      "fetched_at": "2026-08-11T13:50:59.801660+00:00"
+    },
+    {
+      "bug_id": "13",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-299",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 1316,
+      "fetched_at": "2026-08-11T13:50:59.942142+00:00"
+    },
+    {
+      "bug_id": "14",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-294",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 247,
+      "fetched_at": "2026-08-11T13:51:00.082500+00:00"
+    },
+    {
+      "bug_id": "15",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-304",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 798,
+      "fetched_at": "2026-08-11T13:51:00.223067+00:00"
+    },
+    {
+      "bug_id": "16",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-307",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 605,
+      "fetched_at": "2026-08-11T13:51:00.364211+00:00"
+    },
+    {
+      "bug_id": "17",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-239",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 260,
+      "fetched_at": "2026-08-11T13:51:00.504612+00:00"
+    },
+    {
+      "bug_id": "18",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-426",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2217,
+      "fetched_at": "2026-08-11T13:51:00.645275+00:00"
+    },
+    {
+      "bug_id": "19",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-444",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 968,
+      "fetched_at": "2026-08-11T13:51:00.786732+00:00"
+    },
+    {
+      "bug_id": "20",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-447",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 822,
+      "fetched_at": "2026-08-11T13:51:00.926847+00:00"
+    },
+    {
+      "bug_id": "21",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-310",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2980,
+      "fetched_at": "2026-08-11T13:51:01.066188+00:00"
+    },
+    {
+      "bug_id": "22",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-474",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 940,
+      "fetched_at": "2026-08-11T13:51:01.305095+00:00"
+    },
+    {
+      "bug_id": "23",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-495",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 291,
+      "fetched_at": "2026-08-11T13:51:01.444800+00:00"
+    },
+    {
+      "bug_id": "24",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-496",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 182,
+      "fetched_at": "2026-08-11T13:51:01.588028+00:00"
+    },
+    {
+      "bug_id": "25",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-566",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 287,
+      "fetched_at": "2026-08-11T13:51:01.728921+00:00"
+    },
+    {
+      "bug_id": "26",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-576",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2806,
+      "fetched_at": "2026-08-11T13:51:01.870445+00:00"
+    },
+    {
+      "bug_id": "27",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-580",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 873,
+      "fetched_at": "2026-08-11T13:51:02.013350+00:00"
+    },
+    {
+      "bug_id": "28",
+      "url": "https://issues.apache.org/jira/browse/COLLECTIONS-586",
+      "tracker": "jira",
+      "status": "ok",
+      "chars": 2594,
+      "fetched_at": "2026-08-11T13:51:02.155443+00:00"
+    }
+  ]
+}

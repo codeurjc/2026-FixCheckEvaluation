@@ -1,0 +1,64 @@
+Summary: externExport with @typedef can generate invalid externs
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Create a file that has a @typedef and code referencing the type def above and below the typedef declaration.
+2. Run the closure compiler and grab the externExport string stored on the last result for review.
+3. I have attached both source and output files displaying the issue.
+
+<b>What is the expected output? What do you see instead?</b>
+
+The code above the @typedef references the aliased name of the @typedef as expected however the code below the @typedef tries embedding the body of the @typedef and ends up truncating it if the length is too long with a &quot;...&quot;. This throws bad type errors when compiling against this extern. What is odd is this only seems to be the case when the parameter with the type is optional. When neither are optional it embeds the types, which is not a big deal, except when types are long; they get truncated and throw errors.
+
+
+<b>What version of the product are you using? On what operating system?</b>
+
+plovr built from revision 3103:d6db24beeb7f
+Revision numbers for embedded Closure Tools:
+Closure Library:    1374
+Closure Compiler:   1559
+Closure Templates:    23
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+It doesn't look like the "optional" source and "optional" output examples match.
+
+Comment:
+Doh! Uploaded the wrong file, I'm sorry. Here is a fix. It's essentially the same as the non-optional but with the ? prefix. Thank you so much for reviewing this.
+
+Comment:
+Any update or reviews on this issue?
+
+Comment:
+Thanks for reporting the issue. I don't know when someone will have time to fix it.
+
+Comment:
+I have almost no Java experience but I'm going to attempt to fix it. (It's quite important to our project.) Any pointers as to where to even start or what the problem might be?
+
+Comment:
+The best place to start would be to write a test in here:
+http://code.google.com/p/closure-compiler/source/browse/trunk/test/com/google/javascript/jscomp/ExternExportsPassTest.java
+
+you can run the test at the command-line by running
+ant test -Dtest.class=ExternExportsPassTest.java
+or with your favorite IDE.
+
+If I had to guess, I'd say that the problem is TypedCodeGenerator.java just appends the JSType to a string, which invokes its toString method
+http://code.google.com/p/closure-compiler/source/browse/trunk/src/com/google/javascript/jscomp/TypedCodeGenerator.java
+
+but toString() is meant for warning information. You really want some other serialization format (toTypeString?) that will work in generated code.
+
+There may be issues trying to come up with a string serialization of the type that will work. And there may be other problems. But that's where I'd start.
+
+Comment:
+Thank you kind sir!
+
+Comment:
+Turns out I'm incompetent. I hope you guys can fix this soon for the time being I will probably work with a parser instead.
+
+Comment:
+What JSType sub class do @typedefs become?
+
+Comment:
+This issue was closed by revision r1761.

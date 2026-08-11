@@ -1,0 +1,22 @@
+Title: StringIndexOutOfBoundsException when parsing link http://news.yahoo.com/s/nm/20100831/bs_nm/us_gm_china
+
+Body:
+java.lang.StringIndexOutOfBoundsException: String index out of range: 1
+    at java.lang.String.charAt(String.java:686)
+    at java.util.regex.Matcher.appendReplacement(Matcher.java:711)
+    at org.jsoup.nodes.Entities.unescape(Entities.java:69)
+    at org.jsoup.nodes.TextNode.createFromEncoded(TextNode.java:95)
+    at org.jsoup.parser.Parser.parseTextNode(Parser.java:222)
+    at org.jsoup.parser.Parser.parse(Parser.java:94)
+    at org.jsoup.parser.Parser.parse(Parser.java:54)
+    at org.jsoup.Jsoup.parse(Jsoup.java:30)
+
+
+Comment:
+Fixed issue in Entities when unescaping &#36; ("$")
+
+Closed by f6752d3aedcb69e07a17bee8efafa55eb35da628
+
+
+Comment:
+Thanks for reporting this, fixed now.

@@ -1,0 +1,21 @@
+Summary: TarArchiveInputStream silently finished when unexpected EOF occured
+
+Description:
+I just found the following test case didn't raise an IOException as it used to be for a *tar trimmed on purpose* 
+
+@Test
+  public void testCorruptedBzip2() throws IOException {
+    String archivePath = PathUtil.join(testdataDir, "test.tar.bz2");
+    TarArchiveInputStream input = null;
+    input = new TarArchiveInputStream(new BZip2CompressorInputStream(
+        GoogleFile.SYSTEM.newInputStream(archivePath), true));
+    ArchiveEntry nextMatchedEntry = input.getNextEntry();
+    while (nextMatchedEntry != null) {
+      logger.infofmt("Extracting %s", nextMatchedEntry.getName());
+      String outputPath = PathUtil.join("/tmp/", nextMatchedEntry.getName());
+      OutputStream out = new FileOutputStream(outputPath);
+      ByteStreams.copy(input, out);
+      out.close();
+      nextMatchedEntry = input.getNextEntry();
+    }
+  }

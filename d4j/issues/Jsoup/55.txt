@@ -1,0 +1,26 @@
+Title: Parse slash in attibutes
+
+Body:
+Hello,
+I don't know if it is a bug or not, but when I'm parsing:
+`<img /onerror="a()"/>`
+
+The result of the parsers is: 
+`<img nerror="a()"/>`
+Is it OK? can I change the parser behavior for those types of tags? 
+
+
+Comment:
+It sounds like there's a bug around the Before Attribute Name State when it hits the slash and moves into and then back out of Self Closing State. The / should be consumed but the o should remain. If you want to update the parser that would be great! Should work as specced in https://html.spec.whatwg.org/multipage/syntax.html#before-attribute-name-state
+
+
+Comment:
+What do You think about this fix: https://github.com/jhy/jsoup/pull/747
+
+
+Comment:
+I've changed the pull request. here is the new one: https://github.com/jhy/jsoup/pull/748
+
+
+Comment:
+Thanks! Merged

@@ -1,0 +1,168 @@
+JFreeChart / Bugs / #818 Error on TimeSeries createCopy() method
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+JFreeChart
+Bugs
+Error on TimeSeries createCopy() method
+Brought to you by:
+mungady
+,
+taqua
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Mailing Lists
+Tickets ▾
+Patches
+Bugs
+Feature Requests
+News
+Code
+Cvs
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+1.0.x
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#818 Error on TimeSeries createCopy() method
+Milestone:
+1.0.x
+Status:
+closed-fixed
+Owner:
+David Gilbert
+Labels:
+General (896)
+Priority:
+5
+Updated:
+2008-01-10
+Created:
+2008-01-04
+Creator:
+Anonymous
+Private:
+No
+The test case at the end fails with :
+java.lang.IllegalArgumentException: Requires start <= end.
+The problem is in that the int start and end indexes corresponding to given timePeriod are computed incorectly. Here I would expect an empty serie to be returned, not an exception. This is with jfreechart 1.0.7
+public class foo {
+static public void main(String args[]) {
+TimeSeries foo = new TimeSeries("foo",Day.class);
+foo.add(new Day(19,4,2005),1);
+foo.add(new Day(25,5,2005),1);
+foo.add(new Day(28,5,2005),1);
+foo.add(new Day(30,5,2005),1);
+foo.add(new Day(1,6,2005),1);
+foo.add(new Day(3,6,2005),1);
+foo.add(new Day(19,8,2005),1);
+foo.add(new Day(31,1,2006),1);
+try \{
+        TimeSeries bar = foo.createCopy\(new Day\(1,12,2005\),new Day\(18,1,2006\)\);
+    \} catch \(CloneNotSupportedException e\) \{
+
+        e.printStackTrace\(\);
+}
+}
+Discussion
+David Gilbert
+-
+2008-01-10
+Logged In: YES
+user_id=112975
+Originator: NO
+Confirmed.
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-01-10
+labels
+:  --> General
+milestone
+:  --> 1.0.x
+assigned_to
+: nobody --> mungady
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-01-10
+status
+: open --> closed-fixed
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+David Gilbert
+-
+2008-01-10
+Logged In: YES
+user_id=112975
+Originator: NO
+Thanks for the report.  I committed a JUnit test and a bug fix for inclusion in the 1.0.10 release.
+Regards,
+Dave Gilbert
+JFreeChart Project Leader
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

@@ -1,0 +1,31 @@
+Summary: Bad type inference with goog.isFunction and friends
+
+Description:
+experimental/johnlenz/typeerror/test.js:16: WARNING - Property length
+never defined on Number
+      var i = object.length;
+
+
+This is the reduced test case:
+
+/**
+ * @param {*} object Any object.
+ * @return {boolean}
+ */
+test.isMatched = function(object) {
+  if (goog.isDef(object)) {
+    if (goog.isFunction(object)) {
+      // return object();
+    } else if (goog.isBoolean(object)) {
+      // return object;
+    } else if (goog.isString(object)) {
+      // return test.isDef(object);
+    } else if (goog.isArray(object)) {
+      var i = object.length;
+    }
+  }
+  return false;
+};
+
+Comment:
+This issue was closed by revision r2262.

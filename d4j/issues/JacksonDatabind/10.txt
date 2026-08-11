@@ -1,0 +1,40 @@
+Title: JsonAnyGetter doesn't work with JsonSerialize (except with keyUsing)
+
+Body:
+(This is happening with 2.5.0. Haven't tried 2.5.1 but I couldn't see any related issue anyway)
+
+Jackson ignores JsonSerialize annotation when there is JsonAnyGetter annotation.
+
+``` java
+  @JsonSerialize(using = MySerializer.class)
+  // or
+  @JsonSerialize(converter = MyConverter.class)
+  @JsonAnyGetter
+  public Map<String, String> getParameters(){
+    return parameters;
+  }
+```
+
+except 
+
+``` Java
+@JsonSerialize(keyUsing = MyKeySerializer.class)
+```
+
+(haven't tried each setting. Only tried keyUsing because I've seen a different issue (#661) with it)
+Then it works. But I need the converter, so..
+
+For the time being I will use
+
+``` Java
+  @JsonAnyGetter
+  public Map<String, JsonNode> getParameters(){
+    return new MyConverter().convert(parameters);
+  }
+```
+
+but I'd prefer to stick to annotations.
+
+
+Comment:
+Thank you for reporting this.

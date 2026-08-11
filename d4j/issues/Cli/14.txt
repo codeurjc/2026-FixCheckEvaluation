@@ -1,0 +1,71 @@
+Summary: adding a FileValidator results in ClassCastException in parser.parseAndHelp(args)
+
+Description:
+When I add a FileValidator.getExistingFileInstance() to an Argument, I get a ClassCastException when I parse args.
+
+Below is a testcase invoke with
+
+   java org.apache.commons.cli2.issues.CLI2Sample -classpath commons-cli-2.0-SNAPSHOT.jar --file-name path-to-an-existing-file
+
+Run it and you get:
+
+Exception in thread "main" java.lang.ClassCastException: java.io.File cannot be cast to java.lang.String
+	at org.apache.commons.cli2.validation.FileValidator.validate(FileValidator.java:122)
+	at org.apache.commons.cli2.option.ArgumentImpl.validate(ArgumentImpl.java:250)
+	at org.apache.commons.cli2.option.ParentImpl.validate(ParentImpl.java:123)
+	at org.apache.commons.cli2.option.DefaultOption.validate(DefaultOption.java:175)
+	at org.apache.commons.cli2.option.GroupImpl.validate(GroupImpl.java:264)
+	at org.apache.commons.cli2.commandline.Parser.parse(Parser.java:105)
+	at org.apache.commons.cli2.commandline.Parser.parseAndHelp(Parser.java:125)
+	at org.apache.commons.cli2.issues.CLI2Sample.main(CLI2Sample.java:38)
+
+Comment out the withValidator call and it runs with no exception. 
+
+I also get a similar ClassCastException if I add a 
+
+  .withValidator(NumberValidator.getIntegerInstance())
+
+to another option/argument.
+
+Here is the source
+
+
+package org.apache.commons.cli2.issues;
+
+import java.io.File;
+import org.apache.commons.cli2.CommandLine;
+import org.apache.commons.cli2.Group;
+import org.apache.commons.cli2.builder.ArgumentBuilder;
+import org.apache.commons.cli2.builder.DefaultOptionBuilder;
+import org.apache.commons.cli2.builder.GroupBuilder;
+import org.apache.commons.cli2.commandline.Parser;
+import org.apache.commons.cli2.option.DefaultOption;
+import org.apache.commons.cli2.validation.FileValidator;
+
+public class CLI2Sample
+{
+   public static void main(String[] args)
+   {
+      final DefaultOptionBuilder obuilder = new DefaultOptionBuilder();
+      final ArgumentBuilder abuilder = new ArgumentBuilder();
+      final GroupBuilder gbuilder = new GroupBuilder();
+      DefaultOption fileNameOption = obuilder
+            .withShortName("f")
+            .withLongName("file-name")
+            .withRequired(true)
+            .withDescription("name of an existing file")
+            .withArgument(abuilder
+                  .withName("file-name")
+                  .withValidator(FileValidator.getExistingFileInstance())
+                  .create())
+            .create();
+      Group options = gbuilder
+            .withName("options")
+            .withOption(fileNameOption)
+            .create();
+      Parser parser = new Parser();
+      parser.setHelpTrigger("--help");
+      parser.setGroup(options);
+      CommandLine cl = parser.parseAndHelp(args);
+     }
+}

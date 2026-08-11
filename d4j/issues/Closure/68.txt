@@ -1,0 +1,88 @@
+Summary: Cryptic error message on invalid "@type function" annotation
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1.  test.js:
+
+    /**
+     * @type function
+     */
+    var callback;
+
+2. java -jar compiler.jar --js test.js 
+
+<b>What is the expected output? What do you see instead?</b>
+
+Warning reported is:
+
+test.js:3: WARNING - Parse error. Unexpected end of file
+ */
+  ^
+
+Expected to see the actual warning (e.g., &quot;expected '('&quot;, for the *previous* line)
+
+<b>What version of the product are you using? On what operating system?</b>
+
+compiler-20110502
+
+<b>Please provide any additional information below.</b>
+
+Simply adding &quot;()&quot; to it (&quot;@type function()&quot;) removes the warning, but it would be much more effective if it could communicate that properly.
+
+Comment:
+Actually the correct annotation would be:
+
+/**
+ * @type {function}
+ */
+var callback;
+
+JSDoc type expressions are enclosed in braces.
+
+Comment:
+Hmm, you're right that Closure does expect braces.  But "JSDoc type expressions" do NOT use braces -- based on the jsdoc-toolkit documentation, at least.  Braces are only used in @param in jsdoc.
+
+That means this is less of an issue with Closure, and more the fact that we want proper JSDoc being generated more importantly than Closure understanding the types.  JSDoc doesn't document "function" differently though, so having it in braces wouldn't be a big deal.
+
+Either way, adding the parens actually does fix the Closure warning, regardless.
+
+Comment:
+Hmm I mistyped mine as well. All of the following work:
+
+/** @type {function()} */
+/** @type function() */
+
+However with or without braces, "function" does require the parens.
+
+Comment:
+Looks like you were right the first time as well:  /** @type {function} */ does not emit a warning.  But as mentioned above, jsdoc will not generate proper documentation if the @type annotation contains braces.  It's only important when the type is itself a type that jsdoc has seen, e.g., a class that is defined elsewhere in your javascript.  But it is important for us to be able to link between non-native types within our JSDoc documentation, and therefore including the braces is not an option for us (until JSDoc supports braces in @type annotations).
+
+Either way, I still think the error could be made less cryptic, such as what is reported in @param (since in @param, even JSDoc requires the braces):
+
+  test.js:2: WARNING - Bad type annotation. missing opening (
+   * @param {function}
+                     ^
+
+@type should have the same warning message.
+
+Comment:
+And now I see that my initial message was partially wrong anyway:  With verbose warnings, it actually emits both messages:
+
+$ java -jar compiler.jar --js test.js --warning_level VERBOSE
+test.js:3: WARNING - Bad type annotation. missing opening (
+ */
+ ^
+
+test.js:3: WARNING - Parse error. Unexpected end of file
+ */
+  ^
+
+But it's strange to have a cryptic warning like this show up when the root cause itself is not explained without adding further command-line arguments, even though Closure does know what is actually missing.  Someone who's just getting started with Closure is going to be thoroughly confused by the message.
+
+Comment:
+yeah, "function" is a keyword that must always be followed by parens. Closure compiler is agnostic about the braces around @type annotations. 
+
+the extra warning message should be fixed.
+
+Comment:
+This issue was closed by revision r1158.

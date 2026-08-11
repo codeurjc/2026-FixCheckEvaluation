@@ -1,0 +1,25 @@
+Summary: --process_closure_primitives can't be set to false
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. compile a file with &quot;--process_closure_primitives false&quot;
+2. compile a file with &quot;--process_closure_primitives true&quot; (default)
+3. result: primitives are processed in both cases.
+
+<b>What is the expected output? What do you see instead?</b>
+The file should still have its goog.provide/require tags in place.
+Instead they are processed.
+
+<b>What version of the product are you using? On what operating system?</b>
+current SVN (also tried two of the preceding binary releases with same 
+result)
+
+<b>Please provide any additional information below.</b>
+Flag can't be set to false due to a missing &quot;else&quot; in the command-line 
+parser.
+
+Comment:
+thanks for the report.
+
+Comment:
+This issue was closed by revision r152.

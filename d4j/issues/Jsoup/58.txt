@@ -1,0 +1,82 @@
+Title: Jsoup.isValid returns true even when htmlFragment includes tags not on whitelist
+
+Body:
+Caused by Jsoup.isValid performing a destructive parse before testing for validity.  The html returned from parseBodyFragment is not what was passed in.
+
+According to documentation, html, head tags etc. should be specifically added to whitelist if they should be allowed.
+
+Test cases below.
+
+```
+package jsoup;
+
+import junit.framework.Assert;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.parser.Parser;
+import org.jsoup.safety.Cleaner;
+import org.jsoup.safety.Whitelist;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
+import java.util.Arrays;
+import java.util.Collection;
+
+@RunWith(Parameterized.class)
+public class JsoupTest
+{
+    private String htmlFragment;
+
+    public JsoupTest(String htmlFragment)
+    {
+        this.htmlFragment = htmlFragment;
+    }
+
+    @Parameterized.Parameters
+    public static Collection<String[]> dirtyHtml()
+    {
+        String[][] htmlFragments = new String[][] { {"<html></html>"},
+                                                    {"<head></head>"},
+                                                    {"<body></body>"}
+        };
+
+        return Arrays.asList(htmlFragments);
+    }
+
+    @Test
+    public void emptyWhitelistReturnsFalseForAllTags()
+    {
+        Assert.assertEquals(false, Jsoup.isValid(htmlFragment, new Whitelist()));
+    }
+
+    @Test
+    public void whitelistNoneReturnsFalseForAllTags()
+    {
+        Assert.assertEquals(false, Jsoup.isValid(htmlFragment, Whitelist.none()));
+    }
+
+    @Test
+    public void typicalWhitelistReturnsFalseForNonIncludedTags()
+    {
+        Whitelist whitelist = new Whitelist();
+        whitelist.addTags("p");
+
+        Assert.assertEquals(false, Jsoup.isValid(htmlFragment, whitelist));
+    }
+
+    @Test
+    public void codeFromSource()
+    {
+        Document dirty = Parser.parseBodyFragment(htmlFragment, "");
+        Cleaner cleaner = new Cleaner(Whitelist.none());
+
+        Assert.assertEquals(false, cleaner.isValid(dirty));
+    }
+
+}
+```
+
+
+Comment:
+Is there any reason why this was never touched? 

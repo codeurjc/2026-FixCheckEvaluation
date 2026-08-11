@@ -1,0 +1,9 @@
+Summary: ArchiveStreamFactory fails to pass on the encoding when creating some streams
+
+Description:
+ArchiveStreamFactory fails to pass on the encoding when creating the following streams (in some or all cases):
+* ArjArchiveInputStream
+* CpioArchiveInputStream
+* DumpArchiveInputStream
+* JarArchiveInputStream
+* JarArchiveOutputStream

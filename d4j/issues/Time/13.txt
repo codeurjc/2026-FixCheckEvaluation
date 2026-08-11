@@ -1,0 +1,142 @@
+Joda - Time / Bugs / #160 Negative millis display incorrectly in Period.toString
+Join/Login
+Business Software
+Open Source Software
+For Vendors
+Blog
+About
+More
+Articles
+Create
+SourceForge Podcast
+Site Documentation
+Subscribe to our Newsletter
+Support Request
+For Vendors
+Help
+Create
+Join
+Login
+Business Software
+Open Source Software
+SourceForge Podcast
+Resources
+Articles
+Case Studies
+Blog
+Menu
+Help
+Create
+Join
+Login
+Home
+Browse
+Joda - Time
+Bugs
+Negative millis display incorrectly in Period.toString
+Project moved to GitHub
+Brought to you by:
+broneill
+,
+scolebourne
+This project can now be found here.
+Summary
+Files
+Reviews
+Support
+Code
+Svn
+Tickets ▾
+Bugs
+Feature Requests
+News
+Discussion
+Donate
+Menu
+▾
+▴
+Create Ticket
+View Stats
+Group
+v1.0_(example)
+Searches
+Changes
+Closed Tickets
+Open Tickets
+Help
+Formatting Help
+#160 Negative millis display incorrectly in Period.toString
+Status:
+closed
+Owner:
+Stephen Colebourne
+Labels:
+Joda-Time (76)
+Priority:
+8
+Updated:
+2014-08-15
+Created:
+2012-09-02
+Creator:
+Dan Brown
+Private:
+No
+This code:
+import org.joda.time.Duration;
+import org.joda.time.Period;
+public class A {
+public static void main(String[] args) {
+System.out.println("new Duration(-1000).getMillis() = " + new Duration(-1000).getMillis());
+System.out.println("new Duration(-1000).toString()  = " + new Duration(-1000).toString());
+System.out.println("new Period(-1000).getSeconds()  = " + new Period(-1000).getSeconds());
+System.out.println("new Period(-1000).toString()    = " + new Period(-1000).toString());
+System.out.println("new Duration(-100).getMillis()  = " + new Duration(-100).getMillis());
+System.out.println("new Duration(-100).toString()   = " + new Duration(-100).toString());
+System.out.println("new Period(-100).getMillis()    = " + new Period(-100).getMillis());
+System.out.println("new Period(-100).toString()     = " + new Period(-100).toString());
+}
+}
+Produces output:
+new Duration(-1000).getMillis() = -1000
+new Duration(-1000).toString()  = PT-1S
+new Period(-1000).getSeconds()  = -1
+new Period(-1000).toString()    = PT-1S
+new Duration(-100).getMillis()  = -100
+new Duration(-100).toString()   = PT-0.100S
+new Period(-100).getMillis()    = -100
+new Period(-100).toString()     = PT0.100S
+The last line should produce "PT-0.100S" instead of "PT0.100S".
+Discussion
+Stephen Colebourne
+-
+2012-09-03
+Fixed in GitHub, thanks
+https://github.com/JodaOrg/joda-time/commit/5d08a1cdbfa6ce86a0baf637493c464e91e91968
+If you would like to refer to this comment somewhere else in this project, copy and paste the following link:
+Log in
+to post a comment.
+SourceForge
+Create a Project
+Open Source Software
+Business Software
+Top Downloaded Projects
+Company
+About
+Team
+SourceForge Headquarters
+1320 Columbia Street Suite 310
+San Diego, CA
+92101
++1 (858) 422-6466
+Resources
+Support
+Site Documentation
+Site Status
+SourceForge Reviews
+© 2026 Slashdot Media. All Rights Reserved.
+Terms
+Privacy
+Privacy Choices
+Advertise
+✕

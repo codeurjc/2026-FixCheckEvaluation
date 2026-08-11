@@ -1,0 +1,29 @@
+Title: attr("abs:href") , absUrl("href") 
+
+Body:
+Document doc = Jsoup.parse(new URL("http://www.oschina.net/bbs/thread/12975"), 5*1000);
+Elements es = doc.select("a[href]");
+for(Iterator<Element> it = es.iterator();it.hasNext();){
+    Element e = it.next();
+        System.out.println(e.absUrl("href"));
+}
+
+attr("abs:href")   ------  &lt;a href="?p=1"&gt;1&lt;/a&gt;
+result: -------------------   http://www.oschina.net/bbs/thread/?p=1
+
+I think it's a wrong result~.
+The correct results should be "http://www.oschina.net/bbs/thread/12975?p=1"
+
+
+Comment:
+Thanks. I'm not really sure the best way to fix this. Jsoup uses Java's URL parser, and it seems to be mishandling this case. The method used is http://download.oracle.com/javase/1.4.2/docs/api/java/net/URL.html#URL(java.net.URL, java.lang.String)
+
+Where URL is the origin URL, and the spec string is the contents of the href.
+
+May need to provide a hack for this specific case, or reimplement the URL parser; not really keen on either.
+
+
+Comment:
+Fixed absolute URL generation from relative URLs which are only query strings.
+
+Closed by a57d8a33b9a6663f35cfd08e312ad36b775285f8

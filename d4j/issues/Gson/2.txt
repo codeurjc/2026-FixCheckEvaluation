@@ -1,0 +1,10 @@
+Title: Fix type hierarchy adapters to do a runtime check.
+
+Body:
+Otherwise if we have a type hierarchy adapter for Vehicle, and we
+attempt to decode a JSON string as a Car, we get the right exception
+if the JSON string is actually decoded as a Truck.
+
+
+Comment:
+:+1: 

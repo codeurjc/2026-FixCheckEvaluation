@@ -1,0 +1,22 @@
+Title: Add Support for Parsing All Compliant ISO-8601 Date Formats
+
+Body:
+Some providers create JSON date stamps in ISO-8601 formats that cannot be parsed by the jackson-databind library. Here is a sampling of some valid formats that do not parse correctly:
+
+2014-10-03T18:00:00.6-05:00
+2014-10-03T18:00:00.61-05:00
+1997-07-16T19:20+01:00
+1997-07-16T19:20:30.45+01:00
+
+The last two actually come from the ISO-8601 notes on http://www.w3.org/TR/NOTE-datetime.
+
+
+Comment:
+Thank you for pointing out this gap!
+
+ISO-8601 definition is big enough that I can't say this would get us to "all compliant variants", but definitely sounds like a reasonable improvement.
+One thing I need to verify is just whether some of these might already be covered by one recent patch.
+
+
+Comment:
+Ok. So, after verifying, this fix IS included in 2.4.3, as originally planned.

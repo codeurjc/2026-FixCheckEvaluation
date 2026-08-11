@@ -1,0 +1,83 @@
+Title: Prevent coercion of `int` from empty String to `null` if `DeserializationFeature .FAIL_ON_NULL_FOR_PRIMITIVES` is `true`
+
+Body:
+I got 0 from the code below.
+
+``` java
+int i = mapper.readValue("\"\"", int.class);
+System.out.println(i);
+```
+
+It seems that Json Number type cannot start with ".
+Could I make the code throw some Exceptions?
+
+
+Comment:
+So you would not want empty String to be coerced into 'missing' value of '0'?
+
+Perhaps a `DeserializationFeature` could be added to prevent this -- there may already exist an issue for this.
+
+
+Comment:
+I tried to add `DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT` to my mapper, but it still print 0.
+
+``` java
+ObjectMapper mapper = new ObjectMapper();
+mapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);
+mapper.enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
+int i = mapper.readValue("\"\"", int.class);
+System.out.println(i);
+```
+
+The right order in my mind is **empty Json String -> Json Null -> Json Number -> primitive**.
+it seems that these 2 features don't take effect at the same time.
+
+
+Comment:
+@yzmyyff Correct, the features in question are handled separately. Or, I should say, coercion from empty String into scalars does NOT consider `ACCEPT_EMPTY_STRING_AS_NULL_OBJECT`, as scalars are not (Java) Objects. It is confusing. I will think about this to see if adding checks as you suggest is the best way to go, or adding a new `DeserializationFeature`. I have some concerns about backwards compatibility, if changing existing behavior, but perhaps those are not valid.
+
+
+Comment:
+I think this would make sense. I elaborated bit more on #1106.
+
+
+Comment:
+Thanks a lot.
+
+
+Comment:
+Implemented for 2.7.1; affects primitives, but not equivalent wrappers, as per naming of features.
+
+
+Comment:
+What should I do if i want this 
+```
+Integer i = mapper.readValue("\"\"", Integer.class);
+System.out.println(i);
+```
+to throw Exception?
+
+Comment:
+Was about to say that it works, but then realized you are talking about wrapper object.
+
+`DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT` is the thing to disable if you do not want such coercion. Handling has been rewritten for 2.9 (not yet released, but `2.9.0.pr2` is available) and this will work; earlier versions had more limited support for some types. I do not know offhand if `Integer` handling was working or not.
+
+
+Comment:
+@cowtowncoder 
+Im using 2.8.6 and I try with 2.9.0.pr2 
+`mapper.configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, false);`
+And there is no exception... Empty string is successfully parsed as null Integer or Long.
+
+Comment:
+@gkozyryatskyy Ok I'll have a look; since this issue is closed, I'll file a new one.
+
+Comment:
+@cowtowncoder 
+thx a lot!
+
+Comment:
+Ok actually I misspoke here. Due to backwards compatibility requirements, `DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT` can not be made to apply to scalar values: feature defaults to `false`, yet behavior of coercion is enabled by default.
+
+So: #1106 will actually be needed here; feature to be added is `MapperFeature.ALLOW_COERCION_OF_SCALARS` and will be included in 2.9,0.pr3.
+

@@ -1,0 +1,202 @@
+Title: Problems deserializing primitive `long` field while using `TypeResolverBuilder`
+
+Body:
+When running the following test app
+
+``` java
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.impl.StdTypeResolverBuilder;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+
+    public static void main(String[] args) throws IOException {
+        // Create test data
+        Data data = new Data();
+        data.key = 1;
+        Map<String, Object> mapData = new HashMap<>();
+        mapData.put("longInMap", 2L);
+        mapData.put("longAsField", data);
+
+        // Configure Jackson to preserve types
+        JsonFactory factory = new JsonFactory();
+        ObjectMapper mapper = new ObjectMapper(factory);
+        StdTypeResolverBuilder resolver = new StdTypeResolverBuilder();
+        resolver.init(JsonTypeInfo.Id.CLASS, null);
+        resolver.inclusion(JsonTypeInfo.As.PROPERTY);
+        resolver.typeProperty("__t");
+        mapper.setDefaultTyping(resolver);
+        mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        // Serialize
+        String json = mapper.writeValueAsString(mapData);
+        System.out.println("json = " + json);
+
+        // Deserialize
+        Map deserializedData = mapper.readValue(json, Map.class);
+    }
+
+    static class Data {
+
+        public long key;
+    }
+}
+```
+
+I get this output and exception
+
+``` java
+json = {
+  "__t" : "java.util.HashMap",
+  "longInMap" : [ "java.lang.Long", 2 ],
+  "longAsField" : {
+    "__t" : "com.pinkmatter.bean.serialization.Main$Data",
+    "key" : [ "java.lang.Long", 1 ]
+  }
+}
+Exception in thread "main" com.fasterxml.jackson.databind.JsonMappingException: Class java.lang.Long not subtype of [simple type, class long] (through reference chain: java.util.HashMap["longAsField"]->com.pinkmatter.bean.serialization.Data["key"])
+  at com.fasterxml.jackson.databind.JsonMappingException.wrapWithPath(JsonMappingException.java:379)
+  at com.fasterxml.jackson.databind.JsonMappingException.wrapWithPath(JsonMappingException.java:339)
+  at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.wrapAndThrow(BeanDeserializerBase.java:1591)
+  at com.fasterxml.jackson.databind.deser.BeanDeserializer.vanillaDeserialize(BeanDeserializer.java:278)
+  ...
+Caused by: java.lang.IllegalArgumentException: Class java.lang.Long not subtype of [simple type, class long]
+  at com.fasterxml.jackson.databind.type.TypeFactory.constructSpecializedType(TypeFactory.java:359)
+  at com.fasterxml.jackson.databind.jsontype.impl.ClassNameIdResolver._typeFromId(ClassNameIdResolver.java:72)
+  at com.fasterxml.jackson.databind.jsontype.impl.ClassNameIdResolver.typeFromId(ClassNameIdResolver.java:42)
+  ...
+```
+
+I am trying to serialize a bunch of basic plain old java objects from libraries we are using (so we cannot modify the classes or add annotations), while also trying to preserve the types of values in collections ("longInMap" in the above example must stay a Long object).
+
+The problem is that Jackson throws the above exception when trying to deserialize the primitive `public long key` in the `Data` class. If I change the type to `public int key` then no exception is thrown and deserialization works.
+
+Also, since there are many different types of objects and I don't know at compile time exactly what will be serialized I don't think using mix-ins will work.
+
+I am using Jackson 2.8.3.
+
+
+Comment:
+@UghZan3 Quick fix is to change field type to be `Long` (wrapper type), instead of primitive `long`.
+I am not yet sure how mechanics work here, and I hope there is a way to handle this. But in the meantime, work-around should be useful.
+
+As to why `int` works: I suspect this actually is related to "natural type" handling, so it's a special case, along with a small number of types (`double`, `boolean` and `String` being others).
+
+
+Comment:
+Ok, actually this is not a bug in Jackson but one in usage of `StdTypeResolverBuilder`. Problem is that if you directly use it, it will try to add type information for literally every property; and while this works ok for many types, it does not work for primitives (because of discrepancy between primitives and wrapper types, during Reflection processing). If you look at `DefaultTypeResolverBuilder` (defined as inner class of `ObjectMapper`) you can see how inclusion constraining is handled.
+So if you don't want to change field type, you will want to add a check like:
+
+```
+ If (baseType.isPrimitive()) {
+   return null;
+}
+```
+
+in `buildTypeSerializer()` and `buildTypeDeserializer()`; this requires sub-classing it.
+Or, you might want be able to just use `DefaultTypeResolverBuilder`.
+
+
+Comment:
+I was able to make a change that prevents use of type info for all primitive types, since I don't see any benefit from allowing it. An alternative would be to always use type info for matching wrapper.
+I suspect this only affects uses like here, where `StdTypeResolverBuilder` is directly used.
+
+Anyway, with 2.8.4 code should work even without modifications.
+
+
+Comment:
+@cowtowncoder  I am very grateful for your fast solution to this issue. It has held me back in a certain avenue of my work for some days now. I will buy you a beer if I ever see you. Thanks.
+
+
+Comment:
+@UghZan3 Glad to be of service! And thank you for reporting this, one less bug for anyone to stumble upon.
+
+
+Comment:
+I am facing similar issue using the jackson-databind-2.8.8 with date fields. Could you please help me on this 
+
+Class java.util.GregorianCalendar not subtype of [simple type, class javax.xml.datatype.XMLGregorianCalendar]
+
+Comment:
+@MadhuMalluri Please file separate issue; this may or may not be related, and a reproduction will be needed.
+
+Comment:
+This fix breaks a use case in which a field should to be serialised as a boxed primitive. If I modify the test given by @antantantan slightly to include some additional annotations, including a `@JsonSubTypes.Type` annotation, the test fails to box the serialised value.
+
+The problem is solved by reverting this commit, I have tested on 2.8.4 and 2.11.0 with the reverted commit and can confirm my test case passes. Would it be possible to solve my issue, without reverting the current fix?
+
+```java
+package com.fasterxml.jackson.databind.jsontype;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.jsontype.impl.StdTypeResolverBuilder;
+import org.junit.Ignore;
+import java.util.*;
+
+// [databind#1395]: prevent attempts at including type info for primitives
+public class DefaultTypingWithPrimitivesTest extends BaseMapTest
+{
+    static class Data {
+
+        private long key;
+
+        @JsonCreator
+        private Data(@JsonProperty("key") Long key) {
+            this.key = key;
+        }
+
+        @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "@class")
+        @JsonSubTypes.Type(value = Long.class)
+        public long key() {
+            return key;
+        }
+    }
+
+    @Ignore
+    public void testDefaultTypingWithLong() throws Exception
+    {
+        Data data = new Data(1L);
+        Map<String, Object> mapData = new HashMap<String, Object>();
+        mapData.put("longInMap", 2L);
+        mapData.put("longAsField", data);
+
+        // Configure Jackson to preserve types
+        ObjectMapper mapper = new ObjectMapper();
+        StdTypeResolverBuilder resolver = new StdTypeResolverBuilder();
+        resolver.init(JsonTypeInfo.Id.CLASS, null);
+        resolver.inclusion(JsonTypeInfo.As.PROPERTY);
+        resolver.typeProperty("__t");
+        mapper.setDefaultTyping(resolver);
+        mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        // Serialize
+        String json = mapper.writeValueAsString(mapData);
+
+        // Deserialize
+        Map<?,?> result = mapper.readValue(json, Map.class);
+        assertNotNull(result);
+        assertEquals(2, result.size());
+    }
+}
+```
+
+```
+com.fasterxml.jackson.databind.exc.MismatchedInputException: Unexpected token (VALUE_NUMBER_INT), expected START_ARRAY: need JSON Array to contain As.WRAPPER_ARRAY type information for class java.lang.Long
+ at [Source: (String)"{
+  "__t" : "java.util.HashMap",
+  "longInMap" : [ "java.lang.Long", 2 ],
+  "longAsField" : {
+    "__t" : "com.fasterxml.jackson.databind.jsontype.DefaultTypingWithPrimitivesTest$Data",
+    "key" : 1
+  }
+}"; line: 6, column: 13] (through reference chain: java.util.HashMap["longAsField"]->com.fasterxml.jackson.databind.jsontype.DefaultTypingWithPrimitivesTest$Data["key"])
+```

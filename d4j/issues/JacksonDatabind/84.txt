@@ -1,0 +1,47 @@
+Title: Missing properties from base class when recursive types are involved.
+
+Body:
+When a type hierarchy as follows is constructed and the base class' type is constructed first by the TypeFactory then serializing the sub class fails due to missing properties from the base class.
+
+```
+class Base implements IFace<Sub> { @JsonProperty int base = 1 }
+class Sub { @JsonProperty int sub = 2 }
+interface IFace<T> {}
+```
+
+Serializes sub as `{"sub":2}` where `{"base":1,"sub":2}` is expected.
+
+I've created a minimal scenario of this bug here: https://github.com/slobo-showbie/jackson-recursive-type-bug
+I've experienced this bug in 2.7.8, 2.8.8, and 2.8.8.1
+
+Comment:
+The reason the `Base`'s fields are not serialized is that `AnnotatedClass#_findFields` does not return the fields from `Base`. Now, `_findFields` makes the assumption that if a class has no super class then it must be an Object or Interface (their fields are not to be returned). In order for `_findFields` to work the `JavaType` for `Sub` must be `SimpleType` and for `Base` also `SimpleType`. However in this case `Sub` is still a `SimpleType` but `Base` is a `ResolvedRecursiveType`; `ResolvedRecursiveType` does not return a super class, so `Base`'s fields are ignored by `_findFields`.
+
+The reason `Base` is a `ResolvedRecursiveType` is because of `TypeFactory`'s cache. Consider:
+```
+1.   typeFactory.constructType(Base.class); // caches the type for Sub.class
+2.   typeFactory.constructType(Sub.class); // returns from the cache
+```
+On line 1 constructType performs a recursive traversal like this:
+```
+Base(SimpleType) -> IFace<Sub>(?) -> Sub(SimpleType) -> Base(ResolvedRecursiveType)
+```
+The second time `Base` is reached a `ResolvedRecursiveType` is generated rather than a `SimpleType`. However, also the intermediate types are cached, so the cached result returned by line 2 is
+```
+Sub(SimpleType) with superclass = Base(ResolvedRecursiveType)
+```
+However if only line 2 is called without line 1, then the following would have been returned
+```
+Sub(SimpleType) with superclass = Base(SimpleType)
+```
+
+
+Comment:
+Excellent detective work! 
+
+Comment:
+Spent the better part of today debugging odd JsonSerializer caches. Drilled down to this issue after rage-binary-chop-upgrading jackson until unit tests were green.
+
++1000 For this!
+
+Thanks!

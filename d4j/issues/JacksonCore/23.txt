@@ -1,0 +1,10 @@
+Title: Make `DefaultPrettyPrinter.createInstance()` to fail for sub-classes
+
+Body:
+Pattern of "blueprint object" (that is, having an instance not used as-is, but that has factory method for creating actual instance) is used by Jackson in couple of places; often for things that implement `Instantiatable`. But one problem is that unless method is left abstract, sub-classing can be problematic -- if sub-class does not override method, then calls will result in an instance of wrong type being created.
+
+And this is what can easily happen with `DefaultPrettyPrinter`.
+
+A simple solution is for base class to make explicit that if base implementation is called, then instance can not be a sub-class (that is, it is only legal to call on `DefaultPrettyPrinter`, but no sub-class). This is not optimal (ideally check would be done compile-time), but better than getting a mysterious failure.
+
+

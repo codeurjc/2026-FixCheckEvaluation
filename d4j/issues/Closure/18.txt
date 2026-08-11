@@ -1,0 +1,44 @@
+Summary: Dependency sorting with closurePass set to false no longer works.
+
+Description:
+<b>What steps will reproduce the problem?</b>
+
+1. Instantiate new instance of Compiler
+
+2. Set closurePass to false to prevent goog.require/goog.provide removal.
+compilerOptions.setClosurePass(false);
+
+3. Turn dependency sorting on.
+DependencyOptions dependencyOptions = new DependencyOptions();
+dependencyOptions.setDependencySorting(true);
+
+4. Compile js code
+
+
+What is the expected output? 
+Dependent files should be sorted and concatenated in their dependent order.
+
+What do you see instead?
+Dependent files are not sorted.
+
+<b>What version of the product are you using? On what operating system?</b>
+&gt; r1824
+mac OS 10.7
+
+
+<b>Please provide any additional information below.</b>
+This worked in the r1810 release. However, it looks like this was changed in r1824. The compiler now expects closurePass to be true for dependency sorting to work.
+http://code.google.com/p/closure-compiler/source/detail?path=/trunk/src/com/google/javascript/jscomp/Compiler.java&amp;r=1824
+
+What we are looking for is a way to sort dependencies and concatenate all files in their dependent order without removing the goog.require/goog.provide js calls. Turning closurePass to true causes the goog calls to be replaced. We use this methodology in local development to test our JS code.
+
+Thanks!
+
+Comment:
+seems reasonable to me.
+
+Comment:
+This issue was closed by revision r2073.
+
+Comment:
+Awesome! Thanks a bunch Nick!

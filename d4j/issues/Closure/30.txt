@@ -1,0 +1,165 @@
+Summary: Combining temporary strings are over-optimized in advanced build
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. This bug only manifests itself in large code bases. How large, and what the specifics are, I haven't yet worked out, since the output differs. But the principle code is:
+
+sgxColorRGBA.prototype.asHex = function() {
+	var hexString = &quot;&quot;;
+	
+	str = (sgxFloor(this.r*255)).toString(16);
+	if (str.length &lt; 2) { str = &quot;0&quot;+str; }
+	hexString += str;
+
+	str = (sgxFloor(this.g*255)).toString(16);
+	if (str.length &lt; 2) { str = &quot;0&quot;+str; }
+	hexString += str;
+
+	str = (sgxFloor(this.b*255)).toString(16);
+	if (str.length &lt; 2) { str = &quot;0&quot;+str; }
+	hexString += str;
+
+	str = (sgxFloor(this.a*255)).toString(16);
+	if (str.length &lt; 2) { str = &quot;0&quot;+str; }
+	hexString += str;
+
+	return hexString;
+}
+
+Note that 'str' is not declared as var.
+
+<b>What is the expected output? What do you see instead?</b>
+I see this:
+sgxColorRGBA.prototype.pb = function() {
+  str = A(255 * this.A).toString(16);
+  2 &gt; str.length &amp;&amp; (str = &quot;0&quot; + str);
+  str = A(255 * this.w).toString(16);
+  2 &gt; str.length &amp;&amp; (str = &quot;0&quot; + str);
+  str = A(255 * this.s).toString(16);
+  2 &gt; str.length &amp;&amp; (str = &quot;0&quot; + str);
+  str = A(255 * this.r).toString(16);
+  2 &gt; str.length &amp;&amp; (str = &quot;0&quot; + str);
+  return&quot;&quot; + str + str + str + str
+};
+
+Obviously, repeatedly adding 'str' is broken in the final line, compared to the original. So whatever is aggregating the result is seeing a temporary 'str' reference and combining it, I guess. If 'str' is declared as var, the problem goes away.
+
+I'd expect a warning, at least.
+
+<b>What version of the product are you using? On what operating system?</b>
+
+Live at http://closure-compiler.appspot.com
+
+<b>Please provide any additional information below.</b>
+
+As a stand-alone method, both 'var str' and 'str' works. It's only when the project hits a certain (undetermined) size that it fails.
+
+Comment:
+I entered your code into the compiler, but was not able to reproduce the issue. are you sure that's the code you're using?
+
+Comment:
+It is the same code, but as I say in the comments section - it only happens when the project hits a certain (undetermined) size that it fails. I haven't determined how much (of my current 6KLOC project) I need to include, to repro.
+
+Issue 699 appears to have similar traits and might be connected.
+
+Comment:
+Honest question: what would you like us to do with this bug?
+
+Suppose we fixed a bug in the compiler tomorrow that looked similar. We would have no way of testing if this is the same bug, because we currently don't have enough information to reproduce the issue and verify it. So it's unclear to me what you would like us to do.
+
+I'm confused by your reference to issue 699, which is expected behavior and seems totally unrelated.
+
+Comment:
+(would you be comfortable sending me better repro steps over email if i agreed not to share the original code with anyone?)
+
+Comment:
+Two-fold answer: Firstly as a note that a warning should probably be visible, that if you re-use a string variable  - without declaring it as var - its result is liable to get inlined and optimised out.
+
+Secondly, as a note for storing in the back of ones mind, so that anyone working on the collapsing strings routines might spot something in the code base that's wrong. (I'm following the bug, so would be able to re-test at that time, since I can't share the whole code base.)
+
+Comment:
+p.s. apologies for the 699 ref. I saw a collapsed string and jumped to the wrong conclusion.
+
+Comment:
+So I wrote those comments last night, but hadn't hit send :( I've since had a chance to prune down 6KLOC to 45. As below:
+
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// @formatting pretty_print
+// ==/ClosureCompiler==
+
+/**
+* @constructor
+*/
+sgxColorRGBA = function(r,g,b,a) {
+	this.r = (r==undefined?1:r);
+	this.g = (g==undefined?1:g);
+	this.b = (b==undefined?1:b);
+	this.a = (a==undefined?1:a);
+}
+
+
+sgxColorRGBA.prototype.asHex = function() {
+	var hexString = "";
+	
+	str = (Math.floor(this.r*255)).toString(16);
+	if (str.length < 2) { str = "0"+str; }
+	hexString += str;
+
+	str = (Math.floor(this.g*255)).toString(16);
+	if (str.length < 2) { str = "0"+str; }
+	hexString += str;
+
+	str = (Math.floor(this.b*255)).toString(16);
+	if (str.length < 2) { str = "0"+str; }
+	hexString += str;
+
+	str = (Math.floor(this.a*255)).toString(16);
+	if (str.length < 2) { str = "0"+str; }
+	hexString += str;
+
+	return hexString;
+}
+
+
+var col = new sgxColorRGBA(0.2,0.3,0.4,1);
+alert(col.asHex());
+
+var col2 = new sgxColorRGBA(0.3,0.4,0.5,1);
+alert(col2.asHex());
+
+
+It's the second sgxColorRGBA invocation that triggers the bug. With only one, the crux is:
+
+str = Math.floor(255 * b.d).toString(16);
+2 > str.length && (str = "0" + str);
+c += str;
+
+With both, you get:
+
+  str = Math.floor(255 * a.d).toString(16);
+  2 > str.length && (str = "0" + str);
+[note no c += str; here]
+
+sgxFloor is/was a direct call to Math.floor and had no change on the results.
+
+Hope this is better :)
+
+Comment:
+I suspect it is either the variable inliner or the variable name coalesceing.
+
+Comment:
+The problem goes away if you declare the str variable locally:
+
+*var* str = (Math.floor(this.r*255)).toString(16);
+
+My guess is within Google, every undeclared string flags a compiler error. Some of passes assumes that is always the case.
+
+I am doing a binary search to see who's at fault but this should work you around the problem for now.
+
+Comment:
+@alan- feel free to assign to me if you're swamped with too much work right now.
+
+Comment:
+This issue was closed by revision r1902.

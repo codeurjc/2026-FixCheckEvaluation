@@ -1,0 +1,40 @@
+Summary: Lost a JSC_USED_GLOBAL_THIS warning in 0616 release vs 0514
+
+Description:
+<b>What steps will reproduce the problem?</b>
+//------------------
+// should warn &quot;JSC_USED_GLOBAL_THIS: dangerous use of the global this object&quot; in both methods
+// none of these warns in 0616 release
+var NS = {
+	read: function()
+	{
+		return this.foo; // does not warn in 0514 release
+	},
+
+	write: function()
+	{
+		this.foo = 123; // warns in 0514 release
+	}
+};
+
+// only the non-inline notation warns in 0616 release
+NS.write2 = function()
+{
+	this.foo = 123;
+};
+
+//-----------------------
+<b>What is the expected output? What do you see instead?</b>
+Since the 0514 release warned in in the &quot;write&quot; case above I would expect the 0616 to also report this. 
+
+<b>What version of the product are you using? On what operating system?</b>
+As said above, 20100514 and 20100616 releases.
+
+<b>Please provide any additional information below.</b>
+I understand that the status is that inline-notation isn't preferred, though I wouldn't expect a previous, correct, warning to disappear. (Since I reported issue #144 I'm also aware of the previous limitation in global this).
+
+Comment:
+Nick you were working on the heuristic for this lately, did you have a comment on this?
+
+Comment:
+This issue was closed by revision r270.

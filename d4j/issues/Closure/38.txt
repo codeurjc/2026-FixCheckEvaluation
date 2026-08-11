@@ -1,0 +1,26 @@
+Summary: Identifier minus a negative number needs a space between the "-"s
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile the attached file with      java -jar build/compiler.jar --compilation_level ADVANCED_OPTIMIZATIONS --js bulletfail.js --js_output_file cc.js
+2. Try to run the file in a JS engine, for example           node cc.js
+
+<b>What is the expected output? What do you see instead?</b>
+
+The file does not parse properly, because it contains
+
+  g--0.0
+
+This is subtraction of a negative number, but it looks like JS engines interpret it as decrementing g, and then fail to parse the 0.0. (g- -0.0, with a space, would parse ok.)
+
+<b>What version of the product are you using? On what operating system?</b>
+
+Trunk closure compiler on Ubuntu
+
+<b>Please provide any additional information below.</b>
+
+Comment:
+thanks for the report. i see the problem.
+
+Comment:
+This issue was closed by revision r1775.

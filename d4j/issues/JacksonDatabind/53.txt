@@ -1,0 +1,177 @@
+Title: Problem with type specialization for Maps with `@JsonDeserialize(as=subtype)`
+
+Body:
+If I have json that looks like
+
+```
+{
+  "something": [
+        {
+           "id": "a uuid",
+           "property": "value"
+         }
+  ]
+}
+```
+
+And I have a java pojo with an annotation like this:
+
+```
+    @JsonDeserialize(as = MyHashMap.class)
+    private void setSomething(Map<UUID, Foo> incomingValue) {
+```
+
+Where MyHashMap.java has some custom logic using generics that allow us to map the array json above into a Map where "id" is the key and everything else serializes into the value.  We use generics on MyHashMap to enforce that every value implements a certain interface that respects the contract of returning an "id" property.  In this example Foo.java implements this interface MyCustomIdInterface.java.
+
+When using 2.6.6 this worked fine, but if I switch to 2.7.x then it breaks with the error:
+
+`Can not construct instance of MyCustomIdInterface, problem: abstract types either need to be mapped to concrete types, have custom deserializer, or be instantiated with additional type information`
+
+in 2.7.x, it looks like jackson resolves to using AbstractDeserializer based on MyCustomIdInterface but in 2.6.6 it resolves to using BeanDeserializer based on Foo.java.
+
+Is this a bug or is there some default/feature flag that changed here?
+
+
+Comment:
+I think this is one of bugs fixed (#1186) for 2.7.4, so I think this will be resolved with 2.7.4.
+
+If so, the problem was that generic type parameters were not being properly resolved when creating specialized subtype: `MyHashMap` would be taken as `MyHashMap<Object,Object>`, despite `Map` having type parameters.
+
+The only thing to make sure is that you declare `MyHashMap` as generic, something like:
+
+```
+public class MyHashMap<K,V> extends HashMap<K,V> { ... } 
+// or whatever base type it is
+```
+
+because otherwise type resolution can not properly propagate variable substitutions (earlier versions did not care; they forcible set parameters regardless -- but this is not possible any more).
+
+I don't know if it's possible for you to check 2.7.4-SNAPSHOT to verify, but I am fairly confident this is the root cause.
+
+
+Comment:
+Ya, I can easily check that out. I'll repost what I find. Thanks for the quick response. 
+
+
+Comment:
+So I built the 2.7 branch of jackson-core and jackson-databind locally and updated my test project to use 2.7.4-SNAPSHOT and it doesn't fix the problem.
+
+I'll see if there's more investigation I can do and maybe create a unit test that fails within this project.  I'm not sure how possible that will be because it uses annotations in my project but I can give it a try.
+
+
+Comment:
+Also, it appears like the issue is still present in master 2.8.0-SNAPSHOT as well.
+
+
+Comment:
+@brentryan thank you for checking this. Too bad problem is not fixed. I'll try to figure it out, probably tomorrow. Any help in diagnosing appreciated. But I thnik information you gave should be sufficient if I need to write a test.
+
+
+Comment:
+Ok, re-reading the description in more detail I think a reproduction is needed. It is quite possible that what happens here is more complex than previously added cases of how to specialize type parameters -- before 2.7, handling was much simpler and more naive, which has its problems as well as benefits.
+
+
+Comment:
+I'll setup a mini project with an example that reproduces the issue.  Probably easier since it combines a few jackson libraries that aren't part of just 1 so unit tests are harder.
+
+
+Comment:
+@brentryan sounds good, thank you in advance.
+
+
+Comment:
+[JacksonTest.zip](https://github.com/FasterXML/jackson-databind/files/243419/JacksonTest.zip)
+
+@cowtowncoder Here's an example project that shows it failing.  Change the version to 2.6.6 and you'll see it work, while 2.7.3 fails.
+
+
+Comment:
+@brentryan Thank you; I can reproduce this locally, and have a lead to follow.
+It is somehow due to using wrong part of type information, possibly not due to refinement (which appears to work just fine), but rather due to some part of code looking at method/field signature and not refined type.
+
+
+Comment:
+@brentryan Ah. Actually, no, I think that the code as is can not work properly, and the reason Jackson 2.6 worked with it was due to a (lucky) flaw.
+
+The problem is as follows: class `MyHashMap` is defined as:
+
+``` java
+class MyHashMap<K, V extends HasUniqueId<K>>
+    extends LinkedHashMap<K, V>
+    implements AnotherMap<K, V> {
+...
+}
+```
+
+which is fine as is, setting bounds. But the creator method is static:
+
+``` java
+    @JsonCreator
+    public static <K, V extends HasUniqueId<K>> MyHashMap<K, V> fromArray(V[] values) {
+    }
+```
+
+and type variables `K` and `V` are NOT the same as those in class declaration: they can not be, as method is `static`; static methods can not refer to type parameters of declaring class (if they could, you would not need to declare them locally, after all).
+
+Because of this, method only has bound of `extends HasUniqueId` and can not refer to type `Item` that would be needed.
+
+So why did this work with Jackson 2.6? Because Jackson type resolution got fooled by declarations and assumed `K` and `V` from class declaration are valid. But luckily for this case, it worked out in the end.
+
+
+Comment:
+Oh. So how to fix the code to work? Well, ideally you would be able to choose local types for creator method to work properly, so that instead of base of abstract `HasUniqueId`, value is of type `Item`.
+I couldn't get that to work with simple mechanism, but I did get following variant to pass test:
+
+``` java
+    @JsonCreator
+    public static <K, V extends HasUniqueId<K>> MyHashMap<K, V> fromArray(Item[] values) {
+        MyHashMap<K, V> map = new MyHashMap<>();
+        for (int i = 0; i < values.length; i++) {
+            Item v = values[i];
+            if (v.getId() == null) {
+                throw new RuntimeException("Failed to get id");
+            }
+            if (map.containsKey(v.getId())) {
+                throw new RuntimeException("Conflict on id");
+            }
+            map.put((K) v.getId(), (V) v);
+        }
+        return map;
+    }
+```
+
+it's bit nasty what with forced casts, and has to hard-code `Item` in signature. But there isn't much more you can do with static methods, as they can not vary by instance type. You could, however, define actual constructor, as constructors are member methods and are able to access type parameters just fine. That might be much better solution. Following _should_ work:
+
+``` java
+    @JsonCreator(mode=JsonCreator.Mode.DELEGATING) // probably fine without mod too
+    public MyHashMap(V[] values) {
+        for (int i = 0; i < values.length; i++) {
+            V v = values[i];
+            if (v.getId() == null) {
+                throw new RuntimeException("Failed to get id");
+            }
+            if (containsKey(v.getId())) {
+                throw new RuntimeException("Conflict on id");
+            }
+            put(v.getId(), v);
+        }
+    }
+```
+
+but seems to have some issues, unlike static version above. I'll see if I can work around this issue.
+
+
+Comment:
+Ok. So there definitely is an issue with constructors for this case, so I will leave this issue open for that part. I modified the test case appropriately as well. After spending some time on this, I do think it is related to type refinements; will see if this can be fixed for 2.7.5, or only 2.8.
+
+
+Comment:
+@cowtowncoder I haven't tried yet, but was this issue covered in 2.7.5 or 2.8 latest?
+
+
+Comment:
+@brentryan issue with constructor type mismatch is not yet resolved, as per test; failing test is included to allow reproduction.
+
+
+Comment:
+Odd: first looked like generic type specialization problem; but turns out that `TypeFactory` DOES give correct answer, but somewhere down the line type is more or less forgotten. WIll need to follow deeper.

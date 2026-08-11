@@ -1,0 +1,45 @@
+Title: Fixed a regression in Gson 2.6 where Gson caused NPE if the TypeAdapt…
+
+Body:
+…erFactory.create() returned null.
+
+
+Comment:
+I would like to cut Gson 2.6.2 with this change. Let me know if you have any concerns @swankjesse and @JakeWharton 
+
+
+Comment:
+Fix looks reasonable but the test case looks like you just pulled it from another codebase. Could you write a targeted test case instead?
+
+
+Comment:
+Done, take another look.
+
+
+Comment:
+I still don’t really understand this test. Would end users use ThreadLocals ?
+
+
+Comment:
+@swankjesse  This is production code written by me for a specific use-case.
+I was interacting with a REST service that, unfortunately, stored JSON as s String in a field. To support that with JSON, I wrote this adapter class. I didn't start with ThreadLocals, but the recursive invocation from JsonAdapterFactory forced my hand.
+
+
+Comment:
+Rather than starting with the test you used to trigger this in your application, can you build a test case from scratch specifically to reproduce this bug?
+
+
+Comment:
+(I don't imagine that parsing JSON as a string is necessary for the fix made here.)
+
+
+Comment:
+Erm, you shouldn't need to convert a string from JSON within another type adapter. 
+
+
+Comment:
+Ok, revised the test to eliminate string to JSON conversion.
+
+
+Comment:
+Yeah, that's more obvious. Thanks!

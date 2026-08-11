@@ -1,0 +1,27 @@
+Summary: tryFoldArrayAccess does not check for side effects
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile the following program with simple or advanced optimization:
+console.log([console.log('hello, '), 'world!'][1]);
+
+<b>What is the expected output? What do you see instead?</b>
+The expected output would preserve side effects. It would not transform the program at all or transform it into:
+
+console.log((console.log(&quot;hello&quot;), &quot;world!&quot;));
+
+Instead, the program is transformed into:
+
+console.log(&quot;world!&quot;);
+
+<b>What version of the product are you using? On what operating system?</b>
+Revision 2022. Ubuntu 12.04.
+
+<b>Please provide any additional information below.</b>
+tryFoldArrayAccess in com.google.javascript.jscomp.PeepholeFoldConstants should check whether   every array element that is not going to be preserved has no side effects.
+
+Comment:
+thanks!
+
+Comment:
+This issue was closed by revision r2030.

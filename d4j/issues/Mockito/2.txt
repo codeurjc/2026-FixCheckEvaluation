@@ -1,0 +1,42 @@
+Title: Mockito.after() method accepts negative timeperiods and subsequent verifications always pass
+
+Body:
+e.g.
+
+```
+Runnable runnable = Mockito.mock(Runnable.class);
+Mockito.verify(runnable, Mockito.never()).run(); // passes as expected
+Mockito.verify(runnable, Mockito.after(1000).never()).run(); // passes as expected
+Mockito.verify(runnable, Mockito.after(-1000).atLeastOnce()).run(); // passes incorrectly
+```
+
+
+Comment:
+Well spotted, thx
+
+
+Comment:
+I can try to fix that, but need to know what exactly is the issue here:
+Should negative values in after method be forbidden and trigger exception to be thrown? or maybe negatives are allowed here (negative value means - immediately, pretty much it should behave like after(0) )?
+
+
+Comment:
+I would vote for an IllegalArgumentException being thrown.
+
+
+Comment:
+The same is happening for _timeout_ method:
+e.g. 
+
+```
+       SomeClazz mock = Mockito.mock(SomeClazz.class);
+       Mockito.verify(mock, timeout(-100)).someMethod(); //passes, which is incorrect
+```
+
+If method was invoked, then it passes, but this negative timeout is at least confusing:
+
+```
+        SomeClazz mock = Mockito.mock(SomeClazz.class);
+        mock.someMethod();
+        Mockito.verify(mock, timeout(-100)).someMethod(); //passes
+```

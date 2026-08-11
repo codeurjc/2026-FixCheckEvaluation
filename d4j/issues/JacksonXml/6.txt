@@ -1,0 +1,21 @@
+Title: Add support for `writeBinary()` with `InputStream` to `ToXMLGenerator`
+
+Body:
+The regular `UTF8JSONGenerator` has a method:
+
+```
+writeBinary(Base64Variant b64variant, InputStream data, int dataLength)
+```
+
+That supports reading an InputStream, converting the binary stream to Base64, and directly writing to the content output. Thereby saving some memory by not having to load the entire stream's content into memory all at once.
+
+However, `ToXmlGenerator` does not implement this method. It only implements a writeBinary overload that takes an already existing `byte[]`.
+
+I first [reported this issue](https://groups.google.com/forum/#!topic/jackson-user/rZ8UwvXtArM) on the jackson-user google group, and @cowtowncoder suggested I open an issue on GitHub.
+
+Comment:
+I just came across the same issue because my object serialization was working only under some circumstances, e.g. if the ByteBuffer has an underlying array to read from. If not, due to the implementation of the [ByteBufferSerializer](https://github.com/FasterXML/jackson-databind/commit/44ac79f3447cf5816b370ee0ffe57b40af6c1e6f), the serializer falls back to the stream writer method which is apparently not supported. o.O
+Would be glad to have at least one working implementation - even if it's caching the whole data first in a byte[] before writing.
+
+Comment:
+Ah shoot. I missed this one for 2.9.7.

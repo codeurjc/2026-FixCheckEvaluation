@@ -1,0 +1,101 @@
+Summary: Only assignment to "this" issues a "dangerous use of the global this object" warning.
+
+Description:
+<b>What steps will reproduce the problem?</b>
+1. Compile this:
+//////////////////////////////////////////
+// ==ClosureCompiler==
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// @output_file_name default.js
+// ==/ClosureCompiler==
+
+/** @constructor */
+function Foo()
+{
+    this._bar = null;
+};
+
+/** @this {Foo} */
+function writeMethodWithAnnotation()
+{
+   this._bar = 123; // no warning. ok
+}
+
+/** @this {Foo} */
+function readMethodWithAnnotation()
+{
+   return this._bar; // no warning. ok
+}
+
+//----
+
+function writeMethodWithoutAnnotation()
+{
+   this._bar = 123; // warning. ok.
+}
+
+function readMethodWithoutAnnotation()
+{
+   return this._bar; // &lt;- No warning!
+}
+//////////////////////////////////////////
+
+<b>What is the expected output? What do you see instead?</b>
+- Should get two &quot;dangerous use of the global this object&quot; warnings in the 
+readMethodWithAnnotation and writeMethodWithoutAnnotation functions.
+- Only writeMethodWithoutAnnotation warns.
+
+<b>What version of the product are you using? On what operating system?</b>
+Both 20100330 and online compiler.
+
+<b>Please provide any additional information below.</b>
+ref: http://code.google.com/closure/compiler/docs/js-for-compiler.html 
+&quot;To prevent compiler warnings, you must use a @this annotation whenever 
+this appears in a function that is neither a prototype method nor a 
+function marked as a @constructor.&quot;
+
+This also means the example code in the docs won't trig a warning.
+-----
+/**
+ * Returns the roster widget element.
+ * @this {Widget} &lt;-- currently this doesn't matter
+ * @return {Element}
+ */
+function() {
+  return this.getComponent().getElement();
+});
+------
+
+// Fredrik
+
+Comment:
+thanks for the report. i think this may have been deliberate, but i don't remember why 
+at the moment. it seems wrong now that you mention it. i'll take a look and report 
+back.
+
+Comment:
+Great. Worth noting might be that the title is slightly misleading, it isn't actually 
+restricted to direct assignment to "this". Rather anything that "looks like" assignment 
+with "this" appearing in the LHS triggers the warning. 
+
+function test()
+{
+   // multi-level test
+   this.asdf().asdf().x = 123; // warns. ok
+   return this.asdf().asdf().x; // No warning (similar to the widget example in docs)
+}
+
+Comment:
+the problem is that we *do* want to allow things like:
+
+function createGetter() {
+  return function() { return this; };
+}
+
+without special annotation.
+
+i think the new heuristic should probably be something like "warn if a property of 
+this is being assigned or accessed"
+
+Comment:
+fixed in r234

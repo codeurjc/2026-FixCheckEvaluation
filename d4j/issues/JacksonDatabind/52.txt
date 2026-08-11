@@ -1,0 +1,142 @@
+Title: External property is not deserialized
+
+Body:
+I think it's easier to show the code than explain the issue, so i prepared a test project:
+https://github.com/crew4ok/jackson-databind-test
+
+So basically the issue is that the external property, by which another's property type is deduced, after deserialization is null.
+See the failing test:
+https://github.com/crew4ok/jackson-databind-test/blob/master/src/test/java/jackson/ExternalIdDeserTest.java
+
+Am i missing something?
+
+
+Comment:
+The problem is that by default Jackson considers type information metadata, which is not exposed to serializer or deserializer, but handled by itself. This simplifies handling for most cases.
+But if you do want type id exposed you can add property `visible=true` in `@JsonTypeInfo`, and it should get deserialized.
+
+Another potential problem with code is the use of generic root value (with type parameter), but not using `TypeReference`. Java type erasure will mean that type is only known as `MessageWrapper<?>` by Jackson (there is no runtime generic type information available, JVM does not have that, which may cause issues.
+Instead of class, it would be better to use something like:
+
+```
+mapper.readValue(source, new TypeReference<MessageWrapper< ChatMessage>() { });
+```
+
+which would pass paramaterization.
+
+
+Comment:
+I want `messageType` field to be explicitly defined in the class, because potentially the message can be serialized not only by jackson.
+
+Unfortunately neither adding `visible=true` nor explicit type information helped me, message type is still null.
+
+Edit: I added your proposed fixes to the repo, the link to the commit:
+https://github.com/crew4ok/jackson-databind-test/commit/61dda3037cb7fd9d5fc03c563f8c98416ccbfb7a
+
+
+Comment:
+Odd. `visible` should do it. Perhaps there is an issue with external id, as opposed to other type id inclusion mechanism.
+
+
+Comment:
+Actually, I suspect the problem may be with use of constructor, as opposed to field or setter. Test case should help figure out what is going on.
+You could try removing use of constructor just to see whether that is the issue.
+
+
+Comment:
+@cowtowncoder yep, using setters instead of constructor did the trick.
+
+However, it seems to me that external properties should be usable with constructors too, shouldn't they? Is it a bug?
+
+
+Comment:
+@crew4ok Ideally, yes, that should work. It can be considered a bug, although my concern is that it could also become an implementation imposed limit, constraint. It is a flaw at this point I think.
+
+The challenge, technically, is that use of constructors is complicated (compared to using setters/fields of an object) due to additional buffering: instead of being able to recursively deserialize values, one by one, it is often necessary to buffer everything that is passed via constructor, until actual type is found, to know what to construct, how.
+Use of external ids is itself a complicated process when type id is found from different place than where it would sort of naturally belong, and also requiring buffering. And even polymorphic type handling is tricky, since handling on deserialization goes from base type to subtype, locating handlers and so forth.
+
+So: yes, looks like a bug. But not something that is necessarily simple to resolve.
+
+
+Comment:
+@cowtowncoder i see, things are complicated and i should not rely on soon resolution of the bug...
+
+Anyway, thanks for the clarifying the issue a bit.
+
+
+Comment:
+I was just about to file the same issue. FWIW, I have created a self-contained test class which may be a bit easier to play with than @oleksandr-oksenenko’s test project:
+
+``` java
+import java.io.IOException;
+import java.util.Objects;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class JacksonTest {
+
+    public static interface Payload { }
+
+    @JsonTypeName("foo")
+    public static class FooPayload implements Payload { }
+
+    @JsonTypeName("bar")
+    public static class BarPayload implements Payload { }
+
+    public static class Message<P extends Payload> {
+
+        private final String type;
+        @JsonTypeInfo(visible = true, use = JsonTypeInfo.Id.NAME,
+                include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "type")
+        @JsonSubTypes({
+                @JsonSubTypes.Type(FooPayload.class),
+                @JsonSubTypes.Type(BarPayload.class) })
+        private final P payload;
+
+        @JsonCreator
+        public Message(@JsonProperty("type") String type,
+                @JsonProperty("payload") P payload) {
+
+            Objects.requireNonNull(type);
+            // ^-- this fails since "type" is null
+            Objects.requireNonNull(payload);
+            this.type = type;
+            this.payload = payload;
+        }
+
+        // (getters omitted here)
+    }
+
+
+    public static void main(String[] args) throws IOException {
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        Message<?> msg = objectMapper.readValue(
+                "{ \"type\": \"foo\", \"payload\": {} }",,
+                new TypeReference<Message<FooPayload>>() { });
+    }
+}
+```
+
+
+Comment:
+@cspurk Thank you for the test. Just to make sure: does this fail with 2.7.0, or just older versions?
+
+
+Comment:
+@cowtowncoder Yes, it fails with 2.7.0, too.
+
+
+Comment:
+Added the failing unit test, should help eventually resolve the issue.
+
+
+Comment:
+Finally found time to dig deep enough and figure out why things were failing, how to fix.
+Fix is unfortunately involved enough that I can't backport it in 2.7, but on plus side 2.8.0 should be released by end of June 2016 (that is, this weekend or next week).

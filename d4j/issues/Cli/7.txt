@@ -1,0 +1,21 @@
+Summary: Tests fail under 1.6 + error at end that may or may not be related
+
+Description:
+Testsuite: org.apache.commons.cli2.bug.Bug27575Test
+Tests run: 1, Failures: 1, Errors: 0, Time elapsed: 0.058 sec
+
+Testcase: testRequiredOptions(org.apache.commons.cli2.bug.Bug27575Test):        FAILED
+expected:<[-h]> but was:<-c <arg>>
+junit.framework.ComparisonFailure: expected:<[-h]> but was:<-c <arg>>
+        at org.apache.commons.cli2.bug.Bug27575Test.testRequiredOptions(Bug27575Test.java:36)
+        at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+        at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+
+
+and error at end of:
+
+Exception in thread "Thread-1" javax.xml.transform.TransformerFactoryConfigurationError: Provider for javax.xml.transform.TransformerFactory cannot be found
+        at javax.xml.transform.TransformerFactory.newInstance(Unknown Source)
+        at java.util.prefs.XmlSupport.writeDoc(XmlSupport.java:246)
+        at java.util.prefs.XmlSupport.exportMap(XmlSupport.java:333)
+        at java.util.prefs.FileSystemPreferences$8.run(FileSystemPreferences.java:607)

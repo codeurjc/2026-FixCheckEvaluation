@@ -1,0 +1,160 @@
+Title: Underlying input stream returned zero bytes
+
+Body:
+```
+Caused by org.jsoup.c: java.io.IOException: Underlying input stream returned zero bytes
+       at org.jsoup.parser.CharacterReader.bufferUp(CharacterReader.java:60)
+       at org.jsoup.parser.CharacterReader.(CharacterReader.java)
+       at org.jsoup.parser.CharacterReader.(CharacterReader.java)
+       at org.jsoup.parser.TreeBuilder.defaultSettings(TreeBuilder.java:35)
+       at org.jsoup.parser.HtmlTreeBuilder.initialiseParse(HtmlTreeBuilder.java:66)
+       at org.jsoup.parser.TreeBuilder.parse(TreeBuilder.java:44)
+       at org.jsoup.parser.Parser.parseInput(Parser.java:39)
+       at org.jsoup.helper.DataUtil.parseInputStream(DataUtil.java:151)
+       at org.jsoup.helper.HttpConnection$Response.parse(HttpConnection.java:832)
+       at org.jsoup.helper.HttpConnection.get(HttpConnection.java:289)
+```
+
+There isn't much information I can offer here.
+This is with JSoup 1.11.1, with an attempt of parsing for a user's name.
+
+My assumption is that the call is executing the following:
+
+```kotlin
+var result = ""
+try {
+	result = frostJsoup(cookie, FbItem.PROFILE.url).title()
+	L.d("Fetch username found", result)
+} catch (e: Exception) {
+	if (e !is UnknownHostException)
+		e.logFrostAnswers("Fetch username failed")
+} finally {
+	if (result.isBlank() && (name?.isNotBlank() == true)) {
+		callback(name!!)
+		return@subscribe
+	}
+	if (name != result) {
+		name = result
+		saveFbCookie(this@fetchUsername)
+	}
+	callback(result)
+}
+```
+
+where cookie is the user's cooke, and the url is touch.facebook.com/me
+
+I'm not sure why this is a seemlingly fatal error though.
+
+As usual, the full log and thread info can be found [here](http://crashes.to/s/92e0e5d0b69)
+
+Comment:
+I'm using `1.11.2`
+I got this:
+```java
+org.jsoup.UncheckedIOException: java.io.IOException: Underlying input stream returned zero bytes
+  at org.jsoup.parser.CharacterReader.bufferUp(CharacterReader.java:60)
+  at org.jsoup.parser.CharacterReader.current(CharacterReader.java:85)
+  at org.jsoup.parser.TokeniserState.readData(TokeniserState.java:1669)
+  at org.jsoup.parser.TokeniserState.access$200(TokeniserState.java:8)
+  at org.jsoup.parser.TokeniserState$6.read(TokeniserState.java:76)
+  at org.jsoup.parser.Tokeniser.read(Tokeniser.java:45)
+  at org.jsoup.parser.TreeBuilder.runParser(TreeBuilder.java:51)
+  at org.jsoup.parser.TreeBuilder.parse(TreeBuilder.java:45)
+  at org.jsoup.parser.Parser.parseInput(Parser.java:39)
+  at org.jsoup.helper.DataUtil.parseInputStream(DataUtil.java:151)
+  at org.jsoup.helper.HttpConnection$Response.parse(HttpConnection.java:832)
+```
+then in the class define:
+```java
+package org.jsoup;
+
+import java.io.IOException;
+
+public class UncheckedIOException extends Error {
+    public UncheckedIOException(IOException cause) {
+        super(cause);
+    }
+
+    public IOException ioException() {
+        return (IOException) getCause();
+    }
+}
+```
+that's why your `catch (e: Exception)` did not work.
+
+I'm curious why this `UncheckedIOException` extends from `Error`...
+
+Comment:
+I'm also having this issue after switching to the latest version 1.11.2 of the library.
+I had the 1.7.2 for ages without an issue. 
+Any hint?
+
+error:
+`Fatal Exception: java.lang.RuntimeException: An error occurred while executing doInBackground()
+...`
+
+`Caused by org.a.j: java.io.IOException: Underlying input stream returned zero bytes
+       at org.jsoup.parser.CharacterReader.bufferUp(CharacterReader.java:60)
+       at org.jsoup.parser.CharacterReader.current(CharacterReader.java:85)
+       at org.jsoup.parser.TokeniserState.readData(TokeniserState.java:1669)
+       at org.jsoup.parser.TokeniserState.read(TokeniserState.java:8)
+       at org.jsoup.parser.TokeniserState$6.read(TokeniserState.java:76)
+       at org.jsoup.parser.Tokeniser.read(Tokeniser.java:45)
+       at org.jsoup.parser.TreeBuilder.runParser(TreeBuilder.java:51)
+       at org.jsoup.parser.TreeBuilder.parse(TreeBuilder.java:45)
+       at org.jsoup.parser.Parser.parseInput(Parser.java:39)
+       at org.jsoup.helper.DataUtil.parseInputStream(DataUtil.java:151)
+       at org.jsoup.helper.HttpConnection$Response.parse(HttpConnection.java:832)
+       at org.jsoup.helper.HttpConnection.get(HttpConnection.java:289)`
+
+code:
+
+    Document watchDoc;
+    try {
+        watchDoc = Jsoup.connect(urls[i])
+                .userAgent(NetworkUtils.getUserAgentString())
+                .get();      //   <==   **CRASH**
+        //...
+    } catch (Exception e) {
+        //...
+        Logger.e("Exception", e);
+    }
+
+I also have other two similar errors, but regarding `SocketException: Socket is closed`.
+The crashing line in my code it's the same one.
+More info at:
+http://crashes.to/s/f6a90972cb5
+http://crashes.to/s/da118549392
+http://crashes.to/s/49ffec85052
+
+Comment:
+It seems that version 1.10.3 is the last without this problem. Just tested.
+
+Comment:
+Blazing fast :)
+
+Comment:
+Thanks for reporting this issue. I have fixed the main issue which is that this was thrown as an UncheckedException / Error, instead of the expected IOException.
+
+The exception will still occur but will be handled by your regular exception handler around your `Connection.get()`.
+
+The problem happens mostly when the remote server sets a Content Length header greater than it actually writes to a gzip stream. Maybe the remote is dieing during the write. The response is not complete and so the IOException is thrown. This happens during parse time (not the initial connect) because the response is streamed through the parser.
+
+Comment:
+Thanks again to you! I just commented below @AllanWang 's issue.   :)
+
+Comment:
+@jhy  Thanks , problem solved! It was so exhausting, and I was so miserable.
+
+Comment:
+@jhy Just to clarify, this is no longer a thrown exception right, because IOExceptions are caught within Jsoup? I'm still getting errors, and it seems to be after I updated this dependency
+
+Comment:
+In the latest version is still present, I use Jsoup in JMeter recordings and it thrown the same exception
+![Recording Error](https://user-images.githubusercontent.com/8298295/73953948-69614a00-4901-11ea-9a01-61bf77c3cefb.PNG)
+
+
+Comment:
+@AllanWang - the issue that was fixed specificall in this bug is as mentioned on https://github.com/jhy/jsoup/issues/980#issuecomment-381358404 - IOExceptions should be thrown as checked IOExceptions, not as Unchecked Errors. Those are still thrown in the event of an IO exception, such as the server not writing all the bytes to the stream that it promised for a gzip stream. You need to catch those.
+
+@Jnex85 that is a completely different exception and is fixed in #1250. Would recommend not using images for stack traces, just paste the stack, so that you and others can search for them.

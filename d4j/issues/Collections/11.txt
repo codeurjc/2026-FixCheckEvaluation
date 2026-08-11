@@ -1,0 +1,8 @@
+Summary: Issue with MultiKey when serialized/deserialized via RMI
+
+Description:
+This is because the hash code of MultiKey is calculated only once. 
+
+So if the MultiKey is deserialized in an other jvm, and if one at least of the subkeys defines its hash code with System.identityHashCode() (for example all the enums does), then the hash code of the MultiKey is no longer valid, and you can't retreive the key in your Map.
+
+I fixed it by making the cached hash code field transient, and by recalculating the hash code during deserialization. 

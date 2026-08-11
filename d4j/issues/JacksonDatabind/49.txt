@@ -1,0 +1,119 @@
+Title: JsonIdentityInfo incorrectly serializing forward references
+
+Body:
+I wrote this small test program to demonstrate the issue:
+
+``` java
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonIdentityReference;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class ObjectIdTest {
+
+    public static class Foo {
+
+        @JsonIdentityReference(alwaysAsId = true)
+        public Bar bar1;
+
+        @JsonIdentityReference()
+        public Bar bar2;
+    }
+
+    @JsonIdentityInfo(generator = ObjectIdGenerators.IntSequenceGenerator.class)
+    public static class Bar {
+
+    }
+
+    public static void main(String[] args) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create structure to serialize
+        Foo mo = new Foo();
+        mo.bar1 = new Bar();
+        mo.bar2 = mo.bar1;
+
+        // serialize it
+        System.out.println(mapper.writeValueAsString(mo));
+    }
+
+}
+```
+
+When executing this test program in the latest version (2.7.4), the output will be `{"bar1":1,"bar2":{"@id":2}}` - the second field will be written with a new id even though both fields reference the same object. Because of this, writing forward references is essentially impossible.
+
+The issue seems to be the fact that BeanSerializerBase will always call WritableObjectId.generateId if the referenced object has not been written in plain format yet (https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/ser/std/BeanSerializerBase.java#L600). This will also happen if an id has been generated before.
+It might also be smarter to only generate a new id in WritableObjectId.generateId if that hasn't happened before; as that method doesn't have a javadoc I can't tell how it is supposed to work.
+
+
+Comment:
+Thank you for reporting this: it definitely sounds like a bug.
+
+I will have to dig deeper into this to say more, but what you can do in the meantime is to see how unit tests handle this case.
+
+
+Comment:
+I recently fixed this quietly for myself with the attached diff.
+[patch.txt](https://github.com/FasterXML/jackson-databind/files/298674/patch.txt)
+
+
+Comment:
+@arifogel Thank you -- that looks very simple indeed. I'll have a look to make sure, I hope that's the ticket!
+
+
+Comment:
+@arifogel Thanks for your help; modified slightly differently, but the basic idea was sound.
+Fix will be in 2.6.7 / 2.7.5 / 2.8.0
+
+
+Comment:
+This patch opened up a new problem for me (and probably others): When deserializing such structures, forward references are only resolved when they are contained in a Map or Collection (via the catch UnresolvedForwardReference blocks in the corresponding deserializers). Otherwise the exception goes too far down and the resulting error is incomprehensible. I have now patched this on my end (attached). It is likely that my patch has performance impliciations, so it should be reviewed carefully.
+[patch.txt](https://github.com/FasterXML/jackson-databind/files/301494/patch.txt)
+
+
+Comment:
+@arifogel is there a way to easily to reproduce the issue? I'd love to have a unit test to reproduce the problem and fix first.
+
+
+Comment:
+The problem popped up with some very complicated structures inside my 
+very complicated project. Making a unit test from that would be 
+overkill. If you like, I can generate a smaller unit test when I have 
+some free time - perhaps this weekend.
+
+On 06/06/2016 04:59 PM, Tatu Saloranta wrote:
+
+> @arifogel https://github.com/arifogel is there a way to easily to 
+> reproduce the issue? I'd love to have a unit test to reproduce the 
+> problem and fix first.
+> 
+> —
+> You are receiving this because you were mentioned.
+> Reply to this email directly, view it on GitHub 
+> https://github.com/FasterXML/jackson-databind/issues/1255#issuecomment-224124368, 
+> or mute the thread 
+> https://github.com/notifications/unsubscribe/AHYSEkMSAryYv2589EBLvShjdbwzuZmfks5qJLRtgaJpZM4Iq5Vw.
+
+
+Comment:
+I take it back. My patch is not a fix, though it seems to improve the situation. Before the patch, running a particular task results in a crash with not-very-useful information. Afterwards, JSON that is serialized, deserialized, and reserialized changes.
+Initial serialization resutls in file 1.txt. Subsequent deserialization and reserialization results in file 2.txt.
+The code for these structures starts at projects/batfish-common-protocol/src/org/batfish/datamodel/Configuration.java in the batfish 
+[1.txt](https://github.com/FasterXML/jackson-databind/files/301665/1.txt)
+[2.txt](https://github.com/FasterXML/jackson-databind/files/301666/2.txt)
+
+project at github.com/arifogel/batfish
+
+
+Comment:
+One thing to notice here is that forward references inside of collections and maps are reserialized correctly, while those that are fields are not.
+
+
+Comment:
+@arifogel Yes I think that a minimal (or just as small as practical) test case would be great. I don't doubt existence of the problem, or that propose fix could work either completely or partially. But it would allow checking optimal placement of handling. I also thought that bean properties for sure were properly handled wrt forward-references (can't find original check-in, but #610 is fixing one aspect), so this could even be a regression of some kind; and if so, perhaps would allow seeing what changed.
+
+At any rate a test case would be great whenever you get a chance. I also think that earlier change should not have broken any existing working usage, in that creating new id for same object would not make sense under any conditions; at best old behavior might have masked some real failure.
+
+
+Comment:
+Let's continue this conversation in bug #1261.

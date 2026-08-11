@@ -1,0 +1,37 @@
+Summary: Variable names prefixed with MSG_ cause error with advanced optimizations
+
+Description:
+Variables named something with MSG_ seem to cause problems with the module system, even if no modules are used in the code.
+
+$ echo &quot;var MSG_foo='bar'&quot; | closure --compilation_level ADVANCED_OPTIMIZATIONS
+stdin:1: ERROR - message not initialized using goog.getMsg
+var MSG_foo='bar'
+    ^
+
+It works fine with msg_foo, MSG2_foo, etc.
+
+Comment:
+It actually isn't modules related at all but has to do with goog.getMsg call replacements. The compiler is using the prefix 'MSG_' internally - which is conflicting with your variable names.
+
+It seems to me like the compiler should use a prefix less likely to collide with user prefixes. Something like 'JSCompiler_MSG_'. However I'm unsure of the impact this would have on internal Google projects. But if this is the case, then the prefix should be moved to a coding convention at a minimum.
+
+Comment:
+Ok. Prefixing internal names with __ would make sense since that's usually used to indicate an implementation/browser-level identifier. So perhaps __JSCompiler_MSG_*.
+
+Comment:
+Chad has a misunderstanding. The way closure-compiler's translation system works is that it looks for all variables with the name MSG_ and tries to translate them. It is complaining here that the message is not formatted correctly for translation.
+
+The real bug is that advanced optimizations turns on translation.
+
+Comment:
+@Nick I suspected as much - but I still think that prefix should be set by the coding convention and not hard-coded into the pass.
+
+Comment:
+fix posted here:
+https://codereview.appspot.com/30140045/
+
+Comment:
+This issue was closed by revision 49e9565febba.
+
+Comment:
+This issue was closed by revision 49e9565febba.

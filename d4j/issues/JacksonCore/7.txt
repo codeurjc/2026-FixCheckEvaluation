@@ -1,0 +1,248 @@
+Title: Add a check so `JsonGenerator.writeString()` won't work if `writeFieldName()` expected.
+
+Body:
+Looks like calling `writeString()` (and perhaps other scalar write methods) results in writing invalid output, instead of throwing an exception. It should instead fail; in future we may want to consider allowing this as an alias, but at any rate it should not produce invalid output.
+
+
+Comment:
+Hi,
+Can you give some more background around why this change was required - for example, what kind of Object structures cause invalid json to be produced, prior to this fix?  
+Its causing my object to be unserialisable whereas previous versions of Jackson API where fine - I thought, as a minor version it should be backward compatible?
+
+Happy to debug my code but I need some background as to what kinds of structures cause this kind of failure?
+
+The error I get when serialising is...
+
+``` java
+Caused by: com.fasterxml.jackson.core.JsonGenerationException: Can not write a field name, expecting a value
+    at com.fasterxml.jackson.core.JsonGenerator._reportError(JsonGenerator.java:1644)
+    at com.fasterxml.jackson.core.json.WriterBasedJsonGenerator.writeFieldName(WriterBasedJsonGenerator.java:120)
+    at com.fasterxml.jackson.databind.ser.BeanPropertyWriter.serializeAsField(BeanPropertyWriter.java:654)
+    at com.fasterxml.jackson.databind.ser.std.BeanSerializerBase.serializeFields(BeanSerializerBase.java:678)
+    at com.fasterxml.jackson.databind.ser.BeanSerializer.serialize(BeanSerializer.java:156)
+    at com.fasterxml.jackson.databind.ser.impl.IndexedListSerializer.serializeContents(IndexedListSerializer.java:119)
+    at com.fasterxml.jackson.databind.ser.impl.IndexedListSerializer.serialize(IndexedListSerializer.java:79)
+    at com.fasterxml.jackson.databind.ser.impl.IndexedListSerializer.serialize(IndexedListSerializer.java:18)
+    at com.fasterxml.jackson.databind.ser.BeanPropertyWriter.serializeAsField(BeanPropertyWriter.java:656)
+    at com.fasterxml.jackson.databind.ser.std.BeanSerializerBase.serializeFields(BeanSerializerBase.java:678)
+    at com.fasterxml.jackson.databind.ser.BeanSerializer.serialize(BeanSerializer.java:156)
+    at com.fasterxml.jackson.databind.ser.BeanPropertyWriter.serializeAsField(BeanPropertyWriter.java:656)
+    at com.fasterxml.jackson.databind.ser.std.BeanSerializerBase.serializeFields(BeanSerializerBase.java:678)
+    at com.fasterxml.jackson.databind.ser.std.BeanSerializerBase.serializeWithType(BeanSerializerBase.java:564)
+    at com.fasterxml.jackson.databind.ser.impl.TypeWrappedSerializer.serialize(TypeWrappedSerializer.java:32)
+    at com.fasterxml.jackson.databind.ser.DefaultSerializerProvider.serializeValue(DefaultSerializerProvider.java:130)
+    at com.fasterxml.jackson.databind.ObjectMapper._configAndWriteValue(ObjectMapper.java:3525)
+    at com.fasterxml.jackson.databind.ObjectMapper.writeValueAsString(ObjectMapper.java:2915)
+```
+
+
+Comment:
+@knightweb Logically property name (`FIELD_NAME`) is different from `VALUE_STRING`, even if they are expressed with the same physical token in JSON. The intent was never to allow these interchangeably, and bug fixes to observed behavior are not included in "no change to behavior" limitation. One could argue that the original model could have considered both as strings, in "String is a String" way; but to me separation is useful to avoid other problem cases, such as trying to write a non-String as property name/key, something JSON does not allow. Checks can also catch invalid usage, where output sequences either happen to work correctly accidentally; or, worse, report no error but produce invalid JSON output.
+It is unfortunate that the check did not exist earlier, as that would have prevented regression problems like the one you have.
+
+As to the underlying problem here... it is bit difficult to say, without seeing code. Possibilities include not calling `START_OBJECT` before trying to write a field name (although that would likely have produced invalid JSON anyway); writing two field names in a row (which also would seem problematic).
+But it does seem odd; more commonly I see reverse cases where field name was expected, string value written.
+
+Actually, come to think of that: I assume there has to be one of:
+1. Use of custom serializer somewhere, before code gets back default POJO handler
+2. Use of non-JSON data format, in which case there may be some translation (specifically, XML backend has some nasty work-arounds for massaging event sequences)
+
+since it should not be possible to get such an error only using standard serializers.
+Of course if it is possible, I would really like a repeatable test case to fix it.
+
+
+Comment:
+Thanks for the quick response.
+There are customer serializers but not something I can change, as they are in a provided api from another internal team.  I'll try and get an isolated example together to help me understand what might be wrong with those serializers - at least then I can advise the team responsible.  They do however work fine in jackson version 2.5.4.
+
+I suspect the serializer causing the issue is (let me know if you see anything obviously wrong)...
+
+``` java
+public class AttributesSerializer extends JsonSerializer<List<Attribute>> {
+
+    @Override
+    public void serialize(List<Attribute> attributes, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+
+        if (attributes.isEmpty()) {
+            return;
+        }
+
+
+        Map<String, String> attributesMap = new LinkedHashMap<String, String>();
+        for (Attribute attribute : attributes) {
+            attributesMap.put(attribute.getName(), attribute.getValue());
+        }
+
+        jgen.writeObject(attributesMap);
+    }
+
+    @Override
+    public boolean isEmpty(List<Attribute> value) {
+        if (value == null || value.isEmpty()) {
+            return true;
+        }
+        return false;
+    }
+}
+```
+
+
+Comment:
+I think the problem is:
+
+```
+    if (attributes.isEmpty()) {
+        return;
+    }
+```
+
+since it is not legal to simply refuse to serialize something. At point where call is made, a write call of a valid value token (or, structure, array/object) must be made.
+This because exclusion is handled at parent level, due to historical reasons (bit more on this below)
+
+Now, exclusion of value may work in ARRAY and ROOT contexts; but in OBJECT context the issue is that the property name has already been written, and value is expected. There is no way to "undo" property name write. I would guess that the non-exception-throwing behavior did not necessarily produce output one would expect; it just did not throw an exception.
+
+If I was rewriting generator API from scratch, I might choose logic where the property name was always buffered, only written if a value was to be written. This would allow for simpler exclusion/filtering by serializer. But at this point the behavior is what it is and unfortunately can not be changed.
+
+
+Comment:
+Thanks for the pointer.  I'll isolate the code down to a workable sized example and recreate - then modify to write an empty or null map object before returning to see if it works.  Then compare the two different json outputs under version 2.5.4 and 2.6.0.  If they are equivalent I can recommed the team change the behavoiur.  The have other flags on that exclude the inclusion of null properties, so this may still produce the same json output....worth a shot.
+
+
+Comment:
+@knightweb Thanks!
+
+
+Comment:
+@cowtowncoder thanks for the suggestion.  Writing an empty list solves the serialization problem I had with 2.6.  I'd agree it was a bug with my companies code, which previous versions allowed us to get away with.  
+I've done some comparing of the outputs produced by applying that fix and unfortunately they are not equal between version 2.5.4 and 2.6.  It would appear that version 2.6 no longer supports "NON_EMPTY" for properties with custom serialisers.  Although this is not a major issue it is a blocker to upgrading, as it would increase our payload size and also serve to clutter the json output.
+
+Is this something that could be consider for a 2.6 patch?  I've added some code below that shows the issue (apologies for the large class but it does run and demonstrate the issue)...
+
+``` java
+package com.testcomp;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+public class CustomSerialisationIssue {
+
+    public CustomSerialisationIssue(){}
+
+    @JsonSerialize(using=AttributesSerializer.class) 
+    @JsonInclude(Include.NON_EMPTY)
+    private List<Attribute> attributes = new ArrayList<Attribute>(); 
+
+    private List<Attribute> attributesNonCustomSerialised = new ArrayList<Attribute>();
+
+    private String test;
+
+    public List<Attribute> getAttributesNonCustomSerialised() {
+        return attributesNonCustomSerialised;
+    }
+
+    public void setAttributesNonCustomSerialised(List<Attribute> attributesNonCustomSerialised) {
+        this.attributesNonCustomSerialised = attributesNonCustomSerialised;
+    }
+
+    public List<Attribute> getAttributes() {
+        return attributes;
+    }
+
+    public void setAttributes(List<Attribute> attributes) {
+        this.attributes = attributes;
+    }
+
+    public void addAttribute(Attribute attribute) {
+        attributes.add(attribute);
+    }   
+
+    public String getTest() {
+        return test;
+    }
+
+    public void setTest(String test) {
+        this.test = test;
+    }
+
+    private static class Attribute {
+
+        public Attribute(){}
+
+        private String name;
+        private String value;
+        public String getName() {
+            return name;
+        }
+        public void setName(String name) {
+            this.name = name;
+        }
+        public String getValue() {
+            return value;
+        }
+        public void setValue(String value) {
+            this.value = value;
+        }
+    }
+
+    private static class AttributesSerializer extends JsonSerializer<List<Attribute>> {
+
+        @Override
+        public void serialize(List<Attribute> attributes, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+
+            if (attributes.isEmpty()) {
+                //This line fixes the serialization failure in 2.6.0, however its not needed in 2.5.4.
+                //Oddly even when included in version 2.5.4 it doesn't change the output, so that would suggest 
+                //another change is causing null and empty properties to serialise when using a custom serialization.               
+                jgen.writeObject(new ArrayList<Attribute>());
+                return;
+            }
+
+            Map<String, String> attributesMap = new LinkedHashMap<String, String>();
+            for (Attribute attribute : attributes) {
+                attributesMap.put(attribute.getName(), attribute.getValue());
+            }
+
+            jgen.writeObject(attributesMap);
+        }
+
+        @Override
+        public boolean isEmpty(List<Attribute> value) {
+            if (value == null || value.isEmpty()) {
+                return true;
+            }
+            return false;
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.setSerializationInclusion(Include.NON_EMPTY);
+
+        CustomSerialisationIssue csi = new CustomSerialisationIssue();
+        csi.setTest("123");
+        Attribute a = new Attribute();
+        //a.setName("one");
+        //a.setValue("1");
+
+        //if we have no attributes prior to 2.6 they will not list in the serialised json.  This is desirable from a payload size and readability.
+        //does this perhaps only affect custom serialisation.
+
+        //csi.addAttribute(a);
+
+        String js = mapper.writeValueAsString(csi);
+
+        System.out.println(js);
+    }
+}
+```

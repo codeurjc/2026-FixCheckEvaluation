@@ -1,0 +1,42 @@
+Title: Cleaning html containing the cid identifier breaks images
+
+Body:
+Ok, so in mail type HTML the following is common
+
+<img src="cid:SDOMSDOFMOSDOMFOSD">
+
+The item after CID: can be almost anything (US-ASCII I think) and of any length. It corresponds to an image linked elsewhere in MIME say like this
+
+--mimebounday
+Content-ID:<SDOMSDOFMOSDOMFOSD>
+Content-Type: image/jpeg.....
+(snip)
+
+So, to mark a long story somewhat shorter, I use Jsoup's sanitizer extensively. However, I need these CID references to be preserved post sanitization. addProtocols does not work because the items are not valid URLs. As a result
+the above becomes <img />. Which for my purposes is not good :)
+
+
+Comment:
+see http://xml.resource.org/public/rfc/html/rfc2392.html
+
+for description of the cid protocol schema, which is an internet standard. I suspect mailto could also not be unsanitized, but haven't tried it.
+
+
+Comment:
+Related to this the data uri is also sanitized and cannot be whitelisted. 
+
+
+Comment:
+So I've worked around this in a lame fashion
+1. use jsoup to parse
+2. find all cid: refs in img tags
+3. replace them with http://contentid.com/<cid>
+4. sanitize
+5. find all  http://contentid.com/<cid> refs
+6. replace with data uris
+
+but the issue with mailto, cid, and data really should be somehow addressable. I grant you they are abusable tags and ones that should not be whitelisted lightly
+
+
+Comment:
+Thanks for suggesting this!

@@ -1,0 +1,163 @@
+Summary: Use @public tag to prevent compression of symbol names
+
+Description:
+Given this input code:
+
+	Glow = {};
+	/** @public */ Glow.versions = [1,2,3];
+	Glow.showVersions = function() { alert(Glow.versions); }
+	
+	// exports
+	window['Glow'] = Glow;
+	Glow['versions'] = Glow.versions;
+	Glow['showVersions'] = Glow.showVersions;
+
+The compiler (with ADVANCED_OPTIMIZATIONS on) will produce the following
+output code:
+
+	Glow = {};
+	Glow.a = [1, 2, 3];
+	Glow.b = function() { alert(Glow.a) };
+	window.Glow = Glow;
+	Glow.versions = Glow.a;
+	Glow.showVersions = Glow.b
+
+From outside the Glow library, a user may do the following (in their own,
+uncompressed code):
+
+	Glow.versions = [4,5,6];
+	Glow.showVersions();
+
+Only in the compiled code will the user-code produces &quot;1,2,3&quot; instead of
+the expected &quot;4,5,6&quot;. This is because the compiler renamed the reference to
+[1,2,3] in `showVersions()` to &quot;Glow.a&quot;, whilst the user assigned a new
+array to &quot;Glow.versions&quot;, and therefore the two different names now refer
+to two different arrays.
+
+I can avoid this by using the stringy-name to refer to Glow[&quot;versions&quot;],
+but I would then have to do that everywhere in my code which is a annoying
+and bug-prone (if I or someone else should ever forget). I'd prefer to tell
+the compiler once about my wish to have a property name left uncompresed,
+rather than relying on a side effect (the fact that the compiler won't
+compress stringy-named properties) and then having to invoke that
+side-effect consistently everywhere.
+
+Instead I'm requesting that when the compiler sees a property is marked by
+the author as @public it should then leave that name uncompressed everywhere.
+
+So, given the input code above, the desired output would be:
+
+	Glow = {};
+	Glow.versions = [1, 2, 3];
+	Glow.b = function() { alert(Glow.versions) };
+	window.Glow = Glow;
+	Glow.versions = Glow.versions; // not needed now
+	Glow.showVersions = Glow.b
+
+I'm not fixed on a particular tag, but @public seems an obvious choice, and
+I'd prefer to use tags that already exist in JsDoc Toolkit.
+
+Note that my proposed feature is different than the `@export Glow.versions`
+tag proposal, as that tag would merely be a shortcut for &quot;Glow['versions']
+= Glow.versions;&quot;, which, as I've shown above, doesn't solve this problem.
+
+Comment:
+The work-around is to use a setter:
+
+Glow.setVersions(acceptedVersions) {
+  Glow.versions = acceptedVersions; 
+}
+
+window['Glow']['setVersions'] = Glow.setVersions;
+
+Comment:
+Adding setters (and getters) for every property we want to expose is *a* workaround, but it's hardly better 
+than referring to them with strings internally; I'd say it's worse actually because it alters our public API 
+and makes everything slower in the process. I appreciate the suggestion but it was one we already 
+considered and rejected.
+
+Comment:
+Perhaps another potential workaround is to compile with an "externs" file telling the 
+compiler that Glow.versions should never be touched:
+
+[root@pal iplayer-utils]# cat glow2.js
+Glow.versions = [4,5,6];
+Glow.showVersions();
+[root@pal iplayer-utils]# java -jar lib/compiler.jar --compilation_level 
+ADVANCED_OPTIMIZATIONS --formatting PRETTY_PRINT --js glow2.js
+Glow.b = [4, 5, 6];
+Glow.a();
+[root@pal iplayer-utils]# cat e.js
+var Glow = { versions: null, showVersions: null };
+[root@pal iplayer-utils]# java -jar lib/compiler.jar --compilation_level 
+ADVANCED_OPTIMIZATIONS --externs e.js --formatting PRETTY_PRINT --js glow2.js
+Glow.versions = [4, 5, 6];
+Glow.showVersions();
+
+Comment:
+I second this feature request and for me it is the most crucial feature enhancement I
+can currently think of. The lack of a @public annotation currently prevents me from
+using advanced optimizations at all because using stringy-named properties everywhere
+isn't an option because it makes the code much less readable.
+
+@micmath: Setters are NOT an option because then you have the same problem with the
+setters. The compiler creates an alias for the setter. This alias is used internally.
+When you do some inheritance now and override the setter then third-party code is
+using the new setter but internally the old setter is still used (because the alias
+is used). And that's bad for class inheritance.
+
+@ithinkihaveacat: Using externs is not working because the compiler complains about
+redefined stuff when the externs file has the same stuff in it as the source code to
+be compiled. Maybe this was working with an earlier version of the Closure
+Compiler... And I think it is not correct anyway to define "local" stuff in an
+externs file.
+
+I recommend implementing two annotations:
+
+1. @public annotation to mark symbols so they are NOT aliased at all. So this is the
+same as using stringy-named properties everywhere. By the way: @protected symbols
+must also not be aliased because third-party code may want to extend the method. Only
+@private symbols can always be aliased.
+
+2. @final annotation to mark symbols as final. This means that the compiler is
+allowed to create an alias for a symbol which is defined @public or @protected
+because it is not allowed to override this property anyway, so the alias is always
+stable.
+
+Comment:
+Comment deleted
+
+Comment:
+"@public" would never apply to functions within a closure as they are not accessible.  You are asking for something different.  The compiler has a capability (not currently exposed in the command-line) to name anonymous functions so that:
+
+ _.Bar = function() {}
+
+becomes something like:
+
+ _.Bar = function $_Bar$() {}
+
+For more complete stack traces.
+
+Comment:
+Just to exemplify a clear need for it, we're looking to use Closure Compiler for CKEditor. CKEditor exposes an extensive "public" API, partially (!) documented here:
+http://docs.cksource.com/ckeditor_api/
+
+We would love to use the advanced mode, but considering that every publicly accessible name is aliased, we're forced to use the simple mode.
+
+The following is the original code and the compiled code in advanced mode:
+http://nightly.ckeditor.com/latest/ckeditor/ckeditor.js
+http://closure-compiler.appspot.com/code/jsc29454f1b2fef93e2ea5ef525d3201d9b/default.js
+
+At the very start of the code you can find the following:
+if(!window.CKEDITOR)window.CKEDITOR=...
+
+... which is compiled to:
+if(!window.lj)window.lj=
+
+... and the same for all CKEDITOR properties and methods.
+
+I think that the simple rule that everything that is publicly accessible should remain untouched is already a very good start for it. Then it's up to the developer to apply other tags to identify stuff that can be freely aliased.
+
+Comment:
+This is implemented as @expose
+https://developers.google.com/closure/compiler/docs/js-for-compiler

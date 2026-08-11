@@ -1,0 +1,123 @@
+Title: Specifying `Enum` value serialization using `@JsonProperty`
+
+Body:
+Currently, if I want to deserialize an enum with a value that isn't its `Enum.name()`, I can do either
+
+``` java
+public enum TestEnum {
+    VALUE_ONE("value1");
+
+    private String valueInJson;
+
+    private TestEnum(String valueInJson) {
+        this.valueInJson = valueInJson;
+    }
+
+    @JsonCreator
+    public static TestEnum getEnumFromValue(String value) {
+        for (TestEnum testEnum : values()) {
+            if (testEnum.valueInJson.equals(value)) {
+                return testEnum;
+            }
+        }
+        throw new IllegalArgumentException();
+    }
+}
+```
+
+or, using `DeserializationFeature.READ_ENUMS_USING_TO_STRING`,
+
+``` java
+public enum TestEnum {
+    VALUE_ONE("value1");
+
+    private String valueInJson;
+
+    private TestEnum(String valueInJson) {
+        this.valueInJson = valueInJson;
+    }
+
+    @Override
+    public String toString() {
+        return valueInJson;
+    }
+}
+```
+
+This seems like a lot of boilerplate - is there a simpler way to do this, similar to how `Gson` handles it?
+
+``` java
+public enum TestEnum {
+    @SerializedName("value1")
+    VALUE_ONE
+}
+```
+
+It's both more concise and handles both serialization and deserialization.
+
+
+Comment:
+Interesting idea. No, currently there isn't, but I think we should be able to repurpose something.
+For example, `@JsonProperty` could work; ideally I try to avoid addition of new single-use annotations.
+
+
+Comment:
+Agreed that repurposing `@JsonProperty` would be good, since it matches the annotation's description as 
+
+> used to indicate external property name, name used in data format
+
+
+Comment:
+Ugh. While a reasonable idea, I don't know how to implement this -- Java enums are a nasty kludge under the hood, so I don't quite know how to locate annotations that hide in there. It is doable, but not a quick fix as I hoped it would be.
+
+FWIW, to solve it for specific app, trick is to override `AnnotationIntrospector.findEnumValue()` (of `JacksonAnnotationIntrospector`, usually), and can probably hard-code it for specific use.
+It's only difficult to do in general way.
+
+
+Comment:
+Would something like this work?
+
+``` java
+@Override
+public String findEnumValue(Enum<?> value) { 
+    JsonProperty jsonPropertyAnnotation = value.getClass().getField(value.name()).getAnnotation(JsonProperty.class);
+    if (jsonPropertyAnnotation != null && !jsonPropertyAnnotation.value().equals(JsonProperty.USE_DEFAULT_NAME)) {
+        return jsonPropertyAnnotation.value();
+    } else {
+        return value.name();
+    }
+}
+```
+
+Source for reflection code: http://stackoverflow.com/a/7260009
+
+
+Comment:
+Sounds like that could work. One issue is that accessing annotation directly does not allow processing of mix-in annotations; but trying to make that work would be significant hassle.
+
+
+Comment:
+I think it just might be possible to use `AnnotatedClass` to get mix-ins too, without tons of trouble.
+But I think a new introspection method (or override) is needed in `AnnotationIntrospector`, to not only pass `Enum` value but also associated accessor to give access to annotations.
+
+
+Comment:
+On second thought: looking at how `enum`s are actually implemented, values are static fields of the declaring class (of that type or sub-type as needed). That is fine as far as it goes, except that existing functionality for resolving annotations only deals with member fields; and of static things only static factory methods are considered. Defining mix-ins for enums might be bit inconenient as well.
+
+So given all of this, I don't see an issue with going with @allenchen1154's suggestion.
+
+
+Comment:
+This functionality should be documented somewhere in `@JsonProperty`, currently there's no information that it can be used for this purpose in there.
+
+
+Comment:
+@Raniz85 appreciate your suggesting this (makes sense): could you please file a new issue for `jackson-annotations` since that's where javadocs are? Due to number of reports things sometimes fall through the cracks, especially comments in closed issues (we do go over open issues regularly). Thanks!
+
+
+Comment:
+Done [here](https://github.com/FasterXML/jackson-annotations/issues/96)
+
+
+Comment:
+Thanks!

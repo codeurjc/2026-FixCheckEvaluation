@@ -1,0 +1,18 @@
+Title: Incorrect signature for generic type via `JavaType.getGenericSignature
+
+Body:
+(see https://github.com/FasterXML/jackson-modules-base/issues/8 for background)
+
+It looks like generic signature generation is missing one closing `>` character to produce:
+
+```
+()Ljava/util/concurrent/atomic/AtomicReference<Ljava/lang/String;;
+```
+
+instead of expected
+
+```
+()Ljava/util/concurrent/atomic/AtomicReference<Ljava/lang/String;>;
+```
+
+that is, closing '>' is missing.

@@ -1,0 +1,33 @@
+Summary: smartNameRemoval causing compiler crash
+
+Description:
+<b>What steps will reproduce the problem?</b>
+Compiler the following code in advanced mode:
+
+{{{
+var goog = {};
+goog.inherits = function(x, y) {};
+var ns = {};
+/** @constructor */ ns.PageSelectionModel = function(){};
+
+/** @constructor */ 
+ns.PageSelectionModel.FooEvent = function() {};
+/** @constructor */ 
+ns.PageSelectionModel.SelectEvent = function() {};
+goog.inherits(ns.PageSelectionModel.ChangeEvent, ns.PageSelectionModel.FooEvent);
+}}}
+
+
+<b>What is the expected output? What do you see instead?</b>
+The compiler will crash. The last var check throws an illegal state exception because it knows something is wrong.
+
+The crash is caused by smartNameRemoval. It has special logic for counting references in class-defining function calls (like goog.inherits), and it isn't properly creating a reference to PageSelectionModel.
+
+Comment:
+I can no longer reproduce this with the latest build.  Nick, do you still see a problem?
+
+Comment:
+i can still repro.
+
+Comment:
+This issue was closed by revision r1759.

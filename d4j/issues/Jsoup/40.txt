@@ -1,0 +1,20 @@
+Title: "<!DOCTYPE>" IllegalArgumentException: String must not be empty
+
+Body:
+While this may be a contrived example, Jsoup.parse("<!DOCTYPE>") throws an exception, this was unexpected. Possibly related, a proper document with <!DOCTYPE> (no name) is generating corrupt html e.g. "<!DOCTYPE &lt;html&gt; ..." (missing right angle bracket on DOCTYPE.)
+
+Spec says "When a DOCTYPE token is created, its name, public identifier, and system identifier must be marked as missing (which is a distinct state from the empty string), [...]"
+
+
+Comment:
+DOCTYPE handling has some issues. Jsoup.parse("<!DOCTYPE \u0000>") is NPE at org.jsoup.parser.TokeniserState # BeforeDoctypeName (t.doctypePending.name.append(replacementChar))
+
+
+Comment:
+The `<!DOCTYPE <html>` is because the parser is really expecting a doctype name, and thinks that name is `<html`
+
+(Where did you come across a doctype without a name? Seems odd use of the tag.)
+
+
+Comment:
+Thanks for pointing this out!

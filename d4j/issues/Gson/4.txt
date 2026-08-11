@@ -1,0 +1,4 @@
+Title: Update reader and writer for RFC 7159.
+
+Body:
+This allows for top-level value types without the requirement of leniency.

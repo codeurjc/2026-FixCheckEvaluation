@@ -1,0 +1,35 @@
+Summary: Array Join Munged Incorrectly
+
+Description:
+$.fn.hasClass = function(selector) {
+	return ( this.length &gt; 0 ? 
+				!( ( ['', this[0].className, ''].join(' ') ).indexOf( ['', selector, 
+''].join(' ') ) == -1 )
+				: false );
+};
+
+munges into
+
+$.fn.hasClass=function(a){return this.length&gt;0?
+(&quot;&quot;+this[0].className).indexOf(&quot;&quot;+a)!=-1:false};
+
+which is not identical. Looks like there might be an issue with join and ' '.
+
+Comment:
+Comment deleted
+
+Comment:
+A simpler example would be:
+var a = ['', 'a', ''].join(' ');
+
+which evaluates to
+" a "
+
+But the compiler converts the code to 
+var a="a ";
+
+Comment:
+I fixed it last night. It'll be pushed out in the next release.
+
+Comment:
+This issue was closed by revision r99.
