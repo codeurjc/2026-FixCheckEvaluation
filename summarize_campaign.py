@@ -53,6 +53,8 @@ def collect_project(results_root, project):
         status = _read_json(os.path.join(bug_dir, "run_status.json"))
         if result is None and status is None:
             continue
+        usage = (result or {}).get("usage_metadata") or {}
+        fixcheck = (result or {}).get("fixcheck") or {}
         records.append({
             "project": project,
             "bug_id": bug_id,
@@ -63,9 +65,20 @@ def collect_project(results_root, project):
             "applied": bool((result or {}).get("applied")),
             "triggers_fixed": bool((result or {}).get("triggers_fixed")),
             "fixed": bool((result or {}).get("fixed")),
-            "fixcheck_ran": bool((result or {}).get("fixcheck")),
+            "new_failures": len((result or {}).get("new_failures") or []),
+            "fixcheck_ran": bool(fixcheck),
+            # analyzed_test_classes > 0 is what separates a real "not
+            # suspicious" from a vacuous one (nothing was analyzed at all) --
+            # the analysis must never lump the two together.
+            "fixcheck_analyzed": fixcheck.get("analyzed_test_classes", 0),
             "fixcheck_suspicious": bool((result or {}).get("fixcheck_suspicious")),
             "included_issue": bool((result or {}).get("included_issue")),
+            "issue_status": (result or {}).get("issue_status"),
+            # LLM generation time only; "seconds" above is the whole run's
+            # wall clock including checkout/compile/tests.
+            "llm_seconds": (result or {}).get("elapsed_seconds"),
+            "input_tokens": usage.get("input_tokens"),
+            "output_tokens": usage.get("output_tokens"),
         })
     return records
 

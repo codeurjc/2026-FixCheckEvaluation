@@ -659,3 +659,66 @@ def test_runcampaign_does_not_put_the_bug_list_inside_export():
         "BUG_IDS in --export=NAME=VALUE would be cut at its first comma"
     assert any(l.strip().startswith("export ") and "BUG_IDS=" in l for l in code), \
         "BUG_IDS must be exported into the environment instead"
+
+
+# ---------------------------------------------------------- collect_project
+
+def test_collect_project_reads_the_fields_the_analysis_needs(tmp_path):
+    """The notebook in analysis/ builds its DataFrame from these records.
+
+    The subtle ones: ``fixcheck_analyzed`` (0 means the verdict is vacuous,
+    which the analysis must not count as evidence), ``llm_seconds`` vs
+    ``seconds`` (generation time vs whole-run wall clock), and the token
+    counts for the cost section.
+    """
+    from summarize_campaign import collect_project
+
+    bug_dir = tmp_path / "Lang" / "Bug_12"
+    bug_dir.mkdir(parents=True)
+    (bug_dir / "result.json").write_text(json.dumps({
+        "applied": True, "triggers_fixed": True, "fixed": True,
+        "new_failures": [],
+        "included_issue": True, "issue_status": "available",
+        "elapsed_seconds": 53.8,
+        "usage_metadata": {"input_tokens": 5296, "output_tokens": 3194},
+        "fixcheck": {"analyzed_test_classes": 1, "suspicious": False},
+        "fixcheck_suspicious": False,
+    }))
+    (bug_dir / "run_status.json").write_text(json.dumps({
+        "status": "ok", "exit_code": 0, "seconds": 98.1,
+    }))
+    # A bug that errored: run_status only, no result.json.
+    err_dir = tmp_path / "Lang" / "Bug_7"
+    err_dir.mkdir(parents=True)
+    (err_dir / "run_status.json").write_text(json.dumps({
+        "status": "error", "exit_code": 1, "seconds": 12.0,
+    }))
+
+    records = {r["bug_id"]: r for r in collect_project(str(tmp_path), "Lang")}
+    ok = records["12"]
+    assert ok["fixed"] and ok["has_result"]
+    assert ok["input_tokens"] == 5296 and ok["output_tokens"] == 3194
+    assert ok["llm_seconds"] == 53.8 and ok["seconds"] == 98.1
+    assert ok["issue_status"] == "available"
+    assert ok["fixcheck_analyzed"] == 1 and ok["new_failures"] == 0
+
+    err = records["7"]
+    assert not err["has_result"] and err["status"] == "error"
+    # Absent fields must come back as harmless defaults, not KeyErrors.
+    assert err["input_tokens"] is None and err["fixcheck_analyzed"] == 0
+
+
+def test_collect_project_vacuous_fixcheck_is_distinguishable(tmp_path):
+    """suspicious=False with nothing analyzed must not look like evidence."""
+    from summarize_campaign import collect_project
+
+    bug_dir = tmp_path / "Lang" / "Bug_1"
+    bug_dir.mkdir(parents=True)
+    (bug_dir / "result.json").write_text(json.dumps({
+        "applied": True, "triggers_fixed": True, "fixed": True,
+        "fixcheck": {"analyzed_test_classes": 0, "suspicious": False},
+        "fixcheck_suspicious": False,
+    }))
+    record = collect_project(str(tmp_path), "Lang")[0]
+    assert record["fixcheck_ran"] is True
+    assert record["fixcheck_analyzed"] == 0    # <- the vacuous marker
