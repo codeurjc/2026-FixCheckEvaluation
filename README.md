@@ -338,7 +338,8 @@ set), where `<model>` is `--model` with any `<provider>/` prefix stripped
 - `prompt.txt` — the exact prompt sent to the LLM.
 - `fix.diff` — the unified diff produced by the LLM.
 - `raw_response.txt` — the raw LLM response before diff extraction.
-- `result.json` — run summary: `applied`, `fixed`, `triggers_fixed`, the bug's
+- `result.json` — run summary: `applied`, `compiled_after`, `fixed`,
+  `triggers_fixed`, the bug's
   `trigger_tests`, any `new_failures` the patch introduced, failing-test counts
   before and after, modified files, bug metadata, token usage, the raw LLM
   response, whether the regression test code/log/issue were included in the

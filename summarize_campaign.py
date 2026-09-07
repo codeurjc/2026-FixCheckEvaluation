@@ -55,6 +55,19 @@ def collect_project(results_root, project):
             continue
         usage = (result or {}).get("usage_metadata") or {}
         fixcheck = (result or {}).get("fixcheck") or {}
+        # A patch that applied but never compiled makes `defects4j test` print
+        # no "Failing tests:" line, so failing_tests_after is -1 and the parsed
+        # failure list is empty -- which older runs scored as a perfect fix.
+        # Recomputed here rather than trusted from the file so results written
+        # before the Experiment.py guard are corrected too; `compiled_after` is
+        # authoritative when present.
+        applied = bool((result or {}).get("applied"))
+        compiled_after = (result or {}).get("compiled_after")
+        if compiled_after is None:
+            compiled_after = applied and (result or {}).get("failing_tests_after", -1) != -1
+        compiled_after = bool(compiled_after)
+        triggers_fixed = bool((result or {}).get("triggers_fixed")) and compiled_after
+        fixed = bool((result or {}).get("fixed")) and compiled_after
         records.append({
             "project": project,
             "bug_id": bug_id,
@@ -62,15 +75,30 @@ def collect_project(results_root, project):
             "exit_code": (status or {}).get("exit_code"),
             "seconds": (status or {}).get("seconds"),
             "has_result": result is not None,
-            "applied": bool((result or {}).get("applied")),
-            "triggers_fixed": bool((result or {}).get("triggers_fixed")),
-            "fixed": bool((result or {}).get("fixed")),
+            "applied": applied,
+            "compiled_after": compiled_after,
+            "triggers_fixed": triggers_fixed,
+            "fixed": fixed,
+            # What the run recorded before the non-compiling-patch guard, so the
+            # size of the correction stays auditable instead of silently applied.
+            # Prefer the value preserved by scripts/backfill_compiled_after.py:
+            # once the file has been repaired, its `fixed` field is the corrected
+            # one and would otherwise report the correction as zero.
+            "fixed_as_recorded": bool(
+                (result or {}).get("fixed_as_recorded", (result or {}).get("fixed"))
+            ),
             "new_failures": len((result or {}).get("new_failures") or []),
             "fixcheck_ran": bool(fixcheck),
             # analyzed_test_classes > 0 is what separates a real "not
             # suspicious" from a vacuous one (nothing was analyzed at all) --
             # the analysis must never lump the two together.
             "fixcheck_analyzed": fixcheck.get("analyzed_test_classes", 0),
+            # The two inputs to the suspicious verdict, kept separately: most
+            # analysed runs *do* have a failing variation, and it is the
+            # similarity score that decides. Collapsing them into the boolean
+            # hides where the detection power actually goes.
+            "failing_prefixes": fixcheck.get("failing_prefixes", 0),
+            "max_failure_similarity": fixcheck.get("max_failure_similarity", 0.0),
             "fixcheck_suspicious": bool((result or {}).get("fixcheck_suspicious")),
             "included_issue": bool((result or {}).get("included_issue")),
             "issue_status": (result or {}).get("issue_status"),
@@ -102,6 +130,7 @@ def aggregate(records, project):
         "errored": sum(1 for r in records if r["status"] == "error"),
         "timed_out": sum(1 for r in records if r["status"] == "timeout"),
         "applied": sum(1 for r in records if r["applied"]),
+        "not_compiled": sum(1 for r in records if r["applied"] and not r["compiled_after"]),
         "triggers_fixed": sum(1 for r in records if r["triggers_fixed"]),
         "fixed": sum(1 for r in records if r["fixed"]),
         "fixcheck_ran": sum(1 for r in records if r["fixcheck_ran"]),
@@ -113,7 +142,8 @@ def aggregate(records, project):
 
 COLUMNS = [
     "project", "bugs_total", "attempted", "no_result", "errored", "timed_out",
-    "applied", "triggers_fixed", "fixed", "fixcheck_ran", "fixcheck_suspicious",
+    "applied", "not_compiled", "triggers_fixed", "fixed", "fixcheck_ran",
+    "fixcheck_suspicious",
     "median_seconds", "p90_seconds",
 ]
 

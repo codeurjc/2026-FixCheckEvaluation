@@ -159,3 +159,35 @@ def test_extract_trigger_test_code_falls_back_to_full_file():
     trigger = "org.apache.commons.lang3.math.NumberUtilsTest::missingMethod"
     reduced = extract_trigger_test_code([trigger], [(rel, JAVA)])
     assert reduced == [(rel, JAVA)]
+
+
+def test_evaluate_fix_false_when_the_patch_never_compiled():
+    """An empty failure list is ambiguous and must not read as success.
+
+    When the patched sources do not compile, `defects4j test` prints no
+    "Failing tests:" line, so `parse_failing_tests` returns -1 and the parsed
+    failure list comes back empty. Without the `evaluated` guard that looks
+    exactly like "no trigger test fails" and the patch scores as a perfect fix
+    -- 203 runs of the campaign did precisely that, ~20% of every reported fix.
+    """
+    triggers_fixed, new_failures, fixed = evaluate_fix(
+        ["C::t"], ["C::t"], [], applied=True, evaluated=False,
+    )
+    assert not triggers_fixed and not fixed
+    assert new_failures == []
+
+
+def test_evaluate_fix_still_true_for_a_genuine_fix():
+    # The guard must not disturb the normal path: a real fix compiles, so the
+    # run is evaluated and the trigger test is absent from the failures.
+    triggers_fixed, _, fixed = evaluate_fix(
+        ["C::t"], ["C::t"], [], applied=True, evaluated=True,
+    )
+    assert triggers_fixed and fixed
+
+
+def test_evaluate_fix_defaults_to_evaluated():
+    # Callers that legitimately know the run produced results (the developer-fix
+    # e2e pipeline) keep working unchanged.
+    triggers_fixed, _, fixed = evaluate_fix(["C::t"], ["C::t"], [], applied=True)
+    assert triggers_fixed and fixed

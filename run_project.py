@@ -270,6 +270,9 @@ def process_bug(args, model_dir, bug_id, forwarded, log_dir, index, total):
         "exit_code": outcome.exit_code,
         "seconds": outcome.seconds,
         "applied": (result or {}).get("applied"),
+        # Surfaced in the status stream so a campaign shows non-compiling
+        # patches as they happen, instead of them hiding inside "not fixed".
+        "compiled_after": (result or {}).get("compiled_after"),
         "triggers_fixed": (result or {}).get("triggers_fixed"),
         "fixed": (result or {}).get("fixed"),
         "fixcheck_suspicious": (result or {}).get("fixcheck_suspicious"),
@@ -308,6 +311,8 @@ def print_summary(project, statuses, skipped, log_dir):
     errored = sum(1 for s in statuses if s["status"] == "error")
     timed_out = sum(1 for s in statuses if s["status"] == "timeout")
     applied = sum(1 for s in statuses if s["applied"])
+    not_compiled = sum(1 for s in statuses
+                       if s["applied"] and s.get("compiled_after") is False)
     triggers = sum(1 for s in statuses if s["triggers_fixed"])
     fixed = sum(1 for s in statuses if s["fixed"])
     suspicious = sum(1 for s in statuses if s["fixcheck_suspicious"])
@@ -318,6 +323,7 @@ def print_summary(project, statuses, skipped, log_dir):
     print(f"  bugs run:            {counted} (skipped {skipped})")
     print(f"  completed / error / timeout: {done} / {errored} / {timed_out}")
     print(f"  applied:             {applied}/{counted}")
+    print(f"    of which never compiled: {not_compiled}")
     print(f"  triggers_fixed:      {triggers}/{counted}")
     print(f"  fixed:               {fixed}/{counted}")
     print(f"  fixcheck_suspicious: {suspicious}/{counted}")
@@ -326,7 +332,8 @@ def print_summary(project, statuses, skipped, log_dir):
     summary = {
         "project": project, "bugs_run": counted, "skipped": skipped,
         "completed": done, "errored": errored, "timed_out": timed_out,
-        "applied": applied, "triggers_fixed": triggers, "fixed": fixed,
+        "applied": applied, "not_compiled": not_compiled,
+        "triggers_fixed": triggers, "fixed": fixed,
         "fixcheck_suspicious": suspicious, "median_seconds": median,
         "finished_at": datetime.now(timezone.utc).isoformat(),
         "bugs": statuses,

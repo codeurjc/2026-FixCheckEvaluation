@@ -153,3 +153,27 @@ any rebuild of the base image**; `run_project.py` warns when the image lacks the
 
 Note this is a *run-completeness* fix, not an issue-context one: Chart still
 contributes no issue text at all (18 bugs with no URL + 8 unusable SourceForge).
+
+## Evaluation fix: patches that never compiled
+
+`defects4j test` prints no `Failing tests:` line when the patched sources fail
+to compile, so `parse_failing_tests` returns `-1` and the parsed failure list
+comes back **empty** — which is indistinguishable from "no test fails". The
+original `evaluate_fix` therefore scored a patch that does not even build as a
+perfect `fixed`.
+
+Measured over the campaign: **203 runs** (104 qwen3.6:35b, 99 gpt-oss:120b)
+applied but never compiled, and *every one of them* had been recorded as fixed
+— about **20% of every reported fix**.
+
+`evaluate_fix` now takes an `evaluated` flag and `result.json` records
+`compiled_after`. No re-run was needed: `failing_tests_after == -1` identifies
+the affected runs exactly (verified against the stored `test_after.log` of all
+1546 applied runs — 1343 compiled and carry the line, 203 did not and do not,
+with zero ambiguous cases), so `summarize_campaign.collect_project` re-derives
+the flag for older results and reports the corrected `fixed`, keeping
+`fixed_as_recorded` for audit.
+
+Corrected headline over the 847 paired bugs: **qwen3.6:35b 400 (47.2%)**,
+**gpt-oss:120b 425 (50.2%)** — down from 493/516. The gap between the models is
+essentially unchanged; the absolute rates are not.

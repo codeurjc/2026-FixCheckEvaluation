@@ -197,7 +197,12 @@ flagged patch and a missed one.
 
 `analyzed_test_classes > 0` is **necessary** for `suspicious: false` to mean
 anything — with nothing analyzed there is no evidence either way — but it is far
-from sufficient. On these subjects the negative verdicts were false negatives
+from sufficient. Over the full campaign **235 of the 941 plausible patches (25%)
+got such a vacuous verdict**, for five distinct reasons whose incidence ranges
+from 76% of Mockito's patches to 0% of Time's; they are enumerated, with the
+underlying mechanism and a reproducible example each, in
+[../notes/fixcheck-veredictos-vacuos.md](../notes/fixcheck-veredictos-vacuos.md)
+(in Spanish). On these subjects the negative verdicts were false negatives
 for two different reasons:
 
 - with `previous-assertion` and `assert-true`, because the variations asserted

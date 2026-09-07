@@ -677,7 +677,7 @@ def test_collect_project_reads_the_fields_the_analysis_needs(tmp_path):
     bug_dir.mkdir(parents=True)
     (bug_dir / "result.json").write_text(json.dumps({
         "applied": True, "triggers_fixed": True, "fixed": True,
-        "new_failures": [],
+        "new_failures": [], "failing_tests_after": 1, "compiled_after": True,
         "included_issue": True, "issue_status": "available",
         "elapsed_seconds": 53.8,
         "usage_metadata": {"input_tokens": 5296, "output_tokens": 3194},
@@ -716,6 +716,7 @@ def test_collect_project_vacuous_fixcheck_is_distinguishable(tmp_path):
     bug_dir.mkdir(parents=True)
     (bug_dir / "result.json").write_text(json.dumps({
         "applied": True, "triggers_fixed": True, "fixed": True,
+        "compiled_after": True,
         "fixcheck": {"analyzed_test_classes": 0, "suspicious": False},
         "fixcheck_suspicious": False,
     }))
@@ -757,3 +758,62 @@ def test_run_project_warns_about_an_unpatched_image():
     assert "warn_if_image_unpatched()" in source, "the warning must be wired into main()"
     # A warning, not an abort: 853 of 854 bugs work fine without the patch.
     assert "problems.append" not in source.split("def warn_if_image_unpatched")[1].split("\ndef ")[0]
+
+
+def test_collect_project_corrects_a_patch_that_never_compiled(tmp_path):
+    """Historical results are re-scored, not trusted blindly.
+
+    A run recorded before the Experiment.py guard says fixed=True even though
+    the sources never compiled (failing_tests_after == -1). The loader must
+    correct that so the notebook and the CLI both report the honest number,
+    while keeping the original value visible as `fixed_as_recorded`.
+    """
+    from summarize_campaign import collect_project
+
+    bug_dir = tmp_path / "JxPath" / "Bug_6"
+    bug_dir.mkdir(parents=True)
+    (bug_dir / "result.json").write_text(json.dumps({
+        "applied": True, "triggers_fixed": True, "fixed": True,
+        "failing_tests_after": -1,          # no "Failing tests:" line -> no compile
+    }))
+    record = collect_project(str(tmp_path), "JxPath")[0]
+    assert record["applied"] is True
+    assert record["compiled_after"] is False
+    assert record["triggers_fixed"] is False and record["fixed"] is False
+    assert record["fixed_as_recorded"] is True
+
+
+def test_collect_project_prefers_the_recorded_compiled_after_flag(tmp_path):
+    """Newer runs carry the flag explicitly; it wins over the -1 heuristic."""
+    from summarize_campaign import collect_project
+
+    bug_dir = tmp_path / "Lang" / "Bug_1"
+    bug_dir.mkdir(parents=True)
+    (bug_dir / "result.json").write_text(json.dumps({
+        "applied": True, "triggers_fixed": True, "fixed": True,
+        "compiled_after": True, "failing_tests_after": 3,
+    }))
+    record = collect_project(str(tmp_path), "Lang")[0]
+    assert record["compiled_after"] is True and record["fixed"] is True
+
+
+def test_collect_project_keeps_the_audit_value_after_a_backfill(tmp_path):
+    """Once a file is repaired, its own `fixed` is the corrected one.
+
+    scripts/backfill_compiled_after.py preserves the pre-guard value as
+    `fixed_as_recorded`; the loader must prefer it, otherwise the notebook
+    reports the size of the correction as zero and the audit trail is lost.
+    """
+    from summarize_campaign import collect_project
+
+    bug_dir = tmp_path / "JxPath" / "Bug_6"
+    bug_dir.mkdir(parents=True)
+    (bug_dir / "result.json").write_text(json.dumps({
+        "applied": True, "compiled_after": False,
+        "triggers_fixed": False, "fixed": False,
+        "fixed_as_recorded": True, "triggers_fixed_as_recorded": True,
+        "failing_tests_after": -1,
+    }))
+    record = collect_project(str(tmp_path), "JxPath")[0]
+    assert record["fixed"] is False
+    assert record["fixed_as_recorded"] is True

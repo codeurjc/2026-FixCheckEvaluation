@@ -216,3 +216,32 @@ Idempotent: it marks the image with the label
 **Re-run it after any `docker build -t defects4j:3.0.1 ./defects4j`** — a base
 rebuild discards the patch. Same trap as editing `fixcheck/` without
 regenerating `scripts/fixcheck-patches/`.
+
+## backfill_compiled_after.py
+
+Repairs `result.json` / `run_status.json` files written **before** the
+non-compiling-patch guard, so the artifacts on disk agree with the analysis.
+
+```bash
+python scripts/backfill_compiled_after.py            # dry run: report only
+python scripts/backfill_compiled_after.py --apply    # rewrite
+```
+
+`defects4j test` prints no `Failing tests:` line when the patched sources fail
+to compile, so the parsed failure list came back empty and the old
+`evaluate_fix` scored the patch as a perfect `fixed`. 203 campaign runs (104
+qwen3.6:35b, 99 gpt-oss:120b) were in that state — every non-compiling patch
+had been recorded as a fix, ~20% of all reported fixes.
+
+`Experiment.py` now records `compiled_after` and never calls such a run fixed,
+and `summarize_campaign.collect_project` re-derives the flag when reading older
+results — but the files themselves still said `fixed: true`, so anything reading
+them directly (`jq`, `run_project.py`'s summary, `run_iterations.py`) kept
+seeing the inflated number. This script closes that gap: it adds
+`compiled_after` to every run and, where the run wrongly claimed success, sets
+`fixed`/`triggers_fixed` to `false` while preserving the originals as
+`fixed_as_recorded` / `triggers_fixed_as_recorded`.
+
+Idempotent (a file that already carries `compiled_after` is skipped) and writes
+atomically via a temp file, so an interrupted run never leaves a half-written
+result.

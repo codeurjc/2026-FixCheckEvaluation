@@ -92,7 +92,8 @@ def parse_failing_test_names(output: str) -> list:
     return re.findall(r"^\s*-\s*(\S+)", output, re.MULTILINE)
 
 
-def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, applied):
+def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, applied,
+                 evaluated=True):
     """Decide whether a Defects4J bug is fixed by a candidate patch.
 
     A bug is fixed when every trigger test passes again and the patch
@@ -101,11 +102,21 @@ def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, appli
     environment-flaky tests (e.g. ``SystemUtils``' user-home test under
     ``HOME=/tmp``) that fail regardless of the patch.
 
+    ``evaluated`` says whether the post-fix test run actually produced results.
+    It has to be passed explicitly because "no test is reported failing" is
+    ambiguous: it is also what a run that **never compiled** looks like, since
+    ``defects4j test`` then prints no ``Failing tests:`` line at all and the
+    parsed failure list comes back empty. Without this guard a patch that does
+    not compile scores as a perfect fix -- 203 of the campaign's runs did
+    exactly that.
+
     Args:
         trigger_tests: The bug's trigger tests (``Class::method`` strings).
         failing_before_names: Tests failing before the patch.
         failing_after_names: Tests failing after the patch.
         applied: Whether the patch was applied at all.
+        evaluated: Whether the post-fix test run produced a usable result
+            (``parse_failing_tests`` returned something other than ``-1``).
 
     Returns:
         ``(triggers_fixed, new_failures, fixed)``.
@@ -113,7 +124,9 @@ def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, appli
     trigger_set = set(trigger_tests)
     before = set(failing_before_names)
     after = set(failing_after_names)
-    triggers_fixed = applied and bool(trigger_set) and not (trigger_set & after)
+    triggers_fixed = (
+        applied and evaluated and bool(trigger_set) and not (trigger_set & after)
+    )
     new_failures = sorted(after - before)
     fixed = triggers_fixed and not new_failures
     return triggers_fixed, new_failures, fixed
@@ -893,8 +906,16 @@ def main():
             print(f"[experiment] Failing tests after fix: {failing_after}")
 
         failing_before_names = parse_failing_test_names(test_before.output)
+        # -1 means `defects4j test` printed no "Failing tests:" line, i.e. the
+        # patched sources never compiled. An empty failure list then means "we
+        # learnt nothing", not "nothing fails".
+        evaluated = failing_after != -1
+        if applied and not evaluated:
+            print("[experiment] WARNING: the patched sources did not compile, so "
+                  "the post-fix test run produced no results; not counted as fixed.")
         triggers_fixed, new_failures, fixed = evaluate_fix(
-            trigger_tests, failing_before_names, failing_after_names, applied
+            trigger_tests, failing_before_names, failing_after_names, applied,
+            evaluated=evaluated,
         )
 
         # 7b. FixCheck overfitting check. Only worth running on a plausible
@@ -944,6 +965,9 @@ def main():
             "timestamp": gen["timestamp"],
             "elapsed_seconds": gen["elapsed_seconds"],
             "applied": applied,
+            # False when the patch applied but the sources failed to compile,
+            # so the post-fix test run yielded nothing to judge by.
+            "compiled_after": bool(applied and evaluated),
             "fixed": fixed,
             "triggers_fixed": triggers_fixed,
             "trigger_tests": trigger_tests,
