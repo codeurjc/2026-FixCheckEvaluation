@@ -128,3 +128,28 @@ reporting results:
 bugs), and 14 of Time's 26 are in the same position. Worth remembering before
 comparing per-project fix rates: those projects' prompts are strictly smaller
 than the rest.
+
+## Infrastructure fix: Chart 26
+
+Chart 26 was the only bug of the 854 that never produced a result, failing
+identically for every model ~5 s in:
+
+```
+Cannot open file for appending .../Chart/dir-layout.csv: Permission denied
+```
+
+Defects4J caches per-revision source/test directory layouts in
+`framework/projects/<P>/dir-layout.csv` and, on a cache **miss**, appends the
+layout it just determined. Chart 26's buggy revision `102` is the only revision
+in the whole benchmark absent from its project's layout map, so it is the only
+bug that ever writes — and the file is `root:root 644` in the image while the
+containers run as the host uid.
+
+`scripts/patchDefects4jImage.sh` makes those CSVs writable (one derived layer,
+retagged in place, seconds to build) so Defects4J computes and caches the layout
+itself instead of us hardcoding a guess at the missing entry. **Re-run it after
+any rebuild of the base image**; `run_project.py` warns when the image lacks the
+`org.fixcheckeval.layout-writable` label.
+
+Note this is a *run-completeness* fix, not an issue-context one: Chart still
+contributes no issue text at all (18 bugs with no URL + 8 unusable SourceForge).

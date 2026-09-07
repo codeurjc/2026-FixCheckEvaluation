@@ -82,7 +82,11 @@ connectors.
   ```bash
   git clone git@github.com:rjust/defects4j.git
   docker build -t defects4j:3.0.1 ./defects4j
+  bash scripts/patchDefects4jImage.sh   # re-run after any base rebuild
   ```
+  The second step takes seconds and makes Defects4J's `dir-layout.csv` caches
+  writable by the non-root uid the containers run as; without it Chart 26 fails
+  with `Permission denied` (see [scripts/README.md](scripts/README.md)).
 - Python virtual environment with the dependencies installed:
   ```bash
   python -m venv .venv

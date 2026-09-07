@@ -722,3 +722,38 @@ def test_collect_project_vacuous_fixcheck_is_distinguishable(tmp_path):
     record = collect_project(str(tmp_path), "Lang")[0]
     assert record["fixcheck_ran"] is True
     assert record["fixcheck_analyzed"] == 0    # <- the vacuous marker
+
+
+def test_patch_defects4j_image_script_is_safe_to_rerun():
+    """The image patch must retag in place, be idempotent, and target the CSVs.
+
+    Chart 26 is the one bug in the benchmark that makes Defects4J *write* to
+    framework/projects/<P>/dir-layout.csv (its buggy revision 102 is missing
+    from Chart's layout map), and the stock image ships that file root-owned
+    644 while our containers run as the host uid. Guarding the script here
+    because the failure is a single bug out of 854 -- easy to reintroduce and
+    easy to miss.
+    """
+    script = open(os.path.join(_repo_root(), "scripts/patchDefects4jImage.sh"),
+                  encoding="utf-8").read()
+    code = [l for l in script.splitlines() if not l.lstrip().startswith("#")]
+    joined = "\n".join(code)
+
+    assert "chmod a+w /defects4j/framework/projects/*/dir-layout.csv" in joined
+    # Retagged in place, so nothing that names defects4j:3.0.1 has to change.
+    assert 'IMAGE="defects4j:3.0.1"' in joined
+    assert 'docker build -t "$IMAGE" -' in joined
+    # The label is both the marker and the idempotency check.
+    assert 'LABEL="org.fixcheckeval.layout-writable"' in joined
+    assert "already patched" in joined
+
+
+def test_run_project_warns_about_an_unpatched_image():
+    """A campaign on a stock image should say so, not fail one bug hours in."""
+    import run_project
+
+    assert run_project.LAYOUT_WRITABLE_LABEL == "org.fixcheckeval.layout-writable"
+    source = open(os.path.join(_repo_root(), "run_project.py"), encoding="utf-8").read()
+    assert "warn_if_image_unpatched()" in source, "the warning must be wired into main()"
+    # A warning, not an abort: 853 of 854 bugs work fine without the patch.
+    assert "problems.append" not in source.split("def warn_if_image_unpatched")[1].split("\ndef ")[0]

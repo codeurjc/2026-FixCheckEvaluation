@@ -188,3 +188,31 @@ Logs land in `scripts/logs/<job_id>/`: `slurm.out`, `ollama.log`,
 `status.jsonl` (one line per finished bug — `tail -f` this) and
 `bugs/<Project>_<id>.log` (one full `Experiment.py` log per bug, because a
 single Closure test run would otherwise drown the shared log).
+
+## patchDefects4jImage.sh
+
+Makes Defects4J's per-project directory-layout caches writable inside the
+`defects4j:3.0.1` image, and retags the result **in place** (so nothing that
+names the image has to change).
+
+```bash
+bash scripts/patchDefects4jImage.sh
+```
+
+Defects4J caches each revision's source/test directory layout in
+`framework/projects/<P>/dir-layout.csv`, and on a cache *miss* appends the
+layout it just worked out. That file is `root:root 644` in the image while our
+containers run as the host uid (so files on the shared volume stay host-owned),
+so the append fails with `Permission denied`. Exactly one bug in the benchmark
+reaches that path — **Chart 26**, whose buggy revision `102` is missing from
+Chart's layout map — and it dies ~5 s in with no result, identically for every
+model. The script `chmod a+w`s those CSVs so Defects4J can compute and cache the
+layout itself, rather than shipping a hardcoded guess at the missing entry.
+
+Idempotent: it marks the image with the label
+`org.fixcheckeval.layout-writable=1` and exits early if it is already there.
+`run_project.py` checks that label and warns when it is missing.
+
+**Re-run it after any `docker build -t defects4j:3.0.1 ./defects4j`** — a base
+rebuild discards the patch. Same trap as editing `fixcheck/` without
+regenerating `scripts/fixcheck-patches/`.

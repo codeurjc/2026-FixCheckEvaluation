@@ -36,6 +36,7 @@ from datetime import datetime, timezone
 
 from d4j.defects4j_bugs import PROJECTS, resolve_bug_ids
 from experiment_runner import (
+    DEFECTS4J_IMAGE,
     add_experiment_flags,
     clean_checkout,
     experiment_args,
@@ -49,6 +50,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 DEFAULT_TIMEOUT = 7200      # 2 h per bug
 DEFAULT_KILL_GRACE = 120
+
+# Marker that scripts/patchDefects4jImage.sh has made the per-project
+# dir-layout.csv files writable inside the image.
+LAYOUT_WRITABLE_LABEL = "org.fixcheckeval.layout-writable"
 
 # Set by the signal handler so the bug loop can stop cleanly at the next
 # boundary instead of leaving a half-finished checkout behind.
@@ -150,6 +155,30 @@ def preflight(args):
         problems.append(f"the Docker daemon is not reachable: {exc}")
 
     return problems
+
+
+def warn_if_image_unpatched():
+    """Warn when the Defects4J image cannot cache a missing directory layout.
+
+    Defects4J appends newly-determined layouts to
+    ``framework/projects/<P>/dir-layout.csv``, which is root-owned and 644 in
+    the stock image while our containers run as the host uid. Exactly one bug
+    (Chart 26) hits that path and dies ~5 s in with no result, so this is a
+    warning rather than an abort: the other 853 are unaffected.
+    """
+    try:
+        import docker
+
+        labels = docker.from_env().images.get(DEFECTS4J_IMAGE).labels or {}
+    except Exception:
+        return          # image or daemon problems are already reported by preflight
+    if labels.get(LAYOUT_WRITABLE_LABEL) != "1":
+        print(
+            f"[run_project] WARNING: {DEFECTS4J_IMAGE} lacks the layout-writable "
+            "patch, so Chart 26 will fail with 'Permission denied' on "
+            "dir-layout.csv. Fix it with: bash scripts/patchDefects4jImage.sh",
+            file=sys.stderr, flush=True,
+        )
 
 
 # ------------------------------------------------------------------- manifest
@@ -391,6 +420,7 @@ def main():
             print(f"[run_project] PREFLIGHT: {problem}", file=sys.stderr)
         sys.exit("[run_project] Aborting before spending GPU time.")
 
+    warn_if_image_unpatched()
     _install_signal_handlers()
     os.makedirs(os.path.join(log_dir, "bugs"), exist_ok=True)
     manifest = write_manifest(args, bug_ids, log_dir)
