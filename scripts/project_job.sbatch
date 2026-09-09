@@ -42,7 +42,27 @@ mkdir -p "$WORKDIR"
 
 source scripts/ollama_serve.sh
 
+# SLURM sends SIGTERM 300 s before the wall clock (--signal=B:TERM@300). The
+# `B:` prefix delivers it to this batch shell only, not to the job step, and
+# bash defers a trap until the foreground command it is waiting on returns --
+# so with `python run_project.py` in the foreground the run would never see the
+# signal, its own handler would never fire, and the grace period would buy
+# nothing before SLURM killed everything. Hence: run it in the background,
+# forward the signal explicitly, and only tear down the daemon and the shared
+# volume once the run has actually stopped using them. Removing $WORKDIR while
+# a bug is still being tested would leave that bug's `defects4j test` reading a
+# deleted tree and record the result as an ordinary failure.
+RUN_PID=""
+CLEANED=0
 cleanup() {
+    [ "$CLEANED" = "1" ] && return
+    CLEANED=1
+    if [ -n "$RUN_PID" ] && kill -0 "$RUN_PID" 2>/dev/null; then
+        echo "[job] signal received; forwarding TERM to run_project.py (pid $RUN_PID)"
+        kill -TERM "$RUN_PID" 2>/dev/null || true
+        wait "$RUN_PID" 2>/dev/null || true
+        echo "[job] run_project.py stopped; tearing down"
+    fi
     stop_ollama
     rm -rf "$WORKDIR"
 }
@@ -75,4 +95,9 @@ python run_project.py \
     --fixcheck \
     --fixcheck-prefixes "$FIXCHECK_PREFIXES" \
     --fixcheck-assertions "$FIXCHECK_ASSERTIONS" \
-    $EXTRA_ARGS
+    $EXTRA_ARGS &
+RUN_PID=$!
+wait "$RUN_PID"
+RUN_STATUS=$?
+cleanup
+exit "$RUN_STATUS"

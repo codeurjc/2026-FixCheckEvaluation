@@ -44,6 +44,7 @@ from dotenv import load_dotenv
 from d4j.defects4j_bugs import (
     ISSUE_AVAILABLE,
     ISSUE_EMPTY,
+    ISSUE_FETCH_FAILED,
     ISSUE_UNCACHED,
     ISSUE_UNUSABLE,
     issue_text,
@@ -83,17 +84,66 @@ def parse_failing_tests(output: str) -> int:
     return int(match.group(1)) if match else -1
 
 
-def parse_failing_test_names(output: str) -> list:
-    """Parse the individual failing test names from ``defects4j test`` output.
+_FAILING_LINE_RE = re.compile(r"^\s*-\s+(.*?)\s*$", re.MULTILINE)
+_TEST_NAME_RE = re.compile(r"^([\w.$]+)::([\w.$\[\]-]+)$")
 
-    ``defects4j test`` lists each failing test on its own ``  - <name>`` line,
-    where ``<name>`` is ``Class::method``. Returns them as a list.
+
+def parse_failing_test_lines(output: str) -> list:
+    """Every ``  - <...>`` line of a ``defects4j test`` log, verbatim.
+
+    Kept separate from :func:`parse_failing_test_names` because not every such
+    line names a test. Defects4J also emits a bare class name when a class
+    fails at class level, and ``broken test input <FQCN><ExceptionClass>``
+    (the two run together, with no separator) when a class could not be loaded
+    at all.
     """
-    return re.findall(r"^\s*-\s*(\S+)", output, re.MULTILINE)
+    return [m.group(1) for m in _FAILING_LINE_RE.finditer(output)]
+
+
+def parse_failing_test_names(output: str) -> list:
+    """The failing tests ``defects4j test`` names as ``Class::method``.
+
+    Lines it could not identify that precisely are **excluded** here and
+    reported by :func:`unidentified_failing_lines` instead. The previous
+    implementation used ``(\\S+)``, which truncates at the first space: the
+    line ``- broken test input org.foo.BarTestorg.mockito...Exception`` became
+    the token ``"broken"``, so the trigger test it was actually reporting could
+    never match and the bug was scored as fixed. Losing a name silently is the
+    one thing this parser must not do.
+    """
+    return [line for line in parse_failing_test_lines(output)
+            if _TEST_NAME_RE.match(line)]
+
+
+def unidentified_failing_lines(output: str) -> list:
+    """Failing-test lines that do not name a ``Class::method``."""
+    return [line for line in parse_failing_test_lines(output)
+            if not _TEST_NAME_RE.match(line)]
+
+
+def triggers_possibly_masked(trigger_tests, output: str) -> list:
+    """Trigger tests an unidentified failing line could be hiding.
+
+    A line naming only a class, or one Defects4J could not load, may well *be*
+    a trigger test's failure reported without its method name. Treating such a
+    run as "the trigger passes" is exactly the mistake being guarded against.
+    """
+    unidentified = unidentified_failing_lines(output)
+    if not unidentified:
+        return []
+    identified = set(parse_failing_test_names(output))
+    masked = []
+    for trigger in trigger_tests:
+        if trigger in identified:
+            continue
+        cls = trigger.split("::")[0]
+        if any(cls in line for line in unidentified):
+            masked.append(trigger)
+    return masked
 
 
 def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, applied,
-                 evaluated=True):
+                 evaluated=True, masked_triggers=()):
     """Decide whether a Defects4J bug is fixed by a candidate patch.
 
     A bug is fixed when every trigger test passes again and the patch
@@ -117,6 +167,11 @@ def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, appli
         applied: Whether the patch was applied at all.
         evaluated: Whether the post-fix test run produced a usable result
             (``parse_failing_tests`` returned something other than ``-1``).
+        masked_triggers: Trigger tests that an unidentified failing-test line
+            could be hiding (see :func:`triggers_possibly_masked`). A trigger
+            whose failure may simply have been reported in a shape the parser
+            cannot read must not count as passing, so any such trigger makes
+            the verdict negative rather than optimistic.
 
     Returns:
         ``(triggers_fixed, new_failures, fixed)``.
@@ -125,7 +180,8 @@ def evaluate_fix(trigger_tests, failing_before_names, failing_after_names, appli
     before = set(failing_before_names)
     after = set(failing_after_names)
     triggers_fixed = (
-        applied and evaluated and bool(trigger_set) and not (trigger_set & after)
+        applied and evaluated and bool(trigger_set)
+        and not (trigger_set & after) and not masked_triggers
     )
     new_failures = sorted(after - before)
     fixed = triggers_fixed and not new_failures
@@ -267,15 +323,28 @@ def run_trigger_tests_raw(container, workdir, trigger_tests):
     ``--include-test-log``.
     """
     raw = {}
+    failing_tests_path = os.path.join(workdir, "failing_tests")
     for trigger_test in trigger_tests:
         cmd = f"defects4j test -t {trigger_test} -w {workdir}"
-        exec_in_container(container, cmd, workdir=None)
-        failing_tests_path = os.path.join(workdir, "failing_tests")
+        # Every `defects4j test` writes this one shared path. Removing it first
+        # means a run that aborts before writing leaves no file, instead of
+        # leaving the *previous* trigger's trace to be read back and attributed
+        # to this one. That trace is FixCheck's baseline for the similarity
+        # comparison, so a stale or empty one yields a confident wrong verdict.
+        try:
+            os.remove(failing_tests_path)
+        except FileNotFoundError:
+            pass
+        result = exec_in_container(container, cmd, workdir=None)
         try:
             with open(failing_tests_path, "r", encoding="utf-8", errors="replace") as f:
                 content = f.read()
         except FileNotFoundError:
             content = ""
+        if not content.strip():
+            print(f"[experiment] WARNING: no failure trace captured for "
+                  f"{trigger_test} (exit {result.exit_code}); FixCheck would "
+                  "compare against an empty baseline.")
         raw[trigger_test] = (cmd, content)
     return raw
 
@@ -519,13 +588,24 @@ def _fetch_generic_issue(url):
     return "\n".join(parser.chunks)
 
 
+class IssueFetchError(RuntimeError):
+    """The issue could not be retrieved -- as opposed to being absent.
+
+    Kept distinct so a rate limit, a timeout or a 5xx is never recorded as
+    ``issue_status="empty"``, which claims the tracker has no text for the bug.
+    """
+
+
 def fetch_issue_text(bug_report_url):
     """Fetch the full issue text for a Defects4J bug report URL.
 
     Dispatches to the Jira or GitHub REST API when the tracker is
-    recognized, otherwise falls back to a generic HTML-to-text fetch. Any
-    failure is logged as a warning and results in an empty string, so a
-    fetch problem never aborts the run.
+    recognized, otherwise falls back to a generic HTML-to-text fetch.
+
+    Returns the text, ``""`` when the tracker genuinely had none, and raises
+    :class:`IssueFetchError` when the fetch itself failed. The caller decides
+    whether that aborts the run (it does not) -- but it must not be able to
+    mistake it for an empty issue.
 
     Prefer :func:`get_issue_text`, which reads the pre-downloaded cache first.
     """
@@ -537,8 +617,12 @@ def fetch_issue_text(bug_report_url):
             return _fetch_github_issue(bug_report_url)
         return _fetch_generic_issue(bug_report_url)
     except Exception as exc:
+        # Raised, not swallowed into "": the caller has to be able to tell a
+        # tracker with no text from a tracker we could not reach. A GitHub
+        # rate-limit used to be recorded as issue_status="empty", i.e. as a
+        # permanent property of the bug.
         print(f"[experiment] WARNING: failed to fetch issue from {bug_report_url}: {exc}")
-        return ""
+        raise IssueFetchError(str(exc)) from exc
 
 
 def get_issue_text(project, bug_id, bug_report_url):
@@ -565,7 +649,12 @@ def get_issue_text(project, bug_id, bug_report_url):
             return "", ISSUE_EMPTY
         print(f"[experiment] Issue report not cached; fetching {bug_report_url} "
               "(run `python -m d4j.fetch_issues` to avoid this)")
-        fetched = fetch_issue_text(bug_report_url)
+        try:
+            fetched = fetch_issue_text(bug_report_url)
+        except IssueFetchError:
+            print("[experiment] Issue report: none (the fetch failed); recorded "
+                  "as fetch-failed, not as an issue with no text")
+            return "", ISSUE_FETCH_FAILED
         return (fetched, ISSUE_AVAILABLE) if fetched.strip() else ("", ISSUE_EMPTY)
     reason = {
         ISSUE_EMPTY: "the tracker has no text for it",
@@ -646,10 +735,23 @@ def model_dir_name(model):
 
 
 def write_text(results_dir, filename, content):
+    """Write one artifact atomically.
+
+    A plain open/write/close leaves a truncated file if the process is killed
+    mid-write -- and a truncated ``result.json`` is worse than none, because
+    ``experiment_runner.load_result`` maps a JSON decode error to ``None``,
+    which ``run_project.should_run`` reads as "this bug never ran". Writing to
+    a temporary file and renaming makes the artifact appear complete or not at
+    all, which is the only state the rest of the pipeline can interpret.
+    """
     os.makedirs(results_dir, exist_ok=True)
     path = os.path.join(results_dir, filename)
-    with open(path, "w", encoding="utf-8") as f:
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         f.write(content or "")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
 
 
 def _exit_on_sigterm(signum, _frame):
@@ -683,6 +785,23 @@ def main():
     parser.add_argument(
         "--temperature", type=float, default=0.0,
         help="LLM sampling temperature (default: 0.0).",
+    )
+    # The generation budget decided 46 of the first campaign's outcomes while
+    # being unreachable from the command line, so it is now explicit and ends up
+    # in result.json. Reaching either ceiling is recorded (generation_status),
+    # never scored as the model failing to fix the bug.
+    parser.add_argument(
+        "--max-tokens", type=int, default=FixGenerator.DEFAULT_MAX_TOKENS,
+        help=f"Maximum tokens to generate (Ollama num_predict; default: "
+             f"{FixGenerator.DEFAULT_MAX_TOKENS}). For a reasoning model this "
+             "budget covers the chain of thought as well as the answer.",
+    )
+    parser.add_argument(
+        "--context-length", type=int, default=FixGenerator.DEFAULT_CONTEXT_LENGTH,
+        help=f"Context window for prompt + generation (Ollama num_ctx; default: "
+             f"{FixGenerator.DEFAULT_CONTEXT_LENGTH}). The daemon must have "
+             "loaded the model with at least this much -- see "
+             "OLLAMA_CONTEXT_LENGTH in scripts/ollama_serve.sh.",
     )
     parser.add_argument(
         "--include-test-code", action="store_true",
@@ -765,6 +884,13 @@ def main():
     results_dir = os.path.join("results", model_dir_name(args.model), project, f"Bug_{bug_id}")
     if args.iteration is not None:
         results_dir = os.path.join(results_dir, str(args.iteration))
+    # Start from an empty directory. A previous attempt that was killed part
+    # way leaves its artifacts behind, and since FixCheck's output is copied in
+    # with ``dirs_exist_ok=True`` (which *merges*), a retry would silently
+    # interleave two runs' generated prefixes under one bug. Nothing on disk
+    # would mark the directory as mixed.
+    if os.path.isdir(results_dir):
+        shutil.rmtree(results_dir)
     os.makedirs(results_dir, exist_ok=True)
 
     if args.fixcheck and not os.path.isfile(FIXCHECK_JAR):
@@ -882,7 +1008,10 @@ def main():
                 write_fixcheck_failure_logs(workdir, trigger_tests, trigger_raw)
 
         # 6. Generate the fix (dataset/Docker-agnostic).
-        generator = FixGenerator(model=args.model, temperature=args.temperature)
+        generator = FixGenerator(
+            model=args.model, temperature=args.temperature,
+            max_tokens=args.max_tokens, context_length=args.context_length,
+        )
         gen = generator.generate(
             sources,
             test_sources=test_sources, test_log=test_log, issue_text=issue_report,
@@ -904,6 +1033,13 @@ def main():
             failing_after = parse_failing_tests(test_after_log)
             failing_after_names = parse_failing_test_names(test_after_log)
             print(f"[experiment] Failing tests after fix: {failing_after}")
+            # The verdict is read entirely out of stdout, so a command that
+            # failed while still printing a plausible-looking count would be
+            # believed. Surface the disagreement rather than resolve it here.
+            if not test_after.ok and failing_after != -1:
+                print(f"[experiment] WARNING: `defects4j test` exited "
+                      f"{test_after.exit_code} yet reported {failing_after} "
+                      "failing test(s); the post-fix result may be incomplete.")
 
         failing_before_names = parse_failing_test_names(test_before.output)
         # -1 means `defects4j test` printed no "Failing tests:" line, i.e. the
@@ -913,9 +1049,19 @@ def main():
         if applied and not evaluated:
             print("[experiment] WARNING: the patched sources did not compile, so "
                   "the post-fix test run produced no results; not counted as fixed.")
+        # A failing-test line that does not name a Class::method may be
+        # reporting a trigger's failure in a shape the parser cannot read.
+        masked = triggers_possibly_masked(trigger_tests, test_after_log)
+        unidentified = unidentified_failing_lines(test_after_log)
+        if unidentified:
+            print(f"[experiment] WARNING: {len(unidentified)} failing-test line(s) "
+                  f"do not name a Class::method: {unidentified}")
+        if masked:
+            print(f"[experiment] WARNING: those line(s) may be hiding trigger "
+                  f"test(s) {masked}; not counted as fixed.")
         triggers_fixed, new_failures, fixed = evaluate_fix(
             trigger_tests, failing_before_names, failing_after_names, applied,
-            evaluated=evaluated,
+            evaluated=evaluated, masked_triggers=masked,
         )
 
         # 7b. FixCheck overfitting check. Only worth running on a plausible
@@ -974,10 +1120,39 @@ def main():
             "new_failures": new_failures,
             "failing_tests_before": failing_before,
             "failing_tests_after": failing_after,
+            # Failing-test lines the parser could not read as Class::method,
+            # and the triggers they might be hiding. Empty for a normal run;
+            # non-empty means the verdict rests on incomplete evidence.
+            "unidentified_failing_lines": unidentified,
+            "masked_triggers": masked,
             "modified_files": [rel for rel, _ in files],
             "bug_metadata": info.output,
             "usage_metadata": gen["usage_metadata"],
             "raw_response": gen["raw_response"],
+            # Why an empty patch is empty. "The model produced no fix", "the
+            # generation hit the token ceiling" and "its answer was never read"
+            # are three different results that used to be recorded identically
+            # as applied=False; 46 runs of the first campaign were the second
+            # kind and were reported as the model failing.
+            "generation_status": gen.get("generation_status", "ok"),
+            # The budget this run was given. Recorded so a dataset that mixes
+            # configurations stays interpretable, and so "the model failed" can
+            # always be checked against "the model ran out of room".
+            "max_tokens": args.max_tokens,
+            "context_length": args.context_length,
+            "done_reason": gen.get("done_reason", ""),
+            "response_truncated": gen.get("response_truncated", False),
+            "context_exhausted": gen.get("context_exhausted", False),
+            "reasoning_chars": gen.get("reasoning_chars", 0),
+            # Block-level bookkeeping. Until now this existed only in the SLURM
+            # job log, so result.json could not distinguish "the model emitted
+            # no blocks" from "its blocks did not match the source".
+            "blocks_parsed": gen.get("blocks_parsed"),
+            "blocks_applied": gen.get("blocks_applied"),
+            "blocks_failed": [
+                {"path": path, "reason": reason}
+                for path, reason in (gen.get("blocks_failed") or [])
+            ],
             "included_test_code": test_sources is not None,
             "included_test_log": test_log is not None,
             # bool(), not "is not None": an issue can be requested and still

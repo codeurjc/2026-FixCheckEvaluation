@@ -239,10 +239,37 @@ def _recount_hunk_headers(lines):
 class FixGenerator:
     """Generates an LLM fix (unified diff) from a bug description and sources."""
 
-    def __init__(self, model="ollama/gpt-oss:20b", temperature=0.0, max_tokens=24576):
+    # Generation budget. Both defaults were raised after the first campaign, in
+    # which they silently decided 46 runs' outcomes: 30 stopped at the old
+    # 24576-token output cap and 16 exhausted a 49152-token context window,
+    # every one of them recorded as the model failing to fix the bug.
+    #
+    # Sized from the campaign itself, not guessed: the largest successful
+    # generation used 18595 output tokens (reasoning included -- Ollama's
+    # eval_count counts both), so 32768 leaves ~75% headroom over the largest
+    # answer ever produced.
+    #
+    # 131072 is not a round number chosen for headroom: it is gpt-oss:120b's
+    # *native* context length (qwen3.6:35b's is 262144). Both models must get
+    # the same window or the comparison reacquires the asymmetry this exists to
+    # remove, and asking gpt-oss for more would be clamped silently -- the exact
+    # class of defect being fixed. So the shared window is the smaller ceiling.
+    # Measured to fit with room to spare: qwen 24830 MiB on a 46 GB L40S,
+    # gpt-oss 61700 MiB on a 96 GB H100 (scripts/probeContextVram.sh).
+    #
+    # RAISING THIS ABOVE 131072 IS NOT SAFE without re-checking both models'
+    # native context, and scripts/ollama_serve.sh must stay in step -- it reads
+    # this constant rather than repeating it.
+    DEFAULT_MAX_TOKENS = 32768
+    DEFAULT_CONTEXT_LENGTH = 131072
+
+    def __init__(self, model="ollama/gpt-oss:20b", temperature=0.0,
+                 max_tokens=DEFAULT_MAX_TOKENS,
+                 context_length=DEFAULT_CONTEXT_LENGTH):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.context_length = context_length
 
         self.llm = self._initialize_llm()
 
@@ -255,7 +282,20 @@ class FixGenerator:
             if provider.is_supported(self.model):
                 # Ollama defaults to free-form text output (response_format=None),
                 # which is what we need for a unified diff.
-                return provider.initialize(self.model, self.temperature, self.max_tokens)
+                #
+                # `context_length` is Ollama-specific (the hosted providers size
+                # their own window), so it is offered as a keyword and the
+                # providers that do not take it are called as before rather than
+                # all six having to grow a parameter they ignore.
+                try:
+                    return provider.initialize(
+                        self.model, self.temperature, self.max_tokens,
+                        context_length=self.context_length,
+                    )
+                except TypeError:
+                    return provider.initialize(
+                        self.model, self.temperature, self.max_tokens
+                    )
         raise ValueError(f"No provider found for model: {self.model}")
 
     # -------------------------------------------------------------- prompt
@@ -414,6 +454,17 @@ explanations, no markdown code fences.
             "blocks_parsed": len(blocks),
             "blocks_applied": applied,
             "blocks_failed": failed,
+            # How the generation ended. Without this an empty patch is
+            # ambiguous between "the model had no fix", "it was cut off at the
+            # token ceiling" and "its answer was never read" -- three very
+            # different facts that a repair benchmark must not average together.
+            "generation_status": getattr(response, "generation_status",
+                                         lambda: "ok")(),
+            "done_reason": getattr(response, "done_reason", ""),
+            "response_truncated": bool(getattr(response, "truncated", False)),
+            "context_exhausted": bool(getattr(response, "context_exhausted",
+                                              False)),
+            "reasoning_chars": getattr(response, "thinking_chars", 0),
         }
 
     @staticmethod

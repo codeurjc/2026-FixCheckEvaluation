@@ -34,6 +34,12 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # python-dotenv is optional; .env is then simply not read
+    def load_dotenv(*_args, **_kwargs):
+        return False
+
 from d4j.defects4j_bugs import PROJECTS, resolve_bug_ids
 from experiment_runner import (
     DEFECTS4J_IMAGE,
@@ -114,7 +120,21 @@ def preflight(args):
     if args.project not in PROJECTS:
         problems.append(f"unknown project {args.project!r}; expected one of {', '.join(PROJECTS)}")
 
+    # Experiment.py calls load_dotenv() and so picks up .env's OLLAMA_BASE_URL
+    # even when the environment has none. If this process did not, every check
+    # below would be skipped for want of a value the children then use anyway
+    # -- silently degrading the preflight to "no problems found" in exactly the
+    # case it exists to catch. Load the same file, so parent and child agree on
+    # which daemon the run will talk to.
+    load_dotenv()
     base_url = os.getenv("OLLAMA_BASE_URL")
+    if not base_url:
+        problems.append(
+            "OLLAMA_BASE_URL is not set (neither in the environment nor in "
+            ".env), so neither the port-mismatch check nor the model-"
+            "availability check can run. Set it to this job's own daemon."
+        )
+
     if args.fixcheck_assertions and base_url:
         fix_port, gen_port = _port_of(base_url), _port_of(args.fixcheck_assertions)
         if gen_port and fix_port and gen_port != fix_port:

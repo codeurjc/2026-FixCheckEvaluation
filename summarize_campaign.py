@@ -88,17 +88,33 @@ def collect_project(results_root, project):
                 (result or {}).get("fixed_as_recorded", (result or {}).get("fixed"))
             ),
             "new_failures": len((result or {}).get("new_failures") or []),
-            "fixcheck_ran": bool(fixcheck),
+            # Three different things, kept apart because they were conflated:
+            #   invoked -- Experiment.py called FixCheck at all
+            #   ok      -- FixCheck got as far as running (its own `ok` flag is
+            #              False when it aborted: no daemon, exports empty, or
+            #              `defects4j compile` failed -- which is the case for
+            #              all 203 non-compiling patches, since FixCheck was
+            #              gated on the pre-guard triggers_fixed)
+            #   ran     -- both of the above
+            # `bool(fixcheck)` alone counted those 203 as FixCheck runs, which
+            # is why the CLI table and the notebook disagreed by exactly 203.
+            "fixcheck_invoked": bool(fixcheck),
+            "fixcheck_ok": bool(fixcheck) and bool(fixcheck.get("ok")),
+            "fixcheck_ran": bool(fixcheck) and bool(fixcheck.get("ok")),
             # analyzed_test_classes > 0 is what separates a real "not
             # suspicious" from a vacuous one (nothing was analyzed at all) --
-            # the analysis must never lump the two together.
-            "fixcheck_analyzed": fixcheck.get("analyzed_test_classes", 0),
+            # the analysis must never lump the two together. None, not 0, when
+            # FixCheck never ran: a measured zero and an absent measurement
+            # must not average together.
+            "fixcheck_analyzed": fixcheck.get("analyzed_test_classes")
+            if fixcheck else None,
             # The two inputs to the suspicious verdict, kept separately: most
             # analysed runs *do* have a failing variation, and it is the
             # similarity score that decides. Collapsing them into the boolean
             # hides where the detection power actually goes.
-            "failing_prefixes": fixcheck.get("failing_prefixes", 0),
-            "max_failure_similarity": fixcheck.get("max_failure_similarity", 0.0),
+            "failing_prefixes": fixcheck.get("failing_prefixes") if fixcheck else None,
+            "max_failure_similarity": fixcheck.get("max_failure_similarity")
+            if fixcheck else None,
             "fixcheck_suspicious": bool((result or {}).get("fixcheck_suspicious")),
             "included_issue": bool((result or {}).get("included_issue")),
             "issue_status": (result or {}).get("issue_status"),
@@ -129,11 +145,26 @@ def aggregate(records, project):
         "no_result": sum(1 for r in records if not r["has_result"]),
         "errored": sum(1 for r in records if r["status"] == "error"),
         "timed_out": sum(1 for r in records if r["status"] == "timeout"),
+        # Anything that is neither ok, error nor timeout. Counted in
+        # `attempted` but in none of the outcome columns, so without this it
+        # would silently break the reconciliation attempted = ok + errored +
+        # timed_out.
+        "unknown_status": sum(
+            1 for r in records
+            if r["status"] not in ("ok", "error", "timeout")
+        ),
         "applied": sum(1 for r in records if r["applied"]),
         "not_compiled": sum(1 for r in records if r["applied"] and not r["compiled_after"]),
         "triggers_fixed": sum(1 for r in records if r["triggers_fixed"]),
         "fixed": sum(1 for r in records if r["fixed"]),
+        # Invoked vs actually ran. The gap is FixCheck aborting before it could
+        # analyse anything -- 203 times over the campaign, all of them patches
+        # that did not compile.
+        "fixcheck_invoked": sum(1 for r in records if r["fixcheck_invoked"]),
         "fixcheck_ran": sum(1 for r in records if r["fixcheck_ran"]),
+        "fixcheck_analyzed": sum(
+            1 for r in records if (r["fixcheck_analyzed"] or 0) > 0
+        ),
         "fixcheck_suspicious": sum(1 for r in records if r["fixcheck_suspicious"]),
         "median_seconds": _percentile(seconds, 0.5),
         "p90_seconds": _percentile(seconds, 0.9),
@@ -142,7 +173,9 @@ def aggregate(records, project):
 
 COLUMNS = [
     "project", "bugs_total", "attempted", "no_result", "errored", "timed_out",
-    "applied", "not_compiled", "triggers_fixed", "fixed", "fixcheck_ran",
+    "unknown_status",
+    "applied", "not_compiled", "triggers_fixed", "fixed",
+    "fixcheck_invoked", "fixcheck_ran", "fixcheck_analyzed",
     "fixcheck_suspicious",
     "median_seconds", "p90_seconds",
 ]

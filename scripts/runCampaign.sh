@@ -25,7 +25,12 @@ MODEL="ollama/gpt-oss:120b"
 GPU="H100:1"
 CPUS="8"
 FIXCHECK_PREFIXES="10"
-TIMEOUT="7200"
+# Per-bug wall clock. Raised from 7200 after the first campaign: 6 runs died at
+# exactly 7200.3 s, and re-running them at the same limit would reproduce them
+# identically. They are test-suite-bound, not generation-bound -- the median run
+# is 2.6 min and the LLM is ~1 min of it -- so this is cheap insurance: only ~9
+# runs of 1700 ever exceeded 60 min.
+TIMEOUT="10800"
 MINUTES_PER_BUG="20"
 TIME_OVERRIDE=""
 CHUNKS="1"

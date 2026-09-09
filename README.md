@@ -347,7 +347,19 @@ set), where `<model>` is `--model` with any `<provider>/` prefix stripped
   the FixCheck overfitting check's result (`fixcheck`, `fixcheck_suspicious`
   — see below). `included_issue` reflects whether an issue *actually* reached
   the prompt, and `issue_status` says why when it did not
-  (`available` / `unusable` / `empty` / `not-requested`).
+  (`available` / `unusable` / `empty` / `fetch-failed` / `not-requested`);
+  `fetch-failed` is kept apart from `empty` so a rate limit is never recorded
+  as "this bug has no issue".
+
+  It also records **why an empty patch is empty**, which used to be
+  unknowable: `generation_status` (`ok` / `truncated` / `context_exhausted` /
+  `empty_response`), `done_reason`, `response_truncated`, `context_exhausted`,
+  `reasoning_chars`, and the SEARCH/REPLACE bookkeeping `blocks_parsed` /
+  `blocks_applied` / `blocks_failed`. Without these, a model that hit its token
+  ceiling mid-answer is indistinguishable from one that had no fix — 46 runs of
+  the first campaign were the former and were reported as the latter.
+  `unidentified_failing_lines` and `masked_triggers` flag a run whose verdict
+  rests on failing-test lines the parser could not read.
 - `run_status.json` — only written by `run_project.py`: how the run itself
   went (`status` of `ok`/`error`/`timeout`, `exit_code`, `seconds`) alongside
   the outcome flags. This is what distinguishes "the model did not fix it"

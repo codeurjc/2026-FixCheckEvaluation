@@ -64,13 +64,40 @@ start_ollama() {
     local log_file="$2"
     local seed=$(( _OLLAMA_PORT_BASE + (${SLURM_JOB_ID:-$$} % _OLLAMA_PORT_SPAN) ))
 
-    # One runner, one model, and a context length matching what
-    # llms/ollama_llm.py requests (num_ctx=49152). FixCheck's OllamaGenerator
-    # sends no options at all, so without this the server would spin up a
-    # *second* runner at its default context for the assertion calls -- and two
-    # runners of a 64 GB model do not fit on a 96 GB H100, so the model would be
-    # unloaded and reloaded on every alternation between fix and assertions.
-    export OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-49152}"
+    # One runner, one model, and a context length matching what the fix
+    # generator requests. FixCheck's OllamaGenerator sends no options at all, so
+    # without this the server would spin up a *second* runner at its default
+    # context for the assertion calls -- and two runners of a 64 GB model do not
+    # fit on a 96 GB H100, so the model would be unloaded and reloaded on every
+    # alternation between fix and assertions.
+    #
+    # Read from FixGenerator rather than repeated here, because the two must
+    # agree: a per-request num_ctx above what the model was loaded with is
+    # silently clamped, which is how 16 runs of the first campaign lost their
+    # answer to a truncated prompt. If the import fails, fall back to the
+    # historical value and say so rather than guessing a new one.
+    if [ -z "${OLLAMA_CONTEXT_LENGTH:-}" ]; then
+        OLLAMA_CONTEXT_LENGTH=$(python -c \
+            'from FixGenerator import FixGenerator; print(FixGenerator.DEFAULT_CONTEXT_LENGTH)' \
+            2>/dev/null) || {
+            echo "[ollama] WARNING: could not read FixGenerator.DEFAULT_CONTEXT_LENGTH;" \
+                 "falling back to 49152. Set OLLAMA_CONTEXT_LENGTH explicitly." >&2
+            OLLAMA_CONTEXT_LENGTH=49152
+        }
+    fi
+    export OLLAMA_CONTEXT_LENGTH
+    echo "[ollama] context length: $OLLAMA_CONTEXT_LENGTH tokens"
+    # Force the CUDA backend. Ollama 0.32 turned its experimental Vulkan
+    # support on by default, and Vulkan does **not** honour
+    # CUDA_VISIBLE_DEVICES -- which is the only GPU isolation this cluster
+    # applies, since it does not confine /dev/nvidia* per job. The result is
+    # that every concurrent job enumerates all 9 GPUs and picks one by looking
+    # at free memory, so jobs launched together all choose the same card and
+    # the second one dies with
+    #   ggml_gallocr_reserve_n_impl: failed to allocate Vulkan0 buffer
+    # Under CUDA the runner sees exactly the GPU SLURM gave it. The cuda_v12 /
+    # cuda_v13 backends ship with the same install, so this costs nothing.
+    export OLLAMA_VULKAN=0
     export OLLAMA_MAX_LOADED_MODELS=1
     export OLLAMA_NUM_PARALLEL=1
     export OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:--1}"

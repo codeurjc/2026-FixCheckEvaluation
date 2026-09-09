@@ -15,6 +15,7 @@ Run with:
 
 import json
 import os
+import re
 import subprocess
 import sys
 import textwrap
@@ -704,8 +705,11 @@ def test_collect_project_reads_the_fields_the_analysis_needs(tmp_path):
 
     err = records["7"]
     assert not err["has_result"] and err["status"] == "error"
-    # Absent fields must come back as harmless defaults, not KeyErrors.
-    assert err["input_tokens"] is None and err["fixcheck_analyzed"] == 0
+    # Absent fields must come back as None -- not 0, which would be
+    # indistinguishable from a run that measured zero analysed classes.
+    assert err["input_tokens"] is None and err["fixcheck_analyzed"] is None
+    assert err["max_failure_similarity"] is None
+    assert err["fixcheck_invoked"] is False and err["fixcheck_ran"] is False
 
 
 def test_collect_project_vacuous_fixcheck_is_distinguishable(tmp_path):
@@ -717,12 +721,34 @@ def test_collect_project_vacuous_fixcheck_is_distinguishable(tmp_path):
     (bug_dir / "result.json").write_text(json.dumps({
         "applied": True, "triggers_fixed": True, "fixed": True,
         "compiled_after": True,
-        "fixcheck": {"analyzed_test_classes": 0, "suspicious": False},
+        "fixcheck": {"ok": True, "analyzed_test_classes": 0, "suspicious": False},
         "fixcheck_suspicious": False,
     }))
     record = collect_project(str(tmp_path), "Lang")[0]
     assert record["fixcheck_ran"] is True
     assert record["fixcheck_analyzed"] == 0    # <- the vacuous marker
+
+
+def test_collect_project_separates_fixcheck_invoked_from_actually_ran(tmp_path):
+    """FixCheck was called on all 203 non-compiling patches and aborted on
+    every one of them; `bool(fixcheck)` counted those as FixCheck runs, which
+    is why the CLI table and the notebook disagreed by exactly 203."""
+    from summarize_campaign import collect_project
+
+    bug_dir = tmp_path / "Lang" / "Bug_2"
+    bug_dir.mkdir(parents=True)
+    (bug_dir / "result.json").write_text(json.dumps({
+        "applied": True, "triggers_fixed": True, "fixed": True,
+        "compiled_after": False,
+        "fixcheck": {"ok": False, "error": "defects4j compile failed:\n..."},
+        "fixcheck_suspicious": False,
+    }))
+    record = collect_project(str(tmp_path), "Lang")[0]
+    assert record["fixcheck_invoked"] is True   # Experiment.py did call it
+    assert record["fixcheck_ran"] is False      # ... and it aborted at once
+    assert record["fixcheck_analyzed"] is None
+    # And the compile guard still applies, independently.
+    assert record["compiled_after"] is False and record["fixed"] is False
 
 
 def test_patch_defects4j_image_script_is_safe_to_rerun():
@@ -817,3 +843,49 @@ def test_collect_project_keeps_the_audit_value_after_a_backfill(tmp_path):
     record = collect_project(str(tmp_path), "JxPath")[0]
     assert record["fixed"] is False
     assert record["fixed_as_recorded"] is True
+
+
+def test_ollama_daemon_context_is_derived_not_duplicated():
+    """The daemon must load the model with at least the window the client asks
+    for. Ollama silently clamps a per-request num_ctx above what the runner was
+    loaded with -- and worse, FixCheck's OllamaGenerator sends no options, so a
+    mismatch makes the server start a *second* runner and thrash. Two hardcoded
+    copies of the number would drift; this asserts there is only one.
+    """
+    script = open(os.path.join(_repo_root(), "scripts/ollama_serve.sh"),
+                  encoding="utf-8").read()
+    code = "\n".join(
+        line for line in script.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "OLLAMA_CONTEXT_LENGTH" in code
+    assert "FixGenerator.DEFAULT_CONTEXT_LENGTH" in code, (
+        "ollama_serve.sh must read the context length from FixGenerator rather "
+        "than repeating it"
+    )
+
+
+def test_per_bug_timeout_exceeds_the_runs_that_previously_timed_out():
+    """6 runs died at exactly 7200.3 s; re-running at 7200 reproduces them."""
+    script = open(os.path.join(_repo_root(), "scripts/runCampaign.sh"),
+                  encoding="utf-8").read()
+    match = re.search(r'^TIMEOUT="(\d+)"', script, re.M)
+    assert match, "runCampaign.sh no longer sets a default TIMEOUT"
+    assert int(match.group(1)) > 7200
+
+
+def test_ollama_forces_the_cuda_backend():
+    """Ollama 0.32 enabled Vulkan by default, and Vulkan ignores
+    CUDA_VISIBLE_DEVICES -- the only GPU isolation this cluster applies. Every
+    concurrent job then enumerates all GPUs, picks one by free memory, and jobs
+    started together collide on the same card. Guarded here because the symptom
+    (a buffer allocation failure deep in ggml) points nowhere near the cause.
+    """
+    script = open(os.path.join(_repo_root(), "scripts/ollama_serve.sh"),
+                  encoding="utf-8").read()
+    code = "\n".join(
+        line for line in script.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert re.search(r"export OLLAMA_VULKAN=0\b", code), (
+        "ollama_serve.sh must pin OLLAMA_VULKAN=0 so the runner honours the "
+        "GPU SLURM allocated"
+    )

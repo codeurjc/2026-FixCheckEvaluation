@@ -85,6 +85,16 @@ def add_experiment_flags(parser):
         help="LLM sampling temperature (default: Experiment.py's default).",
     )
     parser.add_argument(
+        "--max-tokens", type=int, default=None,
+        help="Maximum tokens to generate (default: Experiment.py's default). "
+             "For a reasoning model this budget covers the chain of thought too.",
+    )
+    parser.add_argument(
+        "--context-length", type=int, default=None,
+        help="Context window for prompt + generation (default: Experiment.py's "
+             "default). The Ollama daemon must serve at least this much.",
+    )
+    parser.add_argument(
         "--include-test-code", action="store_true",
         help="Include the regression (trigger) test source file(s) in the prompt.",
     )
@@ -132,6 +142,10 @@ def experiment_args(args):
         forwarded += ["--model", args.model]
     if args.temperature is not None:
         forwarded += ["--temperature", str(args.temperature)]
+    if getattr(args, "max_tokens", None) is not None:
+        forwarded += ["--max-tokens", str(args.max_tokens)]
+    if getattr(args, "context_length", None) is not None:
+        forwarded += ["--context-length", str(args.context_length)]
     if args.include_test_code:
         forwarded.append("--include-test-code")
     if args.include_test_log:

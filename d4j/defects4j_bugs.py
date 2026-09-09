@@ -57,6 +57,13 @@ ISSUE_EMPTY = "empty"            # cached, but the tracker had nothing (or the
                                  # bug has no URL at all)
 ISSUE_UNUSABLE = "unusable"      # excluded tracker: see UNUSABLE_ISSUE_HOSTS
 ISSUE_UNCACHED = "uncached"      # never downloaded; run d4j.fetch_issues
+ISSUE_FETCH_FAILED = "fetch-failed"  # the network fetch errored (rate limit,
+                                 # timeout, 5xx). Distinct from ISSUE_EMPTY on
+                                 # purpose: "the tracker has nothing" is a fact
+                                 # about the bug, "we could not ask" is a fact
+                                 # about the run, and reporting the second as
+                                 # the first makes a transient failure look
+                                 # like a permanent property of the benchmark.
 
 # The 17 projects, with the active-bug count Defects4J's own README states.
 # Kept as a cross-check: if a resolved list disagrees, the checkout is a
@@ -277,7 +284,7 @@ def issue_text(project, bug_id, issues_dir=None, active_bugs_dir=None):
     :data:`ISSUE_AVAILABLE`, :data:`ISSUE_EMPTY`, :data:`ISSUE_UNUSABLE` or
     :data:`ISSUE_UNCACHED`, and ``text`` is ``""`` for everything but
     ``available``. Callers get a positive statement of *why* a prompt has no
-    issue instead of having to infer it from an empty string -- 40 of the 854
+    issue instead of having to infer it from an empty string -- 41 of the 854
     bugs are in that position (18 Chart bugs with no URL, one Jsoup issue the
     tracker deleted, and the 22 SourceForge ones).
     """

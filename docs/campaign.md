@@ -13,7 +13,8 @@ after the fact. Fill in the launch dates and git shas as each wave goes out.
 | Model (FixCheck assertions) | the **same** model, as `ollama:gpt-oss:120b@<port>` |
 | Prompt context | `--include-test-code --include-test-log --include-issue` |
 | FixCheck | on, `--fixcheck-prefixes 10`, similarity threshold `0.8` (default) |
-| Per-bug timeout | 7200 s |
+| Generation budget | `--max-tokens 32768`, `--context-length 131072` |
+| Per-bug timeout | 10800 s |
 | Hardware | one H100 per project job; jobs queue behind the node's 4 H100s |
 
 Bug ids come from `defects4j/framework/projects/<P>/active-bugs.csv` via
@@ -24,8 +25,41 @@ JacksonDatabind 65/89, Time 21) are never attempted.
 
 | Wave | Projects | Bugs | Submitted | Git sha |
 |---|---|---|---|---|
-| Pilot | JacksonXml, Csv, Codec | 40 | | |
-| Full | the remaining 14 | 814 | | |
+| Archived campaign | all 17 | 854 x 2 | 2026-08-11 .. 2026-09-06 | mixed (4 SHAs; see audit-2026-09.md) |
+| Post-audit rerun | all 17 | 854 x 2 | 2026-09-09 | `803bbb1` **+ 24 uncommitted files** |
+
+### Post-audit rerun, 2026-09-09
+
+Jobs `16175`-`16200` are `ollama/gpt-oss:120b` on `H100:1`; `16201`-`16226` are
+`ollama/qwen3.6:35b` on `L40S:1`. 26 jobs per model, one per project except the
+five largest, which are chunked so no single job holds the tail:
+
+| Project | Bugs | Chunks |
+|---|---:|---:|
+| Closure | 174 | 4 |
+| JacksonDatabind | 110 | 3 |
+| Math | 106 | 3 |
+| Jsoup | 93 | 2 |
+| Lang | 61 | 2 |
+| the other 12 | 310 | 1 each |
+
+Verified before launch by recomputing the plan through `resolve_bug_ids` +
+`chunk`: 26 jobs, 854/854 bugs, nothing lost to chunking.
+
+`--minutes-per-bug 15`, `--timeout 10800`, `--fixcheck-prefixes 10`,
+`--max-tokens 32768`, `--context-length 131072`, `--temperature 0.0`,
+`--include-test-code --include-test-log --include-issue`.
+
+**Provenance caveat**: the manifests record `git_sha=803bbb1`, but the tree had
+24 uncommitted files at launch — every fix from the September audit. The sha
+alone does **not** identify the code that produced these results. Commit before
+relying on it.
+
+**Two false starts precede this one**, both worth knowing when reading the logs:
+jobs `16121`-`16172` were cancelled minutes in (the Vulkan GPU-isolation defect,
+audit §1.11), and `16173`/`16174` are the single-bug smoke test on Lang 1 that
+validated the fix. Lang 1's results come from those two jobs, since `--resume`
+skipped it afterwards; they ran the same configuration.
 
 ```bash
 # pilot
@@ -112,14 +146,14 @@ reporting results:
   Gson 6 (*"Fixed a regression in Gson 2.6 where…"*) and JacksonCore 13
   (*"Fix UTF8JsonGenerator to allow QUOTE_FIELD_NAMES to be toggled"*).
 
-### 40 bugs carry no issue, for three different reasons
+### 41 bugs carry no issue, for three different reasons
 
 `--include-issue` is not uniform across the benchmark, and `result.json`'s
 `issue_status` says which case each bug is:
 
 | `issue_status` | Bugs | Meaning |
 |---|---:|---|
-| `available` | 814 | real text went into the prompt |
+| `available` | 813 | real text went into the prompt |
 | `unusable` | 22 | SourceForge (Chart 8, Time 14). Its tickets render inside a navigation shell and the HTML-to-text extraction keeps all of it, so the cached files open with ~40 lines of *"Join/Login / Business Software / Open Source Software / …"* before any ticket text. Feeding that to a model is worse than feeding nothing, so it is excluded by `UNUSABLE_ISSUE_HOSTS`. The files stay on disk — the exclusion is policy, not deletion. |
 | `empty` | 19 | 18 Chart bugs Defects4J has no URL for, plus Jsoup 45, whose GitHub issue was deleted |
 | `not-requested` | — | the run did not pass `--include-issue` |
@@ -177,3 +211,98 @@ the flag for older results and reports the corrected `fixed`, keeping
 Corrected headline over the 847 paired bugs: **qwen3.6:35b 400 (47.2%)**,
 **gpt-oss:120b 425 (50.2%)** — down from 493/516. The gap between the models is
 essentially unchanged; the absolute rates are not.
+
+
+## Generation budget: why 32768 / 131072
+
+The first campaign ran with `num_predict=24576` and `num_ctx=49152`, neither
+reachable from the command line, and **the budget decided 46 runs' outcomes**:
+30 stopped at the output cap and 16 exhausted the context window, every one of
+them recorded as the model failing to fix the bug. All 46 are `qwen3.6:35b` and
+none is `gpt-oss:120b`, because Ollama's `eval_count` counts a reasoning model's
+chain of thought as output: qwen's median is 5829 output tokens against
+gpt-oss's 1694. **A flat token budget is not neutral between a reasoning model
+and a concise one.**
+
+Both new values are sized from the campaign, not guessed:
+
+| | Measured | Chosen |
+|---|---|---|
+| Output | largest *successful* generation used 18595 tokens | **32768** (~75% headroom) |
+| Context | largest prompt is ~136k tokens; 17 of 854 exceed 49152, 10 exceed 65536, 3 exceed 98304 | **131072** |
+
+### Why 131072 exactly
+
+Not a round number picked for headroom: **it is `gpt-oss:120b`'s native context
+length.** Measured from the daemon:
+
+| Model | Native context | Params |
+|---|---:|---:|
+| `qwen3.6:35b` | 262144 | 36.0 B |
+| `gpt-oss:120b` | **131072** | 116.8 B |
+
+qwen could take twice as much, but the two models must get the *same* window or
+the comparison reacquires the asymmetry this change exists to remove — and
+asking gpt-oss for more than 131072 would be clamped silently, which is the
+exact class of defect being fixed. So the shared window is the smaller model's
+ceiling.
+
+Three bugs therefore still have prompts too large to leave the full output
+budget, and `JacksonDatabind/Bug_30` (~136k tokens, a single 205 KB source file)
+does not fit at all — for `gpt-oss` it *cannot*, at any setting. Those are now
+**recorded** as `context_exhausted` rather than counted as failed repairs, and
+the prompt itself is deliberately unchanged so results stay comparable with the
+archived campaign.
+
+### The new ceiling is also reached, and that is not a reason to raise it
+
+Two of the first 31 runs of the new campaign hit `num_predict=32768` --
+`qwen3.6:35b` on JacksonDatabind 2 and 77, both with `done_reason='length'` and
+an empty answer after ~135k characters of reasoning. The instinct is to raise
+the budget again; the data says otherwise. **32768 is already 2.7x qwen's
+largest *successful* generation** (12043 output tokens; median 5857), the
+context window is not the binding constraint there (input + output = 46807 of
+131072), and at the measured ~135 tok/s a bigger ceiling would only spend more
+GPU to reach the same place.
+
+What changed is that those runs are now recorded as `truncated` instead of
+counted as the model failing to fix the bug -- which is the whole point of the
+audit fix. Reasoning and the rule for future campaigns:
+[generation-budget.md](generation-budget.md).
+
+### Measured VRAM (2026-09-09, `scripts/probeContextVram.sh`)
+
+Both fit entirely on GPU, with no CPU spill, and the window is close to free:
+
+| Model | GPU | 49152 | 131072 | KV cost of the change |
+|---|---|---:|---:|---:|
+| `qwen3.6:35b` | L40S (46068 MiB) | 22910 MiB | **24830 MiB** | +1920 MiB |
+| `gpt-oss:120b` | H100 NVL (95830 MiB) | 61540 MiB | **61700 MiB** | +160 MiB |
+
+Re-measure on different hardware before assuming this still holds.
+
+**The daemon and the client must agree.** `scripts/ollama_serve.sh` reads
+`OLLAMA_CONTEXT_LENGTH` from `FixGenerator.DEFAULT_CONTEXT_LENGTH` instead of
+repeating it, because a per-request `num_ctx` above what the model was loaded
+with is silently clamped — and because FixCheck's `OllamaGenerator` sends no
+options at all, a mismatch makes Ollama start a *second* runner and thrash.
+Measure before committing to a window on new hardware:
+
+```bash
+bash scripts/probeContextVram.sh qwen3.6:35b 49152 131072
+bash scripts/probeContextVram.sh gpt-oss:120b 131072
+```
+
+A non-zero `CPU_SPLIT` means the model did not fit and would run partly on CPU
+— which does not fail, it just gets slow enough to hit the per-bug timeout, far
+from the cause.
+
+## Archived campaigns
+
+`results/old/9-Sep/` holds the first full campaign (848 gpt-oss + 852 qwen
+runs), audited in [audit-2026-09.md](audit-2026-09.md). The audit tooling reads
+it directly:
+
+```bash
+.venv/bin/python -m audit.rederive --results-dir results/old/9-Sep
+```
