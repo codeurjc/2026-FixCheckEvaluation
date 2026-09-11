@@ -55,6 +55,12 @@ def collect_project(results_root, project):
             continue
         usage = (result or {}).get("usage_metadata") or {}
         fixcheck = (result or {}).get("fixcheck") or {}
+        # A FixCheck result known to be unsound (its assertion generator timed
+        # out because the model ran on the wrong GPU) is kept on disk for audit
+        # but read as *no measurement*: neither a verdict nor a vacuous one.
+        fixcheck_degraded = bool((result or {}).get("fixcheck_degraded"))
+        if fixcheck_degraded:
+            fixcheck = {"_degraded": True}
         # A patch that applied but never compiled makes `defects4j test` print
         # no "Failing tests:" line, so failing_tests_after is -1 and the parsed
         # failure list is empty -- which older runs scored as a perfect fix.
@@ -101,6 +107,7 @@ def collect_project(results_root, project):
             "fixcheck_invoked": bool(fixcheck),
             "fixcheck_ok": bool(fixcheck) and bool(fixcheck.get("ok")),
             "fixcheck_ran": bool(fixcheck) and bool(fixcheck.get("ok")),
+            "fixcheck_degraded": fixcheck_degraded,
             # analyzed_test_classes > 0 is what separates a real "not
             # suspicious" from a vacuous one (nothing was analyzed at all) --
             # the analysis must never lump the two together. None, not 0, when
@@ -115,7 +122,22 @@ def collect_project(results_root, project):
             "failing_prefixes": fixcheck.get("failing_prefixes") if fixcheck else None,
             "max_failure_similarity": fixcheck.get("max_failure_similarity")
             if fixcheck else None,
-            "fixcheck_suspicious": bool((result or {}).get("fixcheck_suspicious")),
+            "fixcheck_suspicious": bool((result or {}).get("fixcheck_suspicious"))
+            and not fixcheck_degraded,
+            # Where the verdict comes from: "run" for a normal result.json, or a
+            # reconstruction under the first-verdict-of-record rule
+            # (scripts/apply_first_verdict_rule.py). Lets the analysis list them.
+            "verdict_source": (result or {}).get("verdict_source", "run" if result else None),
+            # "did_not_terminate" when the patched suite never finished: the
+            # patch applied and compiled, and is not a fix.
+            "post_fix_tests": (result or {}).get("post_fix_tests"),
+            # How the generation ended: "ok", "truncated", "context_exhausted",
+            # "empty_response" -- or None for results written before the field
+            # existed (the archived campaign), which is *unknown*, not "ok". A
+            # truncated run is recorded as not fixed, but whether that counts as
+            # the model failing or the budget failing is an analysis decision,
+            # so it has to be visible here rather than folded into `fixed`.
+            "generation_status": (result or {}).get("generation_status"),
             "included_issue": bool((result or {}).get("included_issue")),
             "issue_status": (result or {}).get("issue_status"),
             # LLM generation time only; "seconds" above is the whole run's

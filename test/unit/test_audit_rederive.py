@@ -268,3 +268,33 @@ def test_unknown_refuses_to_be_a_boolean():
 def test_unknown_and_not_applicable_are_distinct():
     assert UNKNOWN is not N_A
     assert repr(UNKNOWN) == "UNKNOWN" and repr(N_A) == "N_A"
+
+
+def test_reconstructed_verdicts_are_not_reported_as_divergences():
+    """A verdict rebuilt from a job log has no run artifacts to re-derive from;
+    flagging it as a divergence would bury the real contradictions."""
+    from audit.rederive import compare
+    red = {"result": {"verdict_source": "job_log", "applied": True, "fixed": True},
+           "applied": UNKNOWN, "compiled_after": UNKNOWN,
+           "triggers_fixed": UNKNOWN, "fixed": UNKNOWN}
+    assert compare(red) == []
+
+
+HUNG_LOG = ("Running ant (compile.tests)... OK\n"
+            "[experiment] POST-FIX TESTS DID NOT TERMINATE within 1800s "
+            "(pre-fix suite: 95s); compile check exit 0:\n"
+            "Running ant (compile)... OK\nRunning ant (compile.tests)... OK\n")
+
+
+def test_hung_suite_is_compiled_but_never_fixed():
+    """Closure 74's shape: applied, compiles, the suite never finishes."""
+    applied, compiled, triggers, new, fixed = _verdict(HUNG_LOG)
+    assert applied is True and compiled is True
+    assert triggers is False and fixed is False
+
+
+def test_hung_suite_that_does_not_compile_is_not_compiled():
+    log = HUNG_LOG.replace("Running ant (compile.tests)... OK\n",
+                           "Running ant (compile.tests)... FAIL\n")
+    _, compiled, _, _, fixed = _verdict(log)
+    assert compiled is False and fixed is False

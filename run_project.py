@@ -252,6 +252,46 @@ def load_run_status(model_dir, project, bug_id):
         return None
 
 
+
+def gpu_placement_problem(ps_payload, model):
+    """Why the loaded model is not running fully on the GPU, or ``None``.
+
+    ``ps_payload`` is the JSON of Ollama's ``/api/ps``. A model that is not
+    resident yet is not a problem -- it loads on the first request. A resident
+    model with ``size_vram < size`` is: part (or all) of it is in system memory.
+
+    This happens when the load finds the card already occupied. Ollama then
+    places the model on the CPU, and because the runner is kept alive for the
+    whole job, *every later bug* generates there too -- at a few tokens per
+    second, on a shared node's cores, and without any error: qwen's Time job
+    ran ``offloaded 0/42 layers to GPU`` on ~160 cores after a collision. A
+    job in that state must stop and be resubmitted, not keep producing runs.
+    """
+    wanted = (model or "").split("/", 1)[-1]
+    for entry in (ps_payload or {}).get("models") or []:
+        name = entry.get("name") or entry.get("model") or ""
+        if wanted and name not in (wanted, f"{wanted}:latest"):
+            continue
+        size, vram = entry.get("size") or 0, entry.get("size_vram") or 0
+        if size and vram < size:
+            on_cpu = size - vram
+            return (f"{name} is resident with {on_cpu // 2**20} MiB of "
+                    f"{size // 2**20} MiB outside the GPU "
+                    f"({'entirely on CPU' if not vram else 'partly offloaded'})")
+    return None
+
+
+def check_gpu_placement(model):
+    """Ask the job's own daemon; ``None`` when fine or not determinable."""
+    base_url = os.getenv("OLLAMA_BASE_URL")
+    if not base_url or not (model or "").startswith("ollama/"):
+        return None
+    try:
+        with urllib.request.urlopen(f"{base_url}/api/ps", timeout=10) as resp:
+            return gpu_placement_problem(json.load(resp), model)
+    except Exception:
+        return None     # a daemon that does not answer is caught by the run itself
+
 def should_run(args, model_dir, bug_id):
     """Whether this bug still needs work, and why not if it doesn't.
 
@@ -455,12 +495,21 @@ def main():
           f"ollama={manifest['ollama_base_url']}, logs={log_dir}", flush=True)
 
     statuses, skipped = [], 0
+    aborted_off_gpu = False
     started = time.time()
     try:
         for index, bug_id in enumerate(bug_ids, start=1):
             if _STOP_REQUESTED:
                 print(f"[run_project] Stopping early: {len(bug_ids) - index + 1} "
                       "bug(s) left unrun.", flush=True)
+                break
+            problem = check_gpu_placement(args.model)
+            if problem:
+                print(f"[run_project] ABORTING: {problem}. Every remaining bug "
+                      "would generate off the GPU. Resubmit this project with "
+                      "--retry-errored once the card is free.", file=sys.stderr,
+                      flush=True)
+                aborted_off_gpu = True
                 break
             run, reason = should_run(args, model_dir, bug_id)
             if not run:
@@ -479,6 +528,9 @@ def main():
         # Only our own per-job mount root, never a shared ./workspace.
         if os.path.basename(os.path.abspath(args.workdir)).startswith("job_"):
             shutil.rmtree(args.workdir, ignore_errors=True)
+    if aborted_off_gpu:
+        # Non-zero, so the job shows as FAILED in sacct instead of COMPLETED.
+        sys.exit(3)
 
 
 if __name__ == "__main__":

@@ -33,10 +33,13 @@ import re
 import shutil
 import signal
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
+
+from datetime import datetime, timezone
 
 import docker
 from dotenv import load_dotenv
@@ -54,6 +57,7 @@ from FixCheckWrapper import (
     DEFAULT_FIXCHECK_ASSERTIONS,
     DEFAULT_FIXCHECK_PREFIXES,
     DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD,
+    DEFAULT_FIXCHECK_TIMEOUT,
     FIXCHECK_ASSERTION_GENERATORS,
     FIXCHECK_DIR,
     FIXCHECK_JAR,
@@ -72,7 +76,18 @@ load_dotenv()
 DEFECTS4J_IMAGE = "defects4j:3.0.1"
 DEFAULT_MODEL = "ollama/gpt-oss:20b"
 
-DIFF_FILENAME = "_llm_fix.diff"  # temp diff written into the mounted workdir
+DIFF_FILENAME = "_llm_fix.diff"
+
+# What result.json carries for FixCheck between the moment the verdict is
+# written and the moment FixCheck returns. Shaped like a failed FixCheck result
+# (ok=False) so every reader already treats it as "not a verdict"; `pending`
+# says why.
+FIXCHECK_PENDING = {
+    "ran": False,
+    "ok": False,
+    "pending": True,
+    "error": "FixCheck did not finish: the run was interrupted while it was running",
+}  # temp diff written into the mounted workdir
 
 
 def parse_failing_tests(output: str) -> int:
@@ -734,6 +749,46 @@ def model_dir_name(model):
     return model.split("/", 1)[-1]
 
 
+# The post-fix test suite gets a budget of its own. A patch can make the suite
+# never terminate (gpt-oss Closure 74: applied, compiled, then `defects4j test`
+# ran for the full 3 h per-bug timeout), and when the per-bug timeout kills the
+# run nothing is written -- the model's outcome is lost and looks like a harness
+# failure. The budget is relative to the *pre-fix* run of the same suite, which
+# is the right yardstick for "normal" on that project, clamped so it can never
+# eat the per-bug timeout on its own.
+POST_FIX_TEST_FACTOR = 5
+POST_FIX_TEST_MIN_BUDGET = 1800
+POST_FIX_TEST_MAX_BUDGET = 5400
+# Written into test_after.log when the budget runs out, so the verdict can be
+# re-derived from the artifact alone (audit/rederive.py looks for it).
+POST_FIX_HANG_MARKER = "[experiment] POST-FIX TESTS DID NOT TERMINATE"
+# coreutils `timeout`: 124 = stopped at the deadline, 137 = needed the KILL.
+_TIMEOUT_EXIT_CODES = (124, 137)
+
+
+def post_fix_test_budget(pre_fix_seconds):
+    """Seconds the patched suite may run before it counts as non-terminating."""
+    budget = POST_FIX_TEST_FACTOR * max(pre_fix_seconds or 0, 0)
+    return int(min(max(budget, POST_FIX_TEST_MIN_BUDGET), POST_FIX_TEST_MAX_BUDGET))
+
+
+def bounded_command(command, seconds):
+    """``command`` under coreutils ``timeout`` (``docker exec`` has none)."""
+    return f"timeout --kill-after=30 {int(seconds)} {command}"
+
+
+def superseded_path(results_dir, stamp):
+    """Where a previous attempt's directory goes instead of being deleted.
+
+    ``results/<model>/<P>/Bug_<id>`` becomes
+    ``results/old/superseded/<stamp>/<model>/<P>/Bug_<id>``: out of every
+    reader's way (both ``summarize_campaign`` and ``audit/`` skip
+    ``results/old``) but still on disk.
+    """
+    rel = os.path.relpath(results_dir, "results")
+    return os.path.join("results", "old", "superseded", stamp, rel)
+
+
 def write_text(results_dir, filename, content):
     """Write one artifact atomically.
 
@@ -859,6 +914,13 @@ def main():
              f"{DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD}).",
     )
     parser.add_argument(
+        "--fixcheck-timeout", type=int, default=DEFAULT_FIXCHECK_TIMEOUT,
+        help="Wall-clock budget in seconds for each FixCheck run (one per "
+             f"trigger class; default: {DEFAULT_FIXCHECK_TIMEOUT}, 0 = "
+             "unbounded). Exceeding it is recorded as an advisory FixCheck "
+             "failure and never affects `fixed`.",
+    )
+    parser.add_argument(
         "--iteration", default=None,
         help="Iteration index; when set, artifacts go to "
              "results/<model>/<project>/Bug_<bug>/<iteration>/ instead of "
@@ -889,8 +951,20 @@ def main():
     # with ``dirs_exist_ok=True`` (which *merges*), a retry would silently
     # interleave two runs' generated prefixes under one bug. Nothing on disk
     # would mark the directory as mixed.
+    #
+    # But the previous attempt is *moved* aside, never deleted: an earlier
+    # version deleted it, and so destroyed the only copy of qwen Math 13's
+    # first patch -- the run of record -- when it was re-run.
     if os.path.isdir(results_dir):
-        shutil.rmtree(results_dir)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        dest = superseded_path(results_dir, stamp)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        shutil.move(results_dir, dest)
+        had_verdict = os.path.exists(os.path.join(dest, "result.json"))
+        print(f"[experiment] {'WARNING: superseding an existing verdict' if had_verdict else 'Previous partial attempt'}"
+              f" -- moved to {dest}"
+              + (". A run with a verdict is the run of record and should not be "
+                 "re-run (docs/campaign.md, 'The verdict of record')." if had_verdict else ""))
     os.makedirs(results_dir, exist_ok=True)
 
     if args.fixcheck and not os.path.isfile(FIXCHECK_JAR):
@@ -935,10 +1009,12 @@ def main():
             sys.exit("[experiment] Compilation failed; aborting.")
 
         # 3. Run the test suite (pre-fix) to confirm the bug is present.
+        pre_fix_started = time.time()
         test_before = run_step(
             container, "defects4j test", workdir,
             description="Running test suite (pre-fix)",
         )
+        pre_fix_seconds = time.time() - pre_fix_started
         failing_before = parse_failing_tests(test_before.output)
         print(f"[experiment]   Failing tests before fix: {failing_before}")
         if failing_before == 0:
@@ -1025,13 +1101,38 @@ def main():
         failing_after = -1
         test_after_log = ""
         failing_after_names = []
+        post_fix_tests = None          # None: no patch, so no post-fix run
+        post_fix_budget = None
+        compiled_despite_hang = None
         if applied:
+            post_fix_budget = post_fix_test_budget(pre_fix_seconds)
             test_after = exec_in_container(
-                container, "defects4j test", workdir=workdir
+                container, bounded_command("defects4j test", post_fix_budget),
+                workdir=workdir,
             )
             test_after_log = test_after.output
-            failing_after = parse_failing_tests(test_after_log)
-            failing_after_names = parse_failing_test_names(test_after_log)
+            if test_after.exit_code in _TIMEOUT_EXIT_CODES:
+                # The patched suite did not finish. Whether it compiled is
+                # measured, not guessed: `defects4j test` compiles first, but its
+                # output may have been cut before saying so.
+                post_fix_tests = "did_not_terminate"
+                compile_check = exec_in_container(
+                    container, "defects4j compile", workdir=workdir
+                )
+                compiled_despite_hang = compile_check.ok
+                test_after_log += (
+                    f"\n{POST_FIX_HANG_MARKER} within {post_fix_budget}s "
+                    f"(pre-fix suite: {round(pre_fix_seconds)}s); compile check "
+                    f"exit {compile_check.exit_code}:\n{compile_check.output}"
+                )
+                print(f"[experiment] WARNING: the patched test suite did not "
+                      f"terminate within {post_fix_budget}s (pre-fix run took "
+                      f"{round(pre_fix_seconds)}s); recorded as not fixed. "
+                      f"Compiles: {compiled_despite_hang}.")
+            else:
+                post_fix_tests = "completed"
+                failing_after = parse_failing_tests(test_after_log)
+                failing_after_names = parse_failing_test_names(test_after_log)
             print(f"[experiment] Failing tests after fix: {failing_after}")
             # The verdict is read entirely out of stdout, so a command that
             # failed while still printing a plausible-looking count would be
@@ -1046,7 +1147,7 @@ def main():
         # patched sources never compiled. An empty failure list then means "we
         # learnt nothing", not "nothing fails".
         evaluated = failing_after != -1
-        if applied and not evaluated:
+        if applied and not evaluated and post_fix_tests != "did_not_terminate":
             print("[experiment] WARNING: the patched sources did not compile, so "
                   "the post-fix test run produced no results; not counted as fixed.")
         # A failing-test line that does not name a Class::method may be
@@ -1064,37 +1165,14 @@ def main():
             evaluated=evaluated, masked_triggers=masked,
         )
 
-        # 7b. FixCheck overfitting check. Only worth running on a plausible
-        #     patch (applied and every trigger test passing) -- otherwise
-        #     there is nothing to validate. Advisory: never changes `fixed`.
-        fixcheck_result = None
-        if args.fixcheck and applied and triggers_fixed:
-            fixcheck = FixCheckWrapper(
-                num_prefixes=args.fixcheck_prefixes,
-                assertion_generator=args.fixcheck_assertions,
-                similarity_threshold=args.fixcheck_similarity_threshold,
-                inputs_class=args.fixcheck_inputs_class,
-            )
-            fixcheck_result = fixcheck.run(
-                container, workdir, trigger_tests, trigger_method_sources
-            )
-            for record in fixcheck_result["per_test_class"]:
-                run_dir = record.get("run_dir")
-                if not run_dir:
-                    continue
-                simple_name = record["test_class"].rsplit(".", 1)[-1]
-                dest = os.path.join(results_dir, "fixcheck", simple_name)
-                src_output = os.path.join(run_dir, "fixcheck-output")
-                if os.path.isdir(src_output):
-                    os.makedirs(dest, exist_ok=True)
-                    shutil.copytree(src_output, dest, dirs_exist_ok=True)
-                log_src = os.path.join(run_dir, "fixcheck.log")
-                if os.path.exists(log_src):
-                    os.makedirs(dest, exist_ok=True)
-                    shutil.copy(log_src, os.path.join(dest, "fixcheck.log"))
-        fixcheck_suspicious = bool(fixcheck_result and fixcheck_result.get("suspicious"))
-
-        # 8. Persist validation artifacts and the combined result.
+        # 8. Persist the artifacts and the verdict *before* FixCheck runs.
+        #    FixCheck is advisory, but it can hang (role-blind mutation of an
+        #    int iteration count), and when the per-bug timeout then kills the
+        #    process nothing written afterwards survives. That is how Math 10
+        #    and 13 lost patches that had already passed every test: recorded
+        #    as `timeout` with no result.json at all. Writing the verdict first
+        #    means an interrupted FixCheck can only ever cost its own block.
+        will_fixcheck = bool(args.fixcheck and applied and triggers_fixed)
         write_text(results_dir, "apply.log", apply_log)
         write_text(results_dir, "test_before.log", test_before.output)
         write_text(results_dir, "test_after.log", test_after_log)
@@ -1113,7 +1191,14 @@ def main():
             "applied": applied,
             # False when the patch applied but the sources failed to compile,
             # so the post-fix test run yielded nothing to judge by.
-            "compiled_after": bool(applied and evaluated),
+            "compiled_after": (
+                bool(compiled_despite_hang) if post_fix_tests == "did_not_terminate"
+                else bool(applied and evaluated)
+            ),
+            # "completed", "did_not_terminate" (the patched suite outran its
+            # budget: not a fix), or None when no patch was applied.
+            "post_fix_tests": post_fix_tests,
+            "post_fix_test_budget": post_fix_budget,
             "fixed": fixed,
             "triggers_fixed": triggers_fixed,
             "trigger_tests": trigger_tests,
@@ -1161,10 +1246,48 @@ def main():
             # in the prompt" would misdescribe the run. issue_status says which.
             "included_issue": bool(issue_report),
             "issue_status": issue_status,
-            "fixcheck": fixcheck_result,
-            "fixcheck_suspicious": fixcheck_suspicious,
+            # Replaced by FixCheck's real result once it returns. If this
+            # marker is what ends up on disk, FixCheck was interrupted.
+            "fixcheck": dict(FIXCHECK_PENDING) if will_fixcheck else None,
+            "fixcheck_suspicious": False,
         }
         write_text(results_dir, "result.json", json.dumps(result, indent=2))
+
+        # 9. FixCheck overfitting check. Only worth running on a plausible
+        #     patch (applied and every trigger test passing) -- otherwise
+        #     there is nothing to validate. Advisory: never changes `fixed`.
+        fixcheck_result = None
+        if will_fixcheck:
+            fixcheck = FixCheckWrapper(
+                num_prefixes=args.fixcheck_prefixes,
+                assertion_generator=args.fixcheck_assertions,
+                similarity_threshold=args.fixcheck_similarity_threshold,
+                inputs_class=args.fixcheck_inputs_class,
+                timeout_seconds=args.fixcheck_timeout,
+            )
+            fixcheck_result = fixcheck.run(
+                container, workdir, trigger_tests, trigger_method_sources
+            )
+            for record in fixcheck_result["per_test_class"]:
+                run_dir = record.get("run_dir")
+                if not run_dir:
+                    continue
+                simple_name = record["test_class"].rsplit(".", 1)[-1]
+                dest = os.path.join(results_dir, "fixcheck", simple_name)
+                src_output = os.path.join(run_dir, "fixcheck-output")
+                if os.path.isdir(src_output):
+                    os.makedirs(dest, exist_ok=True)
+                    shutil.copytree(src_output, dest, dirs_exist_ok=True)
+                log_src = os.path.join(run_dir, "fixcheck.log")
+                if os.path.exists(log_src):
+                    os.makedirs(dest, exist_ok=True)
+                    shutil.copy(log_src, os.path.join(dest, "fixcheck.log"))
+        fixcheck_suspicious = bool(fixcheck_result and fixcheck_result.get("suspicious"))
+
+        if will_fixcheck:
+            result["fixcheck"] = fixcheck_result
+            result["fixcheck_suspicious"] = fixcheck_suspicious
+            write_text(results_dir, "result.json", json.dumps(result, indent=2))
 
         print("\n[experiment] ===== Summary =====")
         print(f"[experiment] Applied: {result['applied']}  Fixed: {result['fixed']}")

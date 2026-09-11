@@ -130,6 +130,8 @@ Arguments:
 | `--workdir`     | Host directory for the checkout (mounted as a volume).   | required             |
 | `--model`       | LLM model identifier.                                    | `ollama/gpt-oss:20b` |
 | `--temperature` | LLM sampling temperature.                                | `0.0`                |
+| `--max-tokens` | Maximum tokens to generate (Ollama `num_predict`). For a reasoning model this budget covers the chain of thought as well as the answer; reaching it is recorded as `generation_status: truncated`, never scored as the model failing. See [docs/generation-budget.md](docs/generation-budget.md). | `32768` |
+| `--context-length` | Context window for prompt + generation (Ollama `num_ctx`). `131072` is `gpt-oss:120b`'s native maximum; the daemon must serve at least this much, which `scripts/ollama_serve.sh` ensures by reading the same constant. | `131072` |
 | `--include-test-code` | Include the failing trigger test method(s) in the prompt (extracted from the test file, not the whole file). | off |
 | `--include-test-log`  | Include the regression (trigger) test's isolated failure log in the prompt. | off |
 | `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
@@ -138,6 +140,7 @@ Arguments:
 | `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `codellama`, `llama3.1`, `gpt-3.5`, `replit-code-llm`, or **`ollama:<model>[@[<host>:]<port>]`** for any model an Ollama daemon serves (e.g. `ollama:gpt-oss:120b@1995`). `previous-assertion` keeps the trigger test's own assertions in every variation (restored by the patches in `scripts/fixcheck-patches/` — [background](docs/fixcheck-verdict-limitations.md)); `assert-true` only appends a vacuous `assertTrue(true)`. The Ollama-backed ones generate new assertions with an LLM — see *Ollama-backed assertion generators* below. `gpt-3.5` and `replit-code-llm` aren't wired up for this project's container/network setup yet. | `previous-assertion` |
 | `--fixcheck-inputs-class` | Force FixCheck's `inputs-class` (e.g. `int`, `java.lang.String`) instead of inferring it from the trigger test source. Also the way to run FixCheck on a trigger test the heuristic considers unmutable (see *Not every bug is a FixCheck subject* below). | heuristic |
 | `--fixcheck-similarity-threshold` | Minimum failure-similarity score (0-1) a FixCheck failing variation needs to mark the patch suspicious. | `0.8` |
+| `--fixcheck-timeout` | Wall-clock budget in seconds for each FixCheck run (one per trigger class); `0` = unbounded. FixCheck runs its mutated prefixes with no timeout of its own, and an unbounded one used to hang until the per-bug timeout killed the whole run, losing a verdict already computed. A stop is recorded as `timed_out` and never affects `fixed`; `result.json` is written before FixCheck starts, so an interrupted FixCheck can only cost its own block. | `1800` |
 | `--iteration`   | Iteration index; when set, artifacts go to `results/<model>/<project>/Bug_<bug_id>/<iteration>/` instead of `results/<model>/<project>/Bug_<bug_id>/`. Used by `run_iterations.py`. | none |
 
 ### Not every bug is a FixCheck subject
@@ -360,6 +363,18 @@ set), where `<model>` is `--model` with any `<provider>/` prefix stripped
   the first campaign were the former and were reported as the latter.
   `unidentified_failing_lines` and `masked_triggers` flag a run whose verdict
   rests on failing-test lines the parser could not read.
+
+  `post_fix_tests` is `"completed"`, `"did_not_terminate"` or `null` (no patch
+  applied). The patched suite runs under a budget of 5x the pre-fix suite's
+  duration, clamped to 30-90 min (`post_fix_test_budget`); a patch that makes it
+  outrun that is recorded as not fixed, with `compiled_after` *measured* by a
+  separate `defects4j compile` rather than assumed. Before this, such a patch
+  ran into the per-bug timeout and the run left no `result.json` at all.
+
+  Re-running a bug never deletes the previous attempt: its directory is moved to
+  `results/old/superseded/<UTC timestamp>/...`, and a warning is printed when it
+  held a verdict — a run with a verdict is the run of record and should not be
+  re-run (see [docs/campaign.md](docs/campaign.md), "The verdict of record").
 - `run_status.json` — only written by `run_project.py`: how the run itself
   went (`status` of `ok`/`error`/`timeout`, `exit_code`, `seconds`) alongside
   the outcome flags. This is what distinguishes "the model did not fix it"

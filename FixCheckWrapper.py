@@ -43,6 +43,18 @@ FIXCHECK_ASSERTION_GENERATORS = [
 DEFAULT_FIXCHECK_PREFIXES = 25
 DEFAULT_FIXCHECK_ASSERTIONS = "previous-assertion"
 DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD = 0.8
+# Wall-clock budget for one FixCheck run (one trigger class). FixCheck runs its
+# mutated prefixes with no timeout of its own, and role-blind mutation of an
+# int can turn an iteration count into something effectively unbounded: Math 10
+# and 13 hung in FixCheck for hours in both campaigns, until the per-bug timeout
+# killed the whole run -- *after* the patch had already passed every test, so a
+# plausible fix was recorded as "timeout" with no verdict. Measured on the
+# rerun, everything after generation takes a median 85-138 s and a p99 of
+# 850-918 s on runs where FixCheck ran, so 1800 s is twice the p99.
+DEFAULT_FIXCHECK_TIMEOUT = 1800
+# coreutils `timeout` exit statuses: 124 = sent TERM at the deadline, 137 =
+# needed the KILL from --kill-after.
+_TIMEOUT_EXIT_CODES = (124, 137)
 
 # Assertion generators that ask an Ollama daemon to write the assertions
 # instead of reusing the original test's. ``CodeLlamaOllama`` and
@@ -251,6 +263,21 @@ _ASSERTION_STMT_RE = re.compile(rf"^\s*(?:{'|'.join(FIXCHECK_ASSERTION_CALLS)})\
 
 # Ordered by preference when several literal types are equally frequent.
 FIXCHECK_INPUT_TYPE_PRIORITY = ["java.lang.String", "int", "double", "long", "boolean"]
+
+
+def fixcheck_command(classpath, props_path, timeout_seconds=DEFAULT_FIXCHECK_TIMEOUT):
+    """The shell command that runs FixCheck, bounded by ``timeout_seconds``.
+
+    Wrapped in coreutils ``timeout`` (present in the Defects4J image) rather
+    than timed from Python, because ``docker exec`` offers no timeout and a
+    hung JVM inside the container would otherwise outlive this call.
+    ``--kill-after`` escalates to KILL for a JVM that ignores TERM. A falsy
+    ``timeout_seconds`` means unbounded, the historical behaviour.
+    """
+    java = f"java -cp {classpath} org.imdea.fixcheck.FixCheck -p {props_path}"
+    if not timeout_seconds:
+        return java
+    return f"timeout --kill-after=30 {int(timeout_seconds)} {java}"
 
 
 def group_triggers_by_class(trigger_tests):
@@ -625,12 +652,14 @@ class FixCheckWrapper:
     def __init__(self, num_prefixes=DEFAULT_FIXCHECK_PREFIXES,
                  assertion_generator=DEFAULT_FIXCHECK_ASSERTIONS,
                  similarity_threshold=DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD,
-                 inputs_class=None, jar_path=FIXCHECK_JAR):
+                 inputs_class=None, jar_path=FIXCHECK_JAR,
+                 timeout_seconds=DEFAULT_FIXCHECK_TIMEOUT):
         self.num_prefixes = num_prefixes
         self.assertion_generator = assertion_generator
         self.similarity_threshold = similarity_threshold
         self.inputs_class = inputs_class
         self.jar_path = jar_path
+        self.timeout_seconds = timeout_seconds
 
     def run(self, container, workdir, trigger_tests, trigger_method_sources):
         """Run FixCheck on an already-patched, already-plausible checkout.
@@ -733,7 +762,7 @@ class FixCheckWrapper:
                     record = {
                         "test_class": fqcn, "inputs_class": None, "run_dir": None,
                         "ok": False, "report": None, "scores": [], "max_score": 0.0,
-                        "error": str(exc),
+                        "timed_out": False, "error": str(exc),
                     }
                 result["inputs_class"][fqcn] = record["inputs_class"]
                 result["per_test_class"].append(record)
@@ -741,6 +770,12 @@ class FixCheckWrapper:
             result["analyzed_test_classes"] = sum(
                 1 for r in result["per_test_class"] if r["ok"]
             )
+            # Kept apart from "crashed": a class stopped at the budget is the
+            # harness choosing to give up, not FixCheck failing on its own.
+            result["timed_out_test_classes"] = sum(
+                1 for r in result["per_test_class"] if r.get("timed_out")
+            )
+            result["timeout_seconds"] = self.timeout_seconds
             result["failing_prefixes"] = sum(
                 (r["report"]["crashing"] + r["report"]["assertion_failing"]) if r["report"] else 0
                 for r in result["per_test_class"]
@@ -786,6 +821,7 @@ class FixCheckWrapper:
             "report": None,
             "scores": [],
             "max_score": 0.0,
+            "timed_out": False,
         }
 
         if inputs_class is None or not usable_methods:
@@ -836,12 +872,20 @@ class FixCheckWrapper:
             f.write(props_text)
 
         full_cp = f"{self.jar_path}:{_resolve_classpath(workdir, cp_test)}"
-        cmd = f"java -cp {full_cp} org.imdea.fixcheck.FixCheck -p {props_path}"
+        cmd = fixcheck_command(full_cp, props_path, self.timeout_seconds)
         print(f"[fixcheck] Running FixCheck for {fqcn} ({len(usable_methods)} trigger "
-              f"method(s), inputs-class={inputs_class}) ...")
+              f"method(s), inputs-class={inputs_class}, budget "
+              f"{self.timeout_seconds or 'unbounded'}s) ...")
         exec_result = exec_in_container(container, cmd, workdir=run_dir)
         _write_text(os.path.join(run_dir, "fixcheck.log"), exec_result.output)
-        if not exec_result.ok:
+        record["timed_out"] = bool(
+            self.timeout_seconds and exec_result.exit_code in _TIMEOUT_EXIT_CODES
+        )
+        if record["timed_out"]:
+            print(f"[fixcheck] WARNING: FixCheck({fqcn}) exceeded its "
+                  f"{self.timeout_seconds}s budget and was stopped; advisory "
+                  "failure, the patch's verdict is unaffected.")
+        elif not exec_result.ok:
             # FixCheck.main() normally exits 0 even when generation partially
             # fails; a non-zero exit means something more fundamental broke
             # (e.g. a bad classpath). Still try to read whatever it produced.
@@ -855,8 +899,10 @@ class FixCheckWrapper:
         record["report"] = parse_fixcheck_report(report_text) if report_text is not None else None
         record["scores"] = parse_fixcheck_scores(scores_text) if scores_text is not None else []
         record["max_score"] = max(record["scores"], default=0.0)
-        record["ok"] = record["report"] is not None
-        if not record["ok"]:
+        record["ok"] = record["report"] is not None and not record["timed_out"]
+        if record["timed_out"]:
+            record["error"] = f"FixCheck timed out after {self.timeout_seconds}s"
+        elif not record["ok"]:
             record["error"] = "report.csv missing or unparsable"
             print(f"[fixcheck] WARNING: FixCheck({fqcn}): {record['error']}")
         return record

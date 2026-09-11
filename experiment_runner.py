@@ -123,6 +123,11 @@ def add_experiment_flags(parser):
         help="Force FixCheck's inputs-class (default: Experiment.py's heuristic).",
     )
     parser.add_argument(
+        "--fixcheck-timeout", type=int, default=None,
+        help="Per-class FixCheck wall-clock budget in seconds "
+             "(default: Experiment.py's default).",
+    )
+    parser.add_argument(
         "--fixcheck-similarity-threshold", type=float, default=None,
         help="FixCheck suspicious-verdict similarity threshold "
              "(default: Experiment.py's default).",
@@ -163,6 +168,8 @@ def experiment_args(args):
     if args.fixcheck_similarity_threshold is not None:
         forwarded += ["--fixcheck-similarity-threshold",
                       str(args.fixcheck_similarity_threshold)]
+    if getattr(args, "fixcheck_timeout", None) is not None:
+        forwarded += ["--fixcheck-timeout", str(args.fixcheck_timeout)]
     return forwarded
 
 

@@ -193,6 +193,30 @@ flagged patch and a missed one.
   `assertions_gen_time` of 125 s for Math 69 and 696 s for Lang 12's larger
   test, against ~2 s of actual prefix execution.
 
+## Every flag in the rerun, checked against the developer's fix
+
+The rerun flagged four patches. Each flagged variation was run against the
+Defects4J **developer-fixed** version of its bug (`<id>f`): if it fails there
+the same way, the mutated input was invalid and the flag is a false positive;
+if it passes there, the model's patch is genuinely incomplete.
+
+| Patch | Similarity | On the developer's fix | Verdict |
+|---|---:|---|---|
+| Cli 35 (qwen3.6:35b and gpt-oss:120b) | 0.812 | same `AmbiguousOptionException`: `"--prefix"` mutated to `"--pref"`, which *is* ambiguous | false positive |
+| Math 40 (qwen3.6:35b) | 0.848 | same `TooManyEvaluationsException`: the max evaluation count was mutated to 5 | false positive (patch already `fixed=False`) |
+| JacksonDatabind 6 (gpt-oss:120b) | 0.855 | the mutated trigger methods behave as on the fix; the matching trace comes from a **sibling test** | re-detects a known regression |
+
+**A limitation not documented before: sibling-test leakage.** FixCheck copies
+the *whole* test class and re-runs every method in it, mutated or not. In
+JacksonDatabind 6 the trace that crossed the threshold came from
+`test8601DateTimeNoMilliSecs`, run on its original data -- one of the two tests
+the patch had already broken (`new_failures`). A regression in any sibling test
+therefore feeds the similarity score, and the flag restates what `fixed=False`
+already says. Mutating only the trigger method, or scoring only its traces,
+would remove it.
+
+Net: **four flags, none carrying information beyond `fixed`.**
+
 ## How to read a verdict, for now
 
 `analyzed_test_classes > 0` is **necessary** for `suspicious: false` to mean

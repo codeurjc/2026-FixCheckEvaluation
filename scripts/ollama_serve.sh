@@ -98,6 +98,15 @@ start_ollama() {
     # Under CUDA the runner sees exactly the GPU SLURM gave it. The cuda_v12 /
     # cuda_v13 backends ship with the same install, so this costs nothing.
     export OLLAMA_VULKAN=0
+    # ... and make CUDA number the GPUs the way SLURM does. SLURM's index is
+    # the /dev/nvidiaN minor (gres.conf), i.e. PCI bus order -- the same as
+    # nvidia-smi. CUDA's default is FASTEST_FIRST, which on this mixed node
+    # enumerates the L40S cards before the H100s, so CUDA_VISIBLE_DEVICES=0
+    # opened the L40S at 43:00.0 for a job SLURM had given the H100 at
+    # 03:00.0. gpt-oss:120b (61.7 GB) then ran spilled onto a 46 GB card at
+    # ~0.5 tok/s instead of ~130, and jobs silently used GPUs allocated to
+    # someone else. With PCI_BUS_ID the two numberings agree.
+    export CUDA_DEVICE_ORDER=PCI_BUS_ID
     export OLLAMA_MAX_LOADED_MODELS=1
     export OLLAMA_NUM_PARALLEL=1
     export OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:--1}"

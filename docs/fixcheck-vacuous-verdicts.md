@@ -14,6 +14,13 @@ fixed are written up in Spanish at `notes/fixcheck-defects.md`.
 
 ## How many
 
+> **Which campaign.** The figures below are from the *archived* campaign
+> (`results/old/9-Sep`, 847 paired bugs). The rerun reproduces the picture --
+> 227 vacuous verdicts over 919 plausible patches (24.7%), the same five
+> mechanisms in the same order, plus a sixth: FixCheck stopped at its new
+> 1800 s budget (2 runs) -- see `analysis/analysis.ipynb`, section 6.1.
+
+
 Over the **paired set** (the 847 bugs both models completed), which is the
 population the notebook uses:
 

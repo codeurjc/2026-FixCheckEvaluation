@@ -541,3 +541,43 @@ def test_validate_assertion_generator_accepts_both_forms():
 def test_validate_assertion_generator_rejects_the_rest(value):
     with pytest.raises(argparse.ArgumentTypeError):
         validate_assertion_generator(value)
+
+
+# ------------------------------------------------ FixCheck's own time budget
+#
+# FixCheck runs mutated prefixes with no timeout, and role-blind mutation of an
+# int can make one effectively unbounded. Math 10 and 13 hung in FixCheck for
+# hours in both campaigns until the per-bug timeout killed the run -- after the
+# patch had already passed every test -- so plausible fixes were lost.
+
+def test_fixcheck_command_is_bounded_by_default():
+    from FixCheckWrapper import DEFAULT_FIXCHECK_TIMEOUT, fixcheck_command
+
+    cmd = fixcheck_command("/cp", "/run/fixcheck.properties")
+    assert cmd.startswith(f"timeout --kill-after=30 {DEFAULT_FIXCHECK_TIMEOUT} java ")
+    assert cmd.endswith("org.imdea.fixcheck.FixCheck -p /run/fixcheck.properties")
+
+
+def test_fixcheck_command_can_be_unbounded():
+    from FixCheckWrapper import fixcheck_command
+
+    assert fixcheck_command("/cp", "/p", 0).startswith("java ")
+    assert fixcheck_command("/cp", "/p", None).startswith("java ")
+
+
+def test_fixcheck_timeout_is_below_the_per_bug_timeout():
+    """The budget only helps if FixCheck is stopped before the run is."""
+    import os, re
+    from FixCheckWrapper import DEFAULT_FIXCHECK_TIMEOUT
+
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    script = open(os.path.join(root, "scripts/runCampaign.sh"), encoding="utf-8").read()
+    per_bug = int(re.search(r'^TIMEOUT="(\d+)"', script, re.M).group(1))
+    assert 0 < DEFAULT_FIXCHECK_TIMEOUT < per_bug / 2
+
+
+def test_wrapper_carries_its_timeout():
+    from FixCheckWrapper import DEFAULT_FIXCHECK_TIMEOUT, FixCheckWrapper
+
+    assert FixCheckWrapper().timeout_seconds == DEFAULT_FIXCHECK_TIMEOUT
+    assert FixCheckWrapper(timeout_seconds=60).timeout_seconds == 60

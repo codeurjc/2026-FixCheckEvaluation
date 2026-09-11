@@ -889,3 +889,124 @@ def test_ollama_forces_the_cuda_backend():
         "ollama_serve.sh must pin OLLAMA_VULKAN=0 so the runner honours the "
         "GPU SLURM allocated"
     )
+
+
+def test_cuda_numbers_gpus_the_way_slurm_does():
+    """SLURM's GPU index is the /dev/nvidiaN minor, i.e. PCI order; CUDA's
+    default FASTEST_FIRST order differs on this mixed H100/L40S node, so the
+    same CUDA_VISIBLE_DEVICES opened a different physical card. gpt-oss:120b
+    landed on 46 GB L40S cards SLURM had never given it and ran at ~0.5 tok/s.
+    """
+    script = open(os.path.join(_repo_root(), "scripts/ollama_serve.sh"),
+                  encoding="utf-8").read()
+    code = "\n".join(
+        line for line in script.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert re.search(r"export CUDA_DEVICE_ORDER=PCI_BUS_ID\b", code)
+
+
+def test_experiment_args_forwards_fixcheck_timeout():
+    import argparse
+    from experiment_runner import add_experiment_flags, experiment_args
+
+    parser = add_experiment_flags(argparse.ArgumentParser())
+    args = parser.parse_args(["--fixcheck-timeout", "900"])
+    fwd = experiment_args(args)
+    assert fwd[fwd.index("--fixcheck-timeout") + 1] == "900"
+    assert "--fixcheck-timeout" not in experiment_args(parser.parse_args([]))
+
+
+# ------------------------------------------- the model must stay on the GPU
+
+def test_placement_ok_when_fully_on_gpu():
+    from run_project import gpu_placement_problem
+    ps = {"models": [{"name": "qwen3.6:35b", "size": 26_000, "size_vram": 26_000}]}
+    assert gpu_placement_problem(ps, "ollama/qwen3.6:35b") is None
+
+
+def test_placement_ok_when_not_loaded_yet():
+    from run_project import gpu_placement_problem
+    assert gpu_placement_problem({"models": []}, "ollama/qwen3.6:35b") is None
+    assert gpu_placement_problem(None, "ollama/qwen3.6:35b") is None
+
+
+def test_placement_flags_a_model_that_fell_back_to_cpu():
+    """qwen's Time job reloaded with `offloaded 0/42 layers to GPU` after a
+    collision and kept generating on ~160 CPU cores for every later bug."""
+    from run_project import gpu_placement_problem
+    ps = {"models": [{"name": "qwen3.6:35b", "size": 26 * 2**30, "size_vram": 0}]}
+    problem = gpu_placement_problem(ps, "ollama/qwen3.6:35b")
+    assert problem and "entirely on CPU" in problem
+
+
+def test_placement_flags_a_partial_offload():
+    """gpt-oss:120b (61.7 GB) opened on a 46 GB L40S spills to system memory."""
+    from run_project import gpu_placement_problem
+    ps = {"models": [{"name": "gpt-oss:120b", "size": 62 * 2**30, "size_vram": 44 * 2**30}]}
+    problem = gpu_placement_problem(ps, "ollama/gpt-oss:120b")
+    assert problem and "partly offloaded" in problem
+
+
+def test_placement_ignores_other_models():
+    from run_project import gpu_placement_problem
+    ps = {"models": [{"name": "llama3.1:8b", "size": 10, "size_vram": 0}]}
+    assert gpu_placement_problem(ps, "ollama/qwen3.6:35b") is None
+
+
+# ------------------------------------------ the first verdict of record
+
+def test_degraded_fixcheck_is_no_measurement(tmp_path):
+    """A FixCheck whose assertion generator timed out is kept on disk but must
+    read as no measurement -- not a verdict, and not a vacuous one either."""
+    from summarize_campaign import collect_project
+
+    bug = tmp_path / "Compress" / "Bug_3"
+    bug.mkdir(parents=True)
+    (bug / "result.json").write_text(json.dumps({
+        "applied": True, "compiled_after": True, "triggers_fixed": True, "fixed": True,
+        "fixcheck": {"ok": True, "analyzed_test_classes": 0, "suspicious": False},
+        "fixcheck_suspicious": False,
+        "fixcheck_degraded": "assertion generator timed out",
+    }))
+    r = collect_project(str(tmp_path), "Compress")[0]
+    assert r["fixed"] is True
+    assert r["fixcheck_degraded"] is True
+    assert r["fixcheck_ran"] is False
+    assert r["fixcheck_analyzed"] is None       # not 0: that would read as vacuous
+
+
+def test_verdict_source_and_test_hang_are_exposed(tmp_path):
+    from summarize_campaign import collect_project
+
+    bug = tmp_path / "Closure" / "Bug_74"
+    bug.mkdir(parents=True)
+    (bug / "result.json").write_text(json.dumps({
+        "applied": True, "compiled_after": True, "triggers_fixed": False, "fixed": False,
+        "failing_tests_after": None, "post_fix_tests": "did_not_terminate",
+        "verdict_source": "job_log+reapply",
+    }))
+    r = collect_project(str(tmp_path), "Closure")[0]
+    assert r["compiled_after"] is True            # an explicit value wins
+    assert r["fixed"] is False
+    assert r["post_fix_tests"] == "did_not_terminate"
+    assert r["verdict_source"] == "job_log+reapply"
+
+
+def test_normal_results_report_their_verdict_source_as_run(tmp_path):
+    from summarize_campaign import collect_project
+
+    bug = tmp_path / "Lang" / "Bug_1"
+    bug.mkdir(parents=True)
+    (bug / "result.json").write_text(json.dumps({"applied": False}))
+    assert collect_project(str(tmp_path), "Lang")[0]["verdict_source"] == "run"
+
+
+def test_generation_status_is_exposed_and_absent_means_unknown(tmp_path):
+    from summarize_campaign import collect_project
+    for bug, extra in (("1", {"generation_status": "truncated"}), ("2", {})):
+        d = tmp_path / "Lang" / f"Bug_{bug}"
+        d.mkdir(parents=True)
+        (d / "result.json").write_text(json.dumps({"applied": False, **extra}))
+    recs = {r["bug_id"]: r for r in collect_project(str(tmp_path), "Lang")}
+    assert recs["1"]["generation_status"] == "truncated"
+    assert recs["2"]["generation_status"] is None      # not "ok": never recorded

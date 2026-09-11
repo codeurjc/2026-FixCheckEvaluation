@@ -8,6 +8,8 @@ Run with:
     .venv/bin/python -m pytest test/test_experiment_units.py -v
 """
 
+import os
+
 from Experiment import (
     evaluate_fix,
     extract_java_method,
@@ -384,3 +386,86 @@ def test_budget_defaults_are_the_audited_ones():
     assert FixGenerator.DEFAULT_MAX_TOKENS == 32768
     assert FixGenerator.DEFAULT_CONTEXT_LENGTH == 131072
     assert FixGenerator.DEFAULT_CONTEXT_LENGTH > FixGenerator.DEFAULT_MAX_TOKENS
+
+
+# ------------------------------------------ an interrupted FixCheck is not a verdict
+
+def test_fixcheck_pending_marker_reads_as_not_run():
+    """result.json is written *before* FixCheck, carrying this marker. If the
+    run is killed during FixCheck, the marker is what stays on disk -- and every
+    reader must see "FixCheck did not produce a verdict", not "not suspicious".
+    """
+    from Experiment import FIXCHECK_PENDING
+
+    assert FIXCHECK_PENDING["ok"] is False
+    assert FIXCHECK_PENDING["pending"] is True
+    assert "analyzed_test_classes" not in FIXCHECK_PENDING
+
+
+def test_collect_project_treats_pending_fixcheck_as_invoked_not_ran(tmp_path):
+    import json
+    from Experiment import FIXCHECK_PENDING
+    from summarize_campaign import collect_project
+
+    bug = tmp_path / "Math" / "Bug_10"
+    bug.mkdir(parents=True)
+    (bug / "result.json").write_text(json.dumps({
+        "applied": True, "compiled_after": True, "triggers_fixed": True,
+        "fixed": True, "fixcheck": dict(FIXCHECK_PENDING),
+        "fixcheck_suspicious": False,
+    }))
+    (bug / "run_status.json").write_text(json.dumps({"status": "timeout"}))
+    r = collect_project(str(tmp_path), "Math")[0]
+    assert r["fixed"] is True                 # the verdict survived the kill
+    assert r["fixcheck_invoked"] is True
+    assert r["fixcheck_ran"] is False         # ... but FixCheck gave none
+    assert r["fixcheck_analyzed"] is None
+
+
+# ------------------------------------- the post-fix suite has a budget too
+#
+# gpt-oss Closure 74: the patch applied and compiled, then `defects4j test` ran
+# for the whole 3 h per-bug timeout and the run was killed with no result.json.
+
+def test_post_fix_budget_scales_with_the_pre_fix_suite():
+    from Experiment import POST_FIX_TEST_FACTOR, post_fix_test_budget
+    assert post_fix_test_budget(600) == 600 * POST_FIX_TEST_FACTOR
+
+
+def test_post_fix_budget_is_clamped_both_ways():
+    from Experiment import (POST_FIX_TEST_MAX_BUDGET, POST_FIX_TEST_MIN_BUDGET,
+                            post_fix_test_budget)
+    assert post_fix_test_budget(5) == POST_FIX_TEST_MIN_BUDGET        # quick suites
+    assert post_fix_test_budget(None) == POST_FIX_TEST_MIN_BUDGET
+    assert post_fix_test_budget(99_999) == POST_FIX_TEST_MAX_BUDGET   # slow suites
+
+
+def test_post_fix_budget_plus_fixcheck_fits_in_the_per_bug_timeout():
+    """Otherwise the per-bug timeout would still win and erase the verdict."""
+    import re
+    from Experiment import POST_FIX_TEST_MAX_BUDGET
+    from FixCheckWrapper import DEFAULT_FIXCHECK_TIMEOUT
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    script = open(os.path.join(root, "scripts/runCampaign.sh"), encoding="utf-8").read()
+    per_bug = int(re.search(r'^TIMEOUT="(\d+)"', script, re.M).group(1))
+    assert POST_FIX_TEST_MAX_BUDGET + DEFAULT_FIXCHECK_TIMEOUT < per_bug
+
+
+def test_bounded_command_wraps_in_coreutils_timeout():
+    from Experiment import bounded_command
+    assert bounded_command("defects4j test", 1800) == \
+        "timeout --kill-after=30 1800 defects4j test"
+
+
+def test_superseded_path_keeps_the_layout_under_results_old():
+    from Experiment import superseded_path
+    p = superseded_path("results/qwen3.6:35b/Math/Bug_13", "20260910T200000Z")
+    assert p == "results/old/superseded/20260910T200000Z/qwen3.6:35b/Math/Bug_13"
+
+
+def test_hang_marker_is_the_same_in_the_pipeline_and_the_verifier():
+    """audit/rederive.py keeps its own copy on purpose (it imports nothing from
+    Experiment.py); the two must never drift apart."""
+    from Experiment import POST_FIX_HANG_MARKER as pipeline
+    from audit.rederive import POST_FIX_HANG_MARKER as verifier
+    assert pipeline == verifier

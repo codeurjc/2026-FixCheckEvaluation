@@ -27,6 +27,7 @@ JacksonDatabind 65/89, Time 21) are never attempted.
 |---|---|---|---|---|
 | Archived campaign | all 17 | 854 x 2 | 2026-08-11 .. 2026-09-06 | mixed (4 SHAs; see audit-2026-09.md) |
 | Post-audit rerun | all 17 | 854 x 2 | 2026-09-09 | `803bbb1` **+ 24 uncommitted files** |
+| Rerun completion | 8 project/model pairs | 159 + 71 | 2026-09-10 | `2f6511d` + fixes below (uncommitted) |
 
 ### Post-audit rerun, 2026-09-09
 
@@ -54,6 +55,54 @@ Verified before launch by recomputing the plan through `resolve_bug_ids` +
 24 uncommitted files at launch — every fix from the September audit. The sha
 alone does **not** identify the code that produced these results. Commit before
 relying on it.
+
+### Completion pass, 2026-09-10
+
+The rerun did not finish on its own. Two further defects surfaced while it ran
+(audit §1.12 and §1.13), both fixed before resubmitting what was left:
+
+- **Wrong physical GPU.** CUDA numbered devices `FASTEST_FIRST` while SLURM
+  numbers them in PCI order, so gpt-oss jobs given H100 0 or 1 ran on 46 GB L40S
+  cards at ~0.5 tok/s; five hit SLURM's wall clock (`TIMEOUT` in sacct) with
+  few bugs done, and two jobs fell back to CPU. Fixed with
+  `CUDA_DEVICE_ORDER=PCI_BUS_ID`, plus a per-bug GPU-placement check in
+  `run_project.py`.
+- **FixCheck hangs erased verdicts.** Math 10 and 13 (both models) passed every
+  test, then FixCheck hung until the per-bug timeout killed the run and no
+  `result.json` survived. Fixed with a 1800 s FixCheck budget and by writing
+  the verdict before FixCheck starts.
+
+Cancelled as broken: `16193`, `16203` (wrong device) and `16226` (qwen Time,
+fell back to CPU after a collision with `16193`). Verified on gpt-oss Math 10
+(`16230`) before resubmitting. Resubmitted with explicit bug lists and
+`--retry-errored`: `16231`-`16237` (gpt-oss, 159 runs) and `16238`-`16241`
+(qwen, 71 runs); `16225` (qwen Mockito) was left running on its correct card.
+
+**FixCheck verdicts degraded by the slow device.** FixCheck's assertion
+generator calls the same model; at 0.2 tok/s (job `16193`, gpt-oss on an L40S)
+it hit `SocketTimeoutException` on gpt-oss Compress 3, 4, 6 and 7, and three of
+the four ended vacuous. Their `fixed` verdicts were correct, but their FixCheck
+verdicts were not evidence, and `--retry-errored` would not have redone them
+(status `ok`). Rerun with `--no-resume` as job `16242`; the degraded runs are
+kept in `results/old/degraded-fixcheck-2026-09-10/`. The archived campaign has
+the same symptom on gpt-oss Chart 8, 11, 13 and Compress 46 (under Vulkan);
+left as is, since the rerun supersedes it.
+
+**Checked and cleared**: re-deriving all 1,525 stored verdicts from the raw logs
+found no contradiction, so neither defect wrote a wrong `fixed`; they only
+slowed runs down or left them without a result.
+
+**Consequences for the analysis**
+
+- **Mixed code within jobs.** `run_project.py` starts a fresh `Experiment.py`
+  per bug, so jobs already running when the fixes landed used the new code for
+  their remaining bugs. Verdicts are computed identically in both versions;
+  only the FixCheck timeout and the provisional `result.json` differ.
+- **Do not use wall-clock time as a cost measure** for this campaign: 96
+  completed runs generated on the wrong card type and many more on a card of
+  the right type but not the one allocated, possibly shared. Use tokens.
+- **FixCheck timeouts are a vacuous-verdict category of their own**
+  (`timed_out_test_classes > 0`), distinct from crashes and skips.
 
 **Two false starts precede this one**, both worth knowing when reading the logs:
 jobs `16121`-`16172` were cancelled minutes in (the Vulkan GPU-isolation defect,
@@ -96,6 +145,55 @@ anything at all.
 Also worth knowing when comparing projects: `included_issue` is now
 `bool(issue_text)`, so a bug whose issue is genuinely unavailable records
 `false` rather than claiming it was in the prompt.
+
+## The verdict of record
+
+**The first run whose patch was generated and evaluated is the run of record.
+Only runs the harness broke *before* producing a verdict are re-run.**
+
+Re-running a run that already has a verdict does not re-measure it. The model
+is not deterministic even at temperature 0, so a re-run draws a *different*
+patch -- all four Compress re-runs below did. Worse, the reason for re-running
+is rarely independent of the outcome: FixCheck only runs on plausible patches,
+so every run re-rolled because of FixCheck was a success, and re-rolling only
+successes can lower a model's count but never raise it. It did, on 2026-09-10:
+
+| Run | First verdict | Re-roll |
+|---|---|---|
+| gpt-oss Compress 3, 4 | fixed | **not fixed** |
+| gpt-oss Compress 6, 7 | fixed | fixed |
+| gpt-oss Math 10, 13; qwen Math 10 | fixed (job log) | fixed |
+| qwen Math 13 | fixed (job log) | **not fixed** |
+
+`scripts/apply_first_verdict_rule.py` (dry run by default, idempotent) restored
+the verdicts of record and moved the re-rolls to `results/old/rerolled-2026-09-10/`:
+
+- **gpt-oss Compress 3, 4, 6, 7** -- originals restored. Their FixCheck is
+  marked `fixcheck_degraded` (its assertion generator timed out while the model
+  ran on the wrong GPU), which `collect_project` reads as *no measurement*.
+- **qwen Math 13** -- the first run's verdict, reconstructed from its job log
+  (`Failing tests after fix: 0`, then FixCheck hung). `verdict_source:
+  "job_log"`; its patch is lost because the re-run cleared the directory.
+- **gpt-oss Closure 74** -- the patch applied and the test suite never
+  finished within 3 h. That is the model's outcome, recorded as not fixed with
+  `post_fix_tests: "did_not_terminate"`, not re-run: re-running only failures
+  would bias the other way. Compilation was *measured* by re-applying the saved
+  patch (it compiles), not assumed.
+
+What the rule allows re-running: timeouts and errors where no verdict was
+produced (a generation cut off by a wrong device, a killed job, a harness
+crash). `--retry-errored` does exactly that. **`--no-resume` re-rolls every
+run it touches and must not be used on runs that have a verdict.**
+
+`audit.rederive` lists reconstructed verdicts separately from divergences,
+since they have no run artifacts to re-derive from.
+
+**Hardened afterwards**, so neither repair should be needed again: `Experiment.py`
+now moves a previous attempt to `results/old/superseded/` instead of deleting it
+(which is how qwen Math 13's first patch was lost), and bounds the patched test
+suite so a hang like Closure 74's is recorded by the pipeline itself -- with the
+marker `POST-FIX TESTS DID NOT TERMINATE` in `test_after.log`, which
+`audit.rederive` reads -- instead of being reconstructed by hand.
 
 ## Issue reports
 
