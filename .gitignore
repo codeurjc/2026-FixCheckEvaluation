@@ -9,4 +9,4 @@ scripts/logs/
 fixcheck/
 logs/
 nohup.out
-audit/
+audit/*.csv
