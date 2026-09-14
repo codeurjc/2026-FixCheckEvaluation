@@ -14,11 +14,11 @@ each test module parametrizes and scopes its own fixture differently.
 """
 
 import contextlib
-import difflib
 import json
 import os
 import shutil
 
+from d4j.developer_fix import developer_diff
 from Experiment import (
     DEFECTS4J_IMAGE,
     FIXCHECK_DIR,
@@ -36,8 +36,8 @@ from Experiment import (
 )
 from FixCheckWrapper import (
     FixCheckWrapper,
+    copy_fixcheck_artifacts,
     fixcheck_failure_log_path,
-    group_triggers_by_class,
     needs_host_network,
     write_fixcheck_failure_logs,
 )
@@ -59,30 +59,15 @@ def docker_image_available():
         return False
 
 
-def developer_diff(buggy_sources, fixed_sources):
-    """Build a unified diff from the buggy sources to the developer's fix."""
-    fixed_by_path = dict(fixed_sources)
-    diffs = []
-    for rel_path, buggy_content in buggy_sources:
-        fixed_content = fixed_by_path.get(rel_path, buggy_content)
-        if fixed_content == buggy_content:
-            continue
-        diff = difflib.unified_diff(
-            buggy_content.split("\n"), fixed_content.split("\n"),
-            fromfile=f"a/{rel_path}", tofile=f"b/{rel_path}", lineterm="",
-        )
-        diffs.append("\n".join(diff))
-    return "\n".join(d for d in diffs if d)
-
-
 def collect_logs(log_dir, workdir, result, trigger_tests, dev_diff):
     """Copy a run's artifacts out of the container volume into ``log_dir``.
 
     The checkout lives in a pytest ``tmp_path`` that is eventually recycled,
     so anything worth inspecting by hand has to be copied out while it still
-    exists. Keeps the per-class layout FixCheck produced, plus the inputs
-    needed to make sense of it: the patch under test and the *pre-fix* failure
-    trace each generated prefix is compared against.
+    exists. Keeps the ``<TestClass>/<method>/<literal type>/`` layout of the
+    FixCheck runs, plus the inputs needed to make sense of them: the patch
+    under test and the *pre-fix* failure trace each run's prefixes are
+    compared against.
     """
     os.makedirs(log_dir, exist_ok=True)
     with open(os.path.join(log_dir, "result.json"), "w", encoding="utf-8") as f:
@@ -90,20 +75,13 @@ def collect_logs(log_dir, workdir, result, trigger_tests, dev_diff):
     with open(os.path.join(log_dir, "developer.diff"), "w", encoding="utf-8") as f:
         f.write(dev_diff)
 
-    for fqcn in group_triggers_by_class(trigger_tests):
-        trace = fixcheck_failure_log_path(workdir, fqcn)
+    for trigger in dict.fromkeys(trigger_tests):
+        fqcn, _, method = trigger.partition("::")
+        trace = fixcheck_failure_log_path(workdir, fqcn, method)
         if os.path.exists(trace):
-            shutil.copy(trace, os.path.join(log_dir, f"{fqcn}.failing_tests"))
+            shutil.copy(trace, os.path.join(log_dir, os.path.basename(trace)))
 
-    for record in result["per_test_class"]:
-        run_dir = record.get("run_dir")
-        if not run_dir or not os.path.isdir(run_dir):
-            continue
-        dest = os.path.join(log_dir, record["test_class"].rsplit(".", 1)[-1])
-        # copytree over the whole run dir: it holds fixcheck.properties,
-        # fixcheck.log and fixcheck-output/ (report.csv, the scores file and
-        # the generated prefix sources under passing-/failing-/non-compiling-tests).
-        shutil.copytree(run_dir, dest, dirs_exist_ok=True)
+    copy_fixcheck_artifacts(result, log_dir)
 
 
 @contextlib.contextmanager
@@ -219,7 +197,8 @@ def fixcheck_on_developer_fix(project, bug_id, assertion_generator, mount_dir,
             assertion_generator=assertion_generator,
             similarity_threshold=similarity_threshold,
         )
-        result = fixcheck.run(container, workdir_b, trigger_tests, trigger_method_sources)
+        result = fixcheck.run(container, workdir_b, trigger_tests, trigger_method_sources,
+                              subject_id=f"{project}-{bug_id}")
         result["project"], result["bug_id"] = project, bug_id
         print(f"\n===== FixCheck result ({project} {bug_id}, {assertion_generator}, "
               "developer fix) =====\n")

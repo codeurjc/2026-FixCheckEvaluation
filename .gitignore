@@ -10,3 +10,4 @@ fixcheck/
 logs/
 nohup.out
 audit/*.csv
+external/

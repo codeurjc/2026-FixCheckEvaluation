@@ -149,6 +149,78 @@ def collect_project(results_root, project):
     return records
 
 
+FIXCHECK_REPLAY_FILE = "fixcheck_v2.json"
+
+
+def collect_fixcheck_v2(results_root, project, filename=FIXCHECK_REPLAY_FILE):
+    """Every re-measured FixCheck subject of one project, from its replay record.
+
+    Reads ``<results_root>/<project>/<subject>/fixcheck_v2.json`` as written by
+    ``replay_fixcheck.py``: a model's plausible patches under
+    ``results/<model>/``, or a control under ``results/controls/...``.
+
+    Same policy as :func:`collect_project`: when FixCheck measured nothing --
+    the patch was not reproduced, the replay broke, or no run produced a
+    report -- every measurement is ``None``, never ``0``, and ``suspicious``
+    is ``None`` rather than ``False``. ``scores`` lists every scored prefix's
+    similarity, so a threshold can be varied after the fact.
+    """
+    from FixCheckWrapper import FIXCHECK_FAILING_OUTCOMES
+
+    project_dir = os.path.join(results_root, project)
+    if not os.path.isdir(project_dir):
+        return []
+    records = []
+    for entry in sorted(os.listdir(project_dir)):
+        record = _read_json(os.path.join(project_dir, entry, filename))
+        if record is None:
+            continue
+        fixcheck = record.get("fixcheck") or {}
+        analyzed = fixcheck.get("analyzed_runs") if fixcheck else None
+        measured = bool(analyzed)
+
+        def measure(key):
+            return fixcheck.get(key) if measured else None
+
+        scores = sorted(
+            variation["score"]
+            for run in fixcheck.get("runs") or [] if run.get("ok")
+            for variation in run.get("variations") or []
+            if variation.get("outcome") in FIXCHECK_FAILING_OUTCOMES
+            and variation.get("score") is not None
+        ) if measured else None
+        records.append({
+            "project": project,
+            "subject": entry,
+            "bug_id": record.get("bug_id"),
+            "target": record.get("target"),
+            "config": record.get("config"),
+            "model": record.get("model"),
+            "oracle": record.get("oracle"),
+            # Ground truth where there is one: DefectRepairing's label, or the
+            # campaign's own `fixed` for a model's patch.
+            "correctness": record.get("correctness"),
+            "patch_fixed": record.get("patch_fixed"),
+            "replay_status": record.get("replay_status"),
+            "reason": record.get("reason"),
+            "planned_runs": fixcheck.get("planned_runs") if fixcheck else None,
+            "analyzed_runs": analyzed,
+            "skipped_methods": fixcheck.get("skipped_methods") if fixcheck else None,
+            "timed_out_runs": fixcheck.get("timed_out_runs") if fixcheck else None,
+            "generated_prefixes": measure("generated_prefixes"),
+            "failing_prefixes": measure("failing_prefixes"),
+            "scored_prefixes": measure("scored_prefixes"),
+            "timed_out_prefixes": measure("timed_out_prefixes"),
+            "identity_prefixes": measure("identity_prefixes"),
+            "identity_failing_prefixes": measure("identity_failing_prefixes"),
+            "max_failure_similarity": measure("max_failure_similarity"),
+            "similarity_threshold": fixcheck.get("similarity_threshold") if fixcheck else None,
+            "suspicious": bool(fixcheck.get("suspicious")) if measured else None,
+            "scores": scores,
+        })
+    return records
+
+
 def _percentile(values, fraction):
     if not values:
         return None

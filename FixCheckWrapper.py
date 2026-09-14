@@ -23,9 +23,12 @@ configuration directly through ``__init__`` rather than an argparse
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import re
+import shutil
+import time
 from collections import namedtuple
 
 from docker_utils import exec_in_container, export_property, run_step
@@ -40,18 +43,29 @@ FIXCHECK_ASSERTION_GENERATORS = [
     "assert-true", "previous-assertion", "replit-code-llm", "gpt-3.5",
     "codellama", "llama3.1",
 ]
-DEFAULT_FIXCHECK_PREFIXES = 25
+# The parameters of FixCheck's own evaluation, agreed with its author for this
+# project: 100 prefixes per bug-revealing test method, and a patch flagged when
+# a failing prefix scores at least 0.4 against the original failure (upstream's
+# experiments/results/rq1-effectiveness.py). The archived campaigns used 10 and
+# 0.8.
+DEFAULT_FIXCHECK_PREFIXES = 100
 DEFAULT_FIXCHECK_ASSERTIONS = "previous-assertion"
-DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD = 0.8
-# Wall-clock budget for one FixCheck run (one trigger class). FixCheck runs its
-# mutated prefixes with no timeout of its own, and role-blind mutation of an
-# int can turn an iteration count into something effectively unbounded: Math 10
-# and 13 hung in FixCheck for hours in both campaigns, until the per-bug timeout
-# killed the whole run -- *after* the patch had already passed every test, so a
-# plausible fix was recorded as "timeout" with no verdict. Measured on the
-# rerun, everything after generation takes a median 85-138 s and a p99 of
-# 850-918 s on runs where FixCheck ran, so 1800 s is twice the p99.
-DEFAULT_FIXCHECK_TIMEOUT = 1800
+DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD = 0.4
+# Wall-clock budget for one FixCheck run, i.e. one (trigger method, literal
+# type) pair. A safety net rather than a working limit: each prefix has its own
+# budget inside FixCheck and each model call its own timeout (below). Without
+# any, Math 10 and 13 hung in FixCheck for hours in both campaigns on a mutated
+# size that never ended.
+DEFAULT_FIXCHECK_TIMEOUT = 14400
+# Budget for running one prefix (FixCheck's prefix-timeout-seconds, patch 0008).
+# Measured p99: 0.7 s; the maximum, 439 s, was a mutated derivation order.
+DEFAULT_FIXCHECK_PREFIX_TIMEOUT = 60
+# Timeout of each call to the assertion-generating model (measured p99: 46 s).
+DEFAULT_FIXCHECK_LLM_TIMEOUT = 120
+# Recorded in every result, so readers can tell this layout -- one run per
+# (trigger method, literal type) -- from the one-run-per-class records of the
+# archived campaigns.
+FIXCHECK_RESULT_SCHEMA = "fixcheck-v2"
 # coreutils `timeout` exit statuses: 124 = sent TERM at the deadline, 137 =
 # needed the KILL from --kill-after.
 _TIMEOUT_EXIT_CODES = (124, 137)
@@ -254,15 +268,19 @@ def check_ollama_backend(container, assertion_generator):
     return None
 
 # Method names FixCheck treats as assertions and therefore refuses to mutate
-# (``transform/input/InputTransformer.java``'s ``isAssertion``).
+# (``transform/input/InputTransformer.java``'s ``isAssertion``). It compares
+# the method name alone, so a qualified ``Assert.assertEquals(...)`` counts too.
 FIXCHECK_ASSERTION_CALLS = (
     "assertNotNull", "assertTrue", "assertFalse", "assertEquals",
     "assertNotEquals", "fail", "check",
 )
-_ASSERTION_STMT_RE = re.compile(rf"^\s*(?:{'|'.join(FIXCHECK_ASSERTION_CALLS)})\s*\(")
+_ASSERTION_STMT_RE = re.compile(
+    rf"^\s*(?:[\w$]+\s*\.\s*)*(?:{'|'.join(FIXCHECK_ASSERTION_CALLS)})\s*\("
+)
 
-# Ordered by preference when several literal types are equally frequent.
-FIXCHECK_INPUT_TYPE_PRIORITY = ["java.lang.String", "int", "double", "long", "boolean"]
+# The literal types FixCheck's InputTransformer can mutate
+# (``transform/input/InputHelper.java``), in the order that breaks ties.
+FIXCHECK_LITERAL_TYPES = ("java.lang.String", "int", "long", "double", "boolean")
 
 
 def fixcheck_command(classpath, props_path, timeout_seconds=DEFAULT_FIXCHECK_TIMEOUT):
@@ -301,27 +319,41 @@ def group_triggers_by_class(trigger_tests):
     return grouped
 
 
-def fixcheck_failure_log_path(workdir, fqcn):
-    """Path of a trigger class's clean (header-free) pre-fix failure trace.
+def fixcheck_failure_log_path(workdir, fqcn, method):
+    """Path of one trigger method's pre-fix failure trace.
 
-    Shared by :func:`write_fixcheck_failure_logs` (writer, pre-fix) and
-    :meth:`FixCheckWrapper.run` (reader, post-fix) so the two never drift
-    apart.
+    One file per method rather than per class: FixCheck compares every prefix
+    against the first failure in its file, so with several trigger methods'
+    traces concatenated, every method after the first was scored against a
+    failure that was not its own. Shared by :func:`write_fixcheck_failure_logs`
+    (writer, pre-fix) and :meth:`FixCheckWrapper.run` (reader, post-fix) so the
+    two never drift apart.
     """
-    return os.path.join(workdir, ".fixcheck", f"{fqcn}.failing_tests")
+    return os.path.join(workdir, ".fixcheck", "traces", f"{fqcn}.{method}.failing_tests")
+
+
+def strip_defects4j_headers(trace):
+    """Drop the ``--- Class::method`` lines Defects4J writes before each failure.
+
+    FixCheck only removes such a line for DefectRepairing subjects, so ours
+    entered the Levenshtein distance against prefix traces that never carry
+    one -- some 74 characters of pure difference. Recomputed over the archived
+    campaign, it alone kept 40 runs under a 0.8 similarity they otherwise
+    reached.
+    """
+    return "\n".join(line for line in trace.splitlines() if not line.startswith("--- "))
 
 
 def write_fixcheck_failure_logs(workdir, trigger_tests, trigger_raw):
-    """Write one clean pre-fix failure-trace file per trigger class.
+    """Write one clean pre-fix failure trace per trigger method.
 
     FixCheck needs the *original* (pre-patch) failure trace, but by the time
     it runs the patch has already been applied and Defects4J's
     ``failing_tests`` file has been overwritten. This captures it early
     (before fix generation, from ``Experiment.py``'s pipeline) as
-    ``fixcheck_failure_log_path(workdir, fqcn)`` — the concatenated raw
-    ``failing_tests`` content of that class's trigger method(s), with no
-    ``$ cmd`` header, since ``FixCheckProperties.loadFailureLog()`` reads the
-    file as-is.
+    ``fixcheck_failure_log_path(workdir, fqcn, method)``: the raw
+    ``failing_tests`` content of that trigger run, without Defects4J's header
+    lines (:func:`strip_defects4j_headers`).
 
     Args:
         workdir: The bug's checkout directory (shared host/container path).
@@ -329,18 +361,16 @@ def write_fixcheck_failure_logs(workdir, trigger_tests, trigger_raw):
         trigger_raw: The dict returned by ``Experiment.run_trigger_tests_raw``.
 
     Returns:
-        Dict mapping each trigger FQCN to the path written.
+        Dict mapping each ``"FQCN::method"`` trigger to the path written.
     """
-    os.makedirs(os.path.join(workdir, ".fixcheck"), exist_ok=True)
     paths = {}
-    for fqcn, methods in group_triggers_by_class(trigger_tests).items():
-        content = "\n".join(
-            trigger_raw.get(f"{fqcn}::{method}", ("", ""))[1] for method in methods
-        )
-        path = fixcheck_failure_log_path(workdir, fqcn)
+    for trigger in dict.fromkeys(trigger_tests):
+        fqcn, _, method = trigger.partition("::")
+        path = fixcheck_failure_log_path(workdir, fqcn, method)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        paths[fqcn] = path
+            f.write(strip_defects4j_headers(trigger_raw.get(trigger, ("", ""))[1]))
+        paths[trigger] = path
     return paths
 
 
@@ -389,138 +419,308 @@ def _strip_java_comments(source):
     return "".join(out)
 
 
-def _split_java_statements(source):
-    """Split Java source into top-level statements.
+def _method_body(source):
+    """The text between a method's opening brace and its last closing brace.
 
-    Scans character by character so that a ``;`` inside a string/char literal
-    or nested parentheses does not split a statement, and so that a block
-    statement ends at its own closing brace. Expects comment-free input (see
-    :func:`_strip_java_comments`). Good enough for JUnit test bodies, which is
-    all this is used for.
+    The opening brace is the first one outside parentheses and literals, so
+    an annotation argument such as ``@SuppressWarnings({"x"})`` is not taken
+    for it. Source without a brace is returned whole.
     """
-    statements = []
-    current = []
     depth = 0
     quote = None
     i = 0
     while i < len(source):
         ch = source[i]
-        current.append(ch)
         if quote:
             if ch == "\\":
-                if i + 1 < len(source):
-                    current.append(source[i + 1])
-                    i += 1
-            elif ch == quote:
+                i += 2
+                continue
+            if ch == quote:
                 quote = None
         elif ch in ('"', "'"):
             quote = ch
-        elif ch in "([{":
+        elif ch == "(":
             depth += 1
-        elif ch in ")]}":
-            depth -= 1
-            # A block statement (if/for/while/try) ends at its closing brace,
-            # with no trailing ';'. Without this it would be glued to the
-            # statement that follows, dragging that statement's literals in
-            # even when it is an assertion we meant to exclude.
-            if ch == "}" and depth == 0:
-                statements.append("".join(current))
-                current = []
-        elif ch == ";" and depth == 0:
-            statements.append("".join(current))
+        elif ch == ")":
+            depth = max(depth - 1, 0)
+        elif ch == "{" and depth == 0:
+            last = source.rfind("}")
+            return source[i + 1:last] if last > i else source[i + 1:]
+        i += 1
+    return source
+
+
+def _leaf_statements(body):
+    """Split comment-free Java code into its innermost statements.
+
+    Splitting at ``;``, ``{`` and ``}`` outside parentheses and literals
+    yields the innermost statements, each with the brace depth it sits at
+    (0 for a statement directly in the method body), while a loop header such
+    as ``for (int i = 0; i < n; i++)``, whose ``;`` sit inside parentheses,
+    stays whole. See :func:`_mutable_statements` for why the depth matters.
+
+    Returns a list of ``(statement, depth)``.
+    """
+    leaves = []
+    current = []
+    depth = 0
+    brace_depth = 0
+    quote = None
+    i = 0
+    while i < len(body):
+        ch = body[i]
+        if quote:
+            current.append(ch)
+            if ch == "\\" and i + 1 < len(body):
+                current.append(body[i + 1])
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+        elif ch in ('"', "'"):
+            quote = ch
+            current.append(ch)
+        elif ch == "(":
+            depth += 1
+            current.append(ch)
+        elif ch == ")":
+            depth = max(depth - 1, 0)
+            current.append(ch)
+        elif ch in ";{}" and depth == 0:
+            leaf = "".join(current).strip()
+            if leaf:
+                leaves.append((leaf, brace_depth))
             current = []
+            if ch == "{":
+                brace_depth += 1
+            elif ch == "}":
+                brace_depth = max(brace_depth - 1, 0)
+        else:
+            current.append(ch)
         i += 1
     tail = "".join(current).strip()
     if tail:
-        statements.append(tail)
-    return statements
+        leaves.append((tail, brace_depth))
+    return leaves
 
 
-def _mutable_statements(test_method_source):
-    """Return the part of a test method FixCheck is willing to mutate.
+def _mutable_statements(test_method_source, assertions_removed=True):
+    """Return the statements of a test method whose literals FixCheck can mutate.
 
     ``InputTransformer.getRandomInputKnownType`` collects candidate literals
-    only from statements that are neither blocks nor assertions, so literals
-    that appear exclusively inside ``assertEquals(...)`` & co. are invisible
-    to it. Counting those would make :func:`select_fixcheck_inputs` propose
-    a type FixCheck then cannot find, which it reports by throwing
-    ``IllegalArgumentException: No locals of type <T>`` and dying without
-    writing a report.
+    from every statement of the method except blocks and assertion calls --
+    but a statement's literals include those of the statements nested in it.
+    What it finds therefore depends on the assertion generator:
+
+    - with any generator but ``previous-assertion``, FixCheck first removes
+      every assertion call, at any depth. ``try { x.run(); fail("..."); }``
+      offers no string then, which is why counting that ``fail`` message
+      planned a ``java.lang.String`` run for Math 67 that died with
+      ``IllegalArgumentException: No locals of type java.lang.String``;
+    - with ``previous-assertion`` the assertions stay, and only one written
+      directly in the method body is out of reach: a nested one is still
+      reached through the ``if``/``try``/``for`` containing it.
+
+    Counting a literal FixCheck cannot reach plans a run that dies without a
+    report; this returns exactly the statements whose literals it can reach.
     """
-    body = _strip_java_comments(test_method_source)
-    first_brace = body.find("{")
-    last_brace = body.rfind("}")
-    if first_brace != -1 and last_brace > first_brace:
-        body = body[first_brace + 1:last_brace]
-    kept = [s for s in _split_java_statements(body) if not _ASSERTION_STMT_RE.match(s)]
+    body = _method_body(_strip_java_comments(test_method_source))
+    kept = [
+        statement for statement, depth in _leaf_statements(body)
+        if not (_ASSERTION_STMT_RE.match(statement) and (assertions_removed or depth == 0))
+    ]
     return "\n".join(kept)
 
 
+# String and char literals, matched in one left-to-right pass so that a quote
+# character inside one of them is never taken as the start of the other kind.
+_QUOTED_LITERAL_RE = re.compile(r'"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\'')
+_DOUBLE_LITERAL_RE = re.compile(
+    r"(?<![\w.])(?:\d[\d_]*\.[\d_]*(?:[eE][+-]?\d+)?[fFdD]?"
+    r"|\.\d[\d_]*(?:[eE][+-]?\d+)?[fFdD]?"
+    r"|\d[\d_]*[eE][+-]?\d+[fFdD]?"
+    r"|\d[\d_]*[fFdD])(?![\w.])"
+)
+_INT_LITERAL_RE = re.compile(
+    r"(?<![\w.])(?:0[xX][\da-fA-F_]+|0[bB][01_]+|\d[\d_]*)([lL])?(?![\w.])"
+)
+_BOOLEAN_LITERAL_RE = re.compile(r"\b(?:true|false)\b")
+
+
 def count_java_literals(source):
-    """Count Java literal occurrences per FixCheck ``inputs-class`` type."""
-    string_re = re.compile(r'"(?:[^"\\]|\\.)*"')
-    string_count = len(string_re.findall(source))
-    # Blank out string literals (same length, so later spans aren't shifted)
-    # before scanning for numeric/boolean literals, so digits inside a
-    # string's *content* aren't also counted as int/double literals.
-    without_strings = string_re.sub(lambda m: " " * len(m.group()), source)
+    """Count literal occurrences per FixCheck literal type.
 
-    float_re = re.compile(r"\b\d+\.\d+[fFdD]?\b")
-    double_count = len(float_re.findall(without_strings))
-    without_floats = float_re.sub(lambda m: " " * len(m.group()), without_strings)
+    Mirrors JavaParser's literal kinds as ``InputHelper`` maps them: string
+    literals; integer literals (decimal, hex, binary) as ``int``, or ``long``
+    with an ``L`` suffix; floating-point literals, ``f``/``d`` suffixed or
+    with an exponent, as ``double``; ``true``/``false``. Digits inside a
+    string or char literal are not numbers, and char literals count as none
+    of the types.
+    """
+    string_count = 0
+    parts = []
+    last = 0
+    for match in _QUOTED_LITERAL_RE.finditer(source):
+        if match.group().startswith('"'):
+            string_count += 1
+        parts.append(source[last:match.start()])
+        # Blank the literal out, same length, so later spans are not shifted.
+        parts.append(" " * len(match.group()))
+        last = match.end()
+    parts.append(source[last:])
+    code = "".join(parts)
 
-    int_re = re.compile(r"\b\d+([lL])?\b")
-    int_suffixes = int_re.findall(without_floats)
+    double_count = len(_DOUBLE_LITERAL_RE.findall(code))
+    without_doubles = _DOUBLE_LITERAL_RE.sub(lambda m: " " * len(m.group()), code)
+    int_suffixes = _INT_LITERAL_RE.findall(without_doubles)
     long_count = sum(1 for suffix in int_suffixes if suffix)
 
     return {
         "java.lang.String": string_count,
         "int": len(int_suffixes) - long_count,
-        "double": double_count,
         "long": long_count,
-        "boolean": len(re.findall(r"\btrue\b|\bfalse\b", without_strings)),
+        "double": double_count,
+        "boolean": len(_BOOLEAN_LITERAL_RE.findall(code)),
     }
 
 
-def select_fixcheck_inputs(methods, method_sources):
-    """Pick one ``inputs-class`` plus the trigger methods it can mutate.
+def count_mutable_literals(test_method_source, assertions_removed=True):
+    """The literals FixCheck can mutate in a trigger method, per literal type.
 
-    A FixCheck run takes a whole test class and *every* method listed in
-    ``test-methods``, and generates variations for each in turn. If any one of
-    them has no literal of ``inputs-class``, ``InputTransformer`` throws and
-    the exception propagates out of ``FixCheck.main``, so the entire run dies
-    and no report is written even for the methods that did work. Passing only
-    the methods that can actually be mutated keeps one awkward trigger method
-    from wasting the whole class.
-
-    Returns ``(inputs_class, usable_methods)``, or ``(None, [])`` when no type
-    works for any method.
+    ``assertions_removed`` is False only for the ``previous-assertion``
+    generator; see :func:`_mutable_statements`.
     """
-    counts = {
-        m: count_java_literals(_mutable_statements(method_sources.get(m, "")))
-        for m in methods
-    }
-    best = max(
-        FIXCHECK_INPUT_TYPE_PRIORITY,
-        key=lambda t: (
-            sum(1 for m in methods if counts[m][t] > 0),
-            -FIXCHECK_INPUT_TYPE_PRIORITY.index(t),
-        ),
+    return count_java_literals(_mutable_statements(test_method_source, assertions_removed))
+
+
+def generator_removes_assertions(assertion_generator):
+    """Whether FixCheck strips a prefix's assertions before mutating it.
+
+    Every generator but ``previous-assertion`` does (``InputTransformer``,
+    fixed by patch 0001 to actually keep them for that one).
+    """
+    return assertion_generator != "previous-assertion"
+
+
+def allocate_prefixes(literal_counts, total=DEFAULT_FIXCHECK_PREFIXES):
+    """Split a method's prefix budget among the literal types it can mutate.
+
+    A FixCheck run mutates literals of a single ``inputs-class``; choosing one
+    type per method (as the archived campaigns did, with a heuristic that
+    picked ``java.lang.String`` for 80% of methods) left every other kind of
+    input untouched. Instead, each type present gets a share of ``total``
+    proportional to its number of mutable literals -- at least one prefix each
+    while the budget allows -- by largest remainder, so the shares add up to
+    exactly ``total``. Ties go to the earlier type in
+    :data:`FIXCHECK_LITERAL_TYPES`.
+
+    Returns a dict ``{literal_type: prefixes}`` in that order, holding only
+    the types that get prefixes; empty when nothing can be mutated.
+    """
+    present = [t for t in FIXCHECK_LITERAL_TYPES if literal_counts.get(t, 0) > 0]
+    if not present or total <= 0:
+        return {}
+    if total < len(present):
+        ranked = sorted(present, key=lambda t: (-literal_counts[t], FIXCHECK_LITERAL_TYPES.index(t)))
+        chosen = set(ranked[:total])
+        return {t: 1 for t in present if t in chosen}
+
+    remaining = total - len(present)
+    literals = sum(literal_counts[t] for t in present)
+    quotas = {t: remaining * literal_counts[t] / literals for t in present}
+    shares = {t: 1 + int(quotas[t]) for t in present}
+    leftover = total - sum(shares.values())
+    by_remainder = sorted(
+        present,
+        key=lambda t: (-(quotas[t] - int(quotas[t])), FIXCHECK_LITERAL_TYPES.index(t)),
     )
-    usable = [m for m in methods if counts[m][best] > 0]
-    return (best, usable) if usable else (None, [])
+    for t in by_remainder[:leftover]:
+        shares[t] += 1
+    return shares
+
+
+def derive_seed(*parts):
+    """A deterministic seed for one FixCheck run, from what identifies it.
+
+    Derived from the subject and the (test class, method, literal type) of the
+    run -- never from the model -- so the patches of both models and the
+    developer's fix for one bug are all exercised with the same mutations.
+    A non-negative Java ``long``.
+    """
+    digest = hashlib.sha256("\x1f".join(str(p) for p in parts).encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
+
+
+def literal_type_dir(literal_type):
+    """The directory name of a literal type's runs (``java.lang.String`` -> ``String``)."""
+    return re.sub(r"[^\w]", "_", literal_type.rsplit(".", 1)[-1])
+
+
+def plan_fixcheck_runs(trigger_tests, trigger_method_sources,
+                       total=DEFAULT_FIXCHECK_PREFIXES, inputs_class=None,
+                       assertions_removed=True):
+    """Decide which FixCheck runs a set of trigger tests needs.
+
+    One run per trigger method and literal type, the method's ``total``
+    prefixes split among the types it can mutate (:func:`allocate_prefixes`,
+    counted as :func:`count_mutable_literals` with ``assertions_removed``).
+    With ``inputs_class`` given, every method gets a single run of that type
+    with the whole budget instead.
+
+    A method FixCheck cannot work on is reported instead of planned: one whose
+    source is not in its own class (inherited -- FixCheck parses the named
+    class's file only), or one without a single mutable literal.
+
+    Returns ``(runs, skipped)``: run specs ``{"test_class", "method",
+    "inputs_class", "num_prefixes", "literal_counts"}`` and skip records
+    ``{"test_class", "method", "reason"}``.
+    """
+    runs, skipped = [], []
+    for fqcn, methods in group_triggers_by_class(trigger_tests).items():
+        sources = (trigger_method_sources or {}).get(fqcn, {})
+        for method in methods:
+            source = sources.get(method)
+            if source is None:
+                skipped.append({
+                    "test_class": fqcn, "method": method,
+                    "reason": "not declared in this class (inherited?); FixCheck "
+                              "only parses the named class's source",
+                })
+                continue
+            counts = count_mutable_literals(source, assertions_removed)
+            allocation = {inputs_class: total} if inputs_class else allocate_prefixes(counts, total)
+            if not allocation:
+                skipped.append({
+                    "test_class": fqcn, "method": method,
+                    "reason": "no mutable literal outside assertions",
+                })
+                continue
+            for literal_type, prefixes in allocation.items():
+                runs.append({
+                    "test_class": fqcn, "method": method,
+                    "inputs_class": literal_type, "num_prefixes": prefixes,
+                    "literal_counts": counts,
+                })
+    return runs, skipped
 
 
 def build_fixcheck_properties(test_classes_path, test_class, test_methods,
                                test_classes_src, failure_log_path, inputs_class,
-                               num_prefixes, assertion_generator):
-    """Render a FixCheck ``.properties`` file for one trigger test class.
+                               num_prefixes, assertion_generator, *,
+                               subject_classpath=None, output_dir=None, seed=None,
+                               prefix_timeout_seconds=None, ollama_timeout_seconds=None,
+                               ollama_temperature=None, ollama_seed=None):
+    """Render a FixCheck ``.properties`` file for one FixCheck run.
 
     Key names mirror
     ``fixcheck/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java``
     (``loadProperties()``) exactly. ``assertion_generator`` is one of the CLI
     option keys from ``AssertionGeneratorProperty.java`` (e.g.
     ``previous-assertion``), not the Java class name it resolves to.
+
+    The keyword-only options are the properties added by
+    ``scripts/fixcheck-patches/`` (0005, 0008-0010); each is written only
+    when given, so an omitted one keeps FixCheck's previous behaviour.
     """
     lines = [
         f"test-classes-path={test_classes_path}",
@@ -532,6 +732,16 @@ def build_fixcheck_properties(test_classes_path, test_class, test_methods,
         f"number-of-prefixes={num_prefixes}",
         f"assertion-generator={assertion_generator}",
     ]
+    optional = [
+        ("subject-classpath", subject_classpath),
+        ("output-dir", output_dir),
+        ("seed", seed),
+        ("prefix-timeout-seconds", prefix_timeout_seconds),
+        ("ollama-timeout-seconds", ollama_timeout_seconds),
+        ("ollama-temperature", ollama_temperature),
+        ("ollama-seed", ollama_seed),
+    ]
+    lines += [f"{key}={value}" for key, value in optional if value is not None]
     return "\n".join(lines) + "\n"
 
 
@@ -540,10 +750,12 @@ def parse_fixcheck_report(report_csv_text):
 
     The header is defined in ``writer/ReportWriter.java``. The report has no
     "non-compiling" column, so it is recovered as ``total - passing -
-    crashing - assertion_failing`` (FixCheck's prefix buckets -- non-
-    compiling, passing, crashing, assertion-failing -- are a partition of
-    every generated prefix; see ``FixCheck.savePrefix()``), where ``total``
-    is the report's ``output_prefixes`` column.
+    crashing - assertion_failing - timed_out`` (FixCheck's prefix buckets --
+    non-compiling, passing, crashing, assertion-failing, timed out -- are a
+    partition of every generated prefix; see ``FixCheck.savePrefix()``), where
+    ``total`` is the report's ``output_prefixes`` column. ``timed_out`` is
+    ``None`` for a report from before patch 0008, which had no such column:
+    not measured, rather than zero.
 
     Returns ``None`` when the content is empty, headerless, or its data row
     doesn't line up with its header (e.g. a partially-written file).
@@ -570,6 +782,7 @@ def parse_fixcheck_report(report_csv_text):
     assertion_failing = as_int("assertion_failing_prefixes")
     if None in (total, passing, crashing, assertion_failing):
         return None
+    timed_out = as_int("timed_out_prefixes")
 
     return {
         "test_class": record.get("test_class", ""),
@@ -583,7 +796,8 @@ def parse_fixcheck_report(report_csv_text):
         "passing": passing,
         "crashing": crashing,
         "assertion_failing": assertion_failing,
-        "non_compiling": total - passing - crashing - assertion_failing,
+        "timed_out": timed_out,
+        "non_compiling": total - passing - crashing - assertion_failing - (timed_out or 0),
     }
 
 
@@ -612,13 +826,156 @@ def parse_fixcheck_scores(scores_csv_text):
     return scores
 
 
+_PREFIX_HEADER_RE = re.compile(r"^PREFIX \d+ of \d+$", re.M)
+_OUTCOME_RE = re.compile(
+    r"^---> prefix (passed|crashed|failed assertion|did not compile|timed out)$", re.M
+)
+_SIMILARITY_RE = re.compile(r"^---> failure similarity: ([-\d.Ee]+)$", re.M)
+_TRANSFORMATION_PREFIX = "---> transformation: "
+# The outcomes that are scored against the original failure.
+FIXCHECK_FAILING_OUTCOMES = ("crashed", "failed assertion")
+
+
+def _parse_transformation(line):
+    """Split ``[<old>:<inputs-class>] replaced by [<new>:<class>]`` into its parts.
+
+    Split at the *last* separator, since the literals themselves may contain
+    brackets and colons. Returns ``(old, new)``, or ``(None, None)``.
+    """
+    text = line[len(_TRANSFORMATION_PREFIX):].strip()
+    head, sep, tail = text.rpartition("] replaced by [")
+    if not sep or not head.startswith("[") or not tail.endswith("]"):
+        return None, None
+    old = head[1:].rpartition(":")[0]
+    new = tail[:-1].rpartition(":")[0]
+    return old, new
+
+
+def parse_fixcheck_variations(log_text):
+    """One record per generated prefix, in generation order, from ``fixcheck.log``.
+
+    ``report.csv`` only counts prefixes; the log is where each one's
+    mutation, outcome and similarity score are. Each record is
+    ``{"index", "original", "replacement", "identity", "outcome", "score",
+    "assertions_generated"}``. ``identity`` marks a mutation that replaced a
+    literal by the same value: the trigger test passes on every patch FixCheck
+    analyses, so such a prefix failing measures the harness, not the patch
+    (37.7% of them failed in the archived campaign). ``score`` is ``None``
+    for a prefix that was not scored.
+    """
+    if not log_text:
+        return []
+    headers = list(_PREFIX_HEADER_RE.finditer(log_text))
+    variations = []
+    for position, header in enumerate(headers):
+        end = headers[position + 1].start() if position + 1 < len(headers) else len(log_text)
+        block = log_text[header.end():end]
+        original = replacement = None
+        for line in block.splitlines():
+            if line.startswith(_TRANSFORMATION_PREFIX):
+                original, replacement = _parse_transformation(line)
+                break
+        outcomes = _OUTCOME_RE.findall(block)
+        scores = _SIMILARITY_RE.findall(block)
+        try:
+            score = float(scores[-1]) if scores else None
+        except ValueError:
+            score = None
+        variations.append({
+            "index": position,
+            "original": original,
+            "replacement": replacement,
+            "identity": original is not None and original == replacement,
+            "outcome": outcomes[-1] if outcomes else None,
+            "score": score,
+            "assertions_generated": "---> assertion generator:" in block,
+        })
+    return variations
+
+
+def _is_scored(variation):
+    return variation.get("outcome") in FIXCHECK_FAILING_OUTCOMES and variation.get("score") is not None
+
+
+def summarize_fixcheck_runs(runs, skipped, similarity_threshold):
+    """Aggregate a subject's FixCheck runs into its verdict and counts.
+
+    ``suspicious`` holds when any scored prefix reaches the threshold -- the
+    ``prediction`` of upstream's ``rq1-effectiveness.py``. Only runs that
+    produced a report count as analysed; ``analyzed_test_classes`` keeps its
+    old meaning (distinct classes with at least one analysed run), so readers
+    of the archived campaigns' records still work. ``max_failure_similarity``
+    is ``None`` when no prefix was scored: nothing was measured.
+    """
+    analyzed = [r for r in runs if r.get("ok")]
+    reports = [r["report"] for r in analyzed if r.get("report")]
+    variations = [v for r in analyzed for v in (r.get("variations") or [])]
+    scores = [v["score"] for v in variations if _is_scored(v)]
+    identity = [v for v in variations if v.get("identity")]
+    timed_out = [rep.get("timed_out") for rep in reports]
+    return {
+        "planned_runs": len(runs),
+        "analyzed_runs": len(analyzed),
+        "timed_out_runs": sum(1 for r in runs if r.get("timed_out")),
+        "analyzed_methods": len({(r["test_class"], r["method"]) for r in analyzed}),
+        "analyzed_test_classes": len({r["test_class"] for r in analyzed}),
+        "skipped_methods": len(skipped),
+        "generated_prefixes": sum(rep["total"] for rep in reports),
+        "failing_prefixes": sum(rep["crashing"] + rep["assertion_failing"] for rep in reports),
+        "non_compiling_prefixes": sum(rep["non_compiling"] for rep in reports),
+        "timed_out_prefixes": (
+            None if not reports or any(t is None for t in timed_out) else sum(timed_out)
+        ),
+        "scored_prefixes": len(scores),
+        "max_failure_similarity": max(scores) if scores else None,
+        "suspicious": any(score >= similarity_threshold for score in scores),
+        "identity_prefixes": len(identity),
+        "identity_failing_prefixes": sum(
+            1 for v in identity if v.get("outcome") in FIXCHECK_FAILING_OUTCOMES
+        ),
+    }
+
+
+def fixcheck_run_subdir(run):
+    """``<TestClass>/<method>/<literal type>``: where a run's artifacts go."""
+    return os.path.join(
+        run["test_class"].rsplit(".", 1)[-1], run["method"], literal_type_dir(run["inputs_class"])
+    )
+
+
+def copy_fixcheck_artifacts(result, dest_root):
+    """Copy every run's directory out of the checkout, under ``dest_root``.
+
+    Each run directory holds ``fixcheck.properties``, ``fixcheck.log`` and
+    ``fixcheck-output/`` (``report.csv``, the scores and the generated prefix
+    sources); it lands at ``dest_root/<TestClass>/<method>/<literal type>/``.
+    Returns how many were copied.
+    """
+    copied = 0
+    for run in (result or {}).get("runs") or []:
+        run_dir = run.get("run_dir")
+        if run_dir and os.path.isdir(run_dir):
+            shutil.copytree(run_dir, os.path.join(dest_root, fixcheck_run_subdir(run)),
+                            dirs_exist_ok=True)
+            copied += 1
+    return copied
+
+
+def missing_test_classes(test_classes_path, trigger_tests):
+    """The trigger test classes with no compiled ``.class`` under ``test_classes_path``."""
+    return [
+        fqcn for fqcn in group_triggers_by_class(trigger_tests)
+        if not os.path.isfile(os.path.join(test_classes_path, *fqcn.split(".")) + ".class")
+    ]
+
+
 def _resolve_classpath(workdir, cp_string):
     """Make every ``:``-separated classpath entry absolute.
 
-    Defects4J's ``cp.*`` exports may be workdir-relative; FixCheck runs with
-    its CWD set to a per-class scratch directory (see ``FixCheckWrapper.run``),
-    so a relative entry would resolve against the wrong directory unless
-    anchored to ``workdir`` first. Already-absolute entries are left
+    Defects4J's ``cp.*`` exports may be workdir-relative. FixCheck reads the
+    class path from its properties file and opens it from its own working
+    directory, so each entry is anchored to ``workdir`` rather than left to
+    depend on where FixCheck happens to run. Already-absolute entries are left
     untouched.
     """
     entries = [e for e in cp_string.split(":") if e]
@@ -641,7 +998,7 @@ def _write_text(path, content):
 
 
 class FixCheckWrapper:
-    """Runs FixCheck for every trigger test class of a patched checkout.
+    """Runs FixCheck over the trigger tests of a patched checkout.
 
     Configuration is passed directly to ``__init__`` rather than through
     ``Experiment.py``'s argparse ``Namespace``, so a wrapper can be built and
@@ -653,15 +1010,20 @@ class FixCheckWrapper:
                  assertion_generator=DEFAULT_FIXCHECK_ASSERTIONS,
                  similarity_threshold=DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD,
                  inputs_class=None, jar_path=FIXCHECK_JAR,
-                 timeout_seconds=DEFAULT_FIXCHECK_TIMEOUT):
+                 timeout_seconds=DEFAULT_FIXCHECK_TIMEOUT,
+                 prefix_timeout_seconds=DEFAULT_FIXCHECK_PREFIX_TIMEOUT,
+                 llm_timeout_seconds=DEFAULT_FIXCHECK_LLM_TIMEOUT):
         self.num_prefixes = num_prefixes
         self.assertion_generator = assertion_generator
         self.similarity_threshold = similarity_threshold
         self.inputs_class = inputs_class
         self.jar_path = jar_path
         self.timeout_seconds = timeout_seconds
+        self.prefix_timeout_seconds = prefix_timeout_seconds
+        self.llm_timeout_seconds = llm_timeout_seconds
 
-    def run(self, container, workdir, trigger_tests, trigger_method_sources):
+    def run(self, container, workdir, trigger_tests, trigger_method_sources,
+            subject_id=None, runs=None, skipped=None):
         """Run FixCheck on an already-patched, already-plausible checkout.
 
         Only meaningful once the patch is applied and every trigger test
@@ -671,44 +1033,46 @@ class FixCheckWrapper:
         ones that still fail the same way as the original bug as evidence
         the patch is overfitting rather than genuinely correct.
 
-        One FixCheck run handles a single test class, so this fans out over
-        every trigger class (``group_triggers_by_class``) and aggregates
-        their per-class reports/scores. FixCheck is advisory: any exception,
-        or a missing/unparsable report, is logged as a ``[fixcheck] WARNING``
-        and folded into the returned dict's ``ok``/``error`` fields rather
-        than raised, so it never aborts the experiment and never affects
-        ``fixed``.
+        One FixCheck run per trigger method and literal type
+        (:func:`plan_fixcheck_runs`), each with its own pre-fix trace, seed
+        (:func:`derive_seed` over ``subject_id`` and the run) and prefix
+        budget. ``runs``/``skipped`` replace that plan with an explicit one --
+        run specs may then also carry ``test_methods`` and
+        ``failure_log_path`` -- to reproduce a configuration chosen by hand.
+
+        FixCheck is advisory: any exception, or a missing/unparsable report,
+        is logged as a ``[fixcheck] WARNING`` and folded into the returned
+        dict's ``ok``/``error`` fields rather than raised, so it never aborts
+        the experiment and never affects ``fixed``.
 
         Returns:
-            A dict: ``ran``, ``ok``, ``assertion_generator``, ``num_prefixes``,
-            ``similarity_threshold``, ``inputs_class`` (per FQCN),
-            ``per_test_class`` (list of per-class records, see
-            ``_run_for_class``), ``analyzed_test_classes`` (how many of
-            those actually produced a report), ``failing_prefixes``
-            (crashing + assertion-failing, summed over classes),
-            ``max_failure_similarity`` (max score over classes) and
-            ``suspicious`` (``failing_prefixes > 0 and
-            max_failure_similarity >= self.similarity_threshold``).
+            A dict with ``schema`` (:data:`FIXCHECK_RESULT_SCHEMA`), ``ran``,
+            ``ok``, the configuration, ``runs`` (one record per FixCheck run,
+            see :meth:`_run_one`), ``skipped`` (methods FixCheck cannot work
+            on, with the reason) and the aggregate of
+            :func:`summarize_fixcheck_runs`, verdict included.
 
-            ``analyzed_test_classes > 0`` is necessary for ``suspicious:
-            False`` to mean anything -- with nothing analyzed there is no
-            evidence either way -- but it is far from sufficient. Two measured
-            upstream defects make a negative verdict weak evidence in general;
-            see docs/fixcheck-verdict-limitations.md before reporting one as
-            a result.
+            ``analyzed_runs > 0`` is necessary for ``suspicious: False`` to
+            mean anything -- with nothing analyzed there is no evidence either
+            way -- but it is far from sufficient; see
+            docs/fixcheck-verdict-limitations.md before reporting one as a
+            result.
         """
         result = {
+            "schema": FIXCHECK_RESULT_SCHEMA,
             "ran": True,
             "ok": True,
+            "subject_id": subject_id,
             "assertion_generator": self.assertion_generator,
             "num_prefixes": self.num_prefixes,
             "similarity_threshold": self.similarity_threshold,
-            "inputs_class": {},
-            "per_test_class": [],
-            "analyzed_test_classes": 0,
-            "failing_prefixes": 0,
-            "max_failure_similarity": 0.0,
-            "suspicious": False,
+            "inputs_class": self.inputs_class,
+            "timeout_seconds": self.timeout_seconds,
+            "prefix_timeout_seconds": self.prefix_timeout_seconds,
+            "llm_timeout_seconds": self.llm_timeout_seconds,
+            "runs": [],
+            "skipped": [],
+            **summarize_fixcheck_runs([], [], self.similarity_threshold),
         }
         try:
             # An LLM-backed generator is worth checking before anything else:
@@ -751,41 +1115,52 @@ class FixCheckWrapper:
             test_classes_path = os.path.join(workdir, dir_bin_tests)
             test_classes_src = os.path.join(workdir, dir_src_tests)
 
-            for fqcn, methods in group_triggers_by_class(trigger_tests).items():
+            # `defects4j compile` does not leave every project's test classes
+            # in place: right after it Mockito's target/test-classes is empty,
+            # so every prefix failed to compile against test-support classes
+            # such as org.mockitoutil.TestBase -- 20 of the 64 runs the
+            # archived campaign lost to non-compiling prefixes. Running one
+            # trigger test compiles them all.
+            missing = missing_test_classes(test_classes_path, trigger_tests)
+            if missing:
+                trigger = next(t for t in trigger_tests if t.partition("::")[0] in missing)
+                print(f"[fixcheck] Test classes not compiled ({', '.join(missing)}); "
+                      f"compiling them by running {trigger}")
+                exec_in_container(container, f"defects4j test -t {trigger}", workdir=workdir)
+                result["compiled_test_classes"] = True
+                still_missing = missing_test_classes(test_classes_path, trigger_tests)
+                if still_missing:
+                    print(f"[fixcheck] WARNING: still no compiled test class for "
+                          f"{', '.join(still_missing)}; their prefixes will not compile.")
+
+            if runs is None:
+                runs, skipped = plan_fixcheck_runs(
+                    trigger_tests, trigger_method_sources, self.num_prefixes, self.inputs_class,
+                    assertions_removed=generator_removes_assertions(self.assertion_generator),
+                )
+            result["skipped"] = list(skipped or [])
+            for skip in result["skipped"]:
+                print(f"[fixcheck] FixCheck({skip['test_class']}::{skip['method']}): "
+                      f"skipped -- {skip['reason']}")
+
+            for index, spec in enumerate(runs, start=1):
                 try:
-                    record = self._run_for_class(
-                        container, workdir, fqcn, methods, trigger_method_sources,
-                        test_classes_path, test_classes_src, cp_test,
+                    record = self._run_one(
+                        container, workdir, spec, subject_id,
+                        test_classes_path, test_classes_src, cp_test, index, len(runs),
                     )
                 except Exception as exc:
-                    print(f"[fixcheck] WARNING: FixCheck({fqcn}) crashed: {exc}")
+                    print(f"[fixcheck] WARNING: FixCheck({spec['test_class']}::"
+                          f"{spec['method']}, {spec['inputs_class']}) crashed: {exc}")
                     record = {
-                        "test_class": fqcn, "inputs_class": None, "run_dir": None,
-                        "ok": False, "report": None, "scores": [], "max_score": 0.0,
-                        "timed_out": False, "error": str(exc),
+                        **spec, "run_dir": None, "ok": False, "timed_out": False,
+                        "report": None, "variations": [], "max_score": None,
+                        "error": str(exc),
                     }
-                result["inputs_class"][fqcn] = record["inputs_class"]
-                result["per_test_class"].append(record)
+                result["runs"].append(record)
 
-            result["analyzed_test_classes"] = sum(
-                1 for r in result["per_test_class"] if r["ok"]
-            )
-            # Kept apart from "crashed": a class stopped at the budget is the
-            # harness choosing to give up, not FixCheck failing on its own.
-            result["timed_out_test_classes"] = sum(
-                1 for r in result["per_test_class"] if r.get("timed_out")
-            )
-            result["timeout_seconds"] = self.timeout_seconds
-            result["failing_prefixes"] = sum(
-                (r["report"]["crashing"] + r["report"]["assertion_failing"]) if r["report"] else 0
-                for r in result["per_test_class"]
-            )
-            result["max_failure_similarity"] = max(
-                (r["max_score"] for r in result["per_test_class"]), default=0.0
-            )
-            result["suspicious"] = (
-                result["failing_prefixes"] > 0
-                and result["max_failure_similarity"] >= self.similarity_threshold
+            result.update(
+                summarize_fixcheck_runs(result["runs"], result["skipped"], self.similarity_threshold)
             )
         except Exception as exc:
             print(f"[fixcheck] WARNING: FixCheck run failed: {exc}")
@@ -793,116 +1168,100 @@ class FixCheckWrapper:
             result["error"] = str(exc)
         return result
 
-    def _run_for_class(self, container, workdir, fqcn, methods, trigger_method_sources,
-                        test_classes_path, test_classes_src, cp_test):
-        """Run FixCheck for a single trigger test class.
+    def _run_one(self, container, workdir, spec, subject_id,
+                 test_classes_path, test_classes_src, cp_test, index=1, total=1):
+        """Run FixCheck once: one trigger method, one literal type.
 
-        Returns a per-class record: ``{"test_class", "inputs_class", "run_dir",
-        "ok", "report", "scores", "max_score", "error"?}``. Never raises --
-        :meth:`run` treats every failure here as advisory.
+        FixCheck runs from the checkout's root -- tests that open files
+        relative to it (Compress's ``src/test/resources/...``) failed from a
+        scratch directory -- with its output sent to the run's own directory.
+        The subject goes in ``subject-classpath`` rather than on ``java -cp``,
+        so FixCheck defines each prefix in the same class loader as the
+        subject (patch 0005).
+
+        Returns a run record: the spec plus ``seed``, ``run_dir``, ``ok``,
+        ``timed_out`` (the run's own budget), ``exit_code``, ``seconds``,
+        ``report``, ``variations`` (:func:`parse_fixcheck_variations`),
+        ``max_score`` and ``error`` when something went wrong. Never raises
+        for a FixCheck failure -- :meth:`run` treats it as advisory.
         """
-        simple_name = fqcn.rsplit(".", 1)[-1]
-        run_dir = os.path.join(workdir, ".fixcheck", f"run_{simple_name}")
-        os.makedirs(run_dir, exist_ok=True)
-
-        method_sources = (trigger_method_sources or {}).get(fqcn, {})
-        if self.inputs_class:
-            # An explicit type is the caller's call; keep every trigger method.
-            inputs_class, usable_methods = self.inputs_class, list(methods)
-        else:
-            inputs_class, usable_methods = select_fixcheck_inputs(methods, method_sources)
-
+        fqcn, method = spec["test_class"], spec["method"]
+        literal_type, prefixes = spec["inputs_class"], spec["num_prefixes"]
+        run_dir = os.path.join(workdir, ".fixcheck", "runs", fixcheck_run_subdir(spec))
+        # A run directory left by an earlier attempt must not lend it its report.
+        shutil.rmtree(run_dir, ignore_errors=True)
+        os.makedirs(run_dir)
+        seed = derive_seed(subject_id, fqcn, method, literal_type)
         record = {
-            "test_class": fqcn,
-            "inputs_class": inputs_class,
-            "test_methods": usable_methods,
-            "run_dir": run_dir,
-            "ok": False,
-            "report": None,
-            "scores": [],
-            "max_score": 0.0,
-            "timed_out": False,
+            **spec, "seed": seed, "run_dir": run_dir, "ok": False, "timed_out": False,
+            "exit_code": None, "seconds": None, "report": None, "variations": [],
+            "max_score": None,
         }
 
-        if inputs_class is None or not usable_methods:
-            # Every literal sits inside an assertion (or the method is
-            # inherited and so absent from this class's source, which
-            # FixCheck parses on its own). Running it would end in
-            # `IllegalArgumentException: No locals of type <T>` and no
-            # report -- skipping is the same outcome, minutes faster and
-            # self-explanatory.
-            missing = [m for m in methods if m not in method_sources]
-            detail = (
-                f"trigger method(s) {missing} not declared in this class "
-                "(inherited?); FixCheck only parses the named class's source"
-                if missing else
-                "no mutable literal outside assertions in the trigger method(s)"
-            )
-            record["skipped"] = True
-            record["error"] = (
-                f"{detail}; FixCheck cannot generate variations "
-                "(override with an explicit inputs_class)"
-            )
-            print(f"[fixcheck] FixCheck({fqcn}): skipped -- {record['error']}")
-            return record
-
-        dropped = [m for m in methods if m not in usable_methods]
-        if dropped:
-            print(f"[fixcheck] FixCheck({fqcn}): analyzing {usable_methods}; "
-                  f"skipping {dropped} (no {inputs_class} literal to mutate)")
-
-        failure_log_path = fixcheck_failure_log_path(workdir, fqcn)
+        failure_log_path = spec.get("failure_log_path") or fixcheck_failure_log_path(
+            workdir, fqcn, method
+        )
         if not os.path.exists(failure_log_path):
             record["error"] = f"missing pre-fix failure trace: {failure_log_path}"
-            print(f"[fixcheck] WARNING: FixCheck({fqcn}): {record['error']}")
+            print(f"[fixcheck] WARNING: FixCheck({fqcn}::{method}): {record['error']}")
             return record
 
+        uses_llm = resolve_ollama_backend(self.assertion_generator) is not None
         props_text = build_fixcheck_properties(
             test_classes_path=test_classes_path,
             test_class=fqcn,
-            test_methods=usable_methods,
+            test_methods=spec.get("test_methods") or [method],
             test_classes_src=test_classes_src,
             failure_log_path=failure_log_path,
-            inputs_class=inputs_class,
-            num_prefixes=self.num_prefixes,
+            inputs_class=literal_type,
+            num_prefixes=prefixes,
             assertion_generator=self.assertion_generator,
+            subject_classpath=_resolve_classpath(workdir, cp_test),
+            output_dir=os.path.join(run_dir, "fixcheck-output"),
+            seed=seed,
+            prefix_timeout_seconds=self.prefix_timeout_seconds or None,
+            ollama_timeout_seconds=self.llm_timeout_seconds if uses_llm else None,
+            # The same prefix gets the same assertions on every run.
+            ollama_temperature=0 if uses_llm else None,
+            ollama_seed=seed if uses_llm else None,
         )
         props_path = os.path.join(run_dir, "fixcheck.properties")
         with open(props_path, "w", encoding="utf-8") as f:
             f.write(props_text)
 
-        full_cp = f"{self.jar_path}:{_resolve_classpath(workdir, cp_test)}"
-        cmd = fixcheck_command(full_cp, props_path, self.timeout_seconds)
-        print(f"[fixcheck] Running FixCheck for {fqcn} ({len(usable_methods)} trigger "
-              f"method(s), inputs-class={inputs_class}, budget "
+        cmd = fixcheck_command(self.jar_path, props_path, self.timeout_seconds)
+        print(f"[fixcheck] Running FixCheck {index}/{total} for {fqcn}::{method} "
+              f"({prefixes} prefixes, inputs-class={literal_type}, budget "
               f"{self.timeout_seconds or 'unbounded'}s) ...")
-        exec_result = exec_in_container(container, cmd, workdir=run_dir)
+        started = time.time()
+        exec_result = exec_in_container(container, cmd, workdir=workdir)
+        record["seconds"] = round(time.time() - started, 1)
+        record["exit_code"] = exec_result.exit_code
         _write_text(os.path.join(run_dir, "fixcheck.log"), exec_result.output)
         record["timed_out"] = bool(
             self.timeout_seconds and exec_result.exit_code in _TIMEOUT_EXIT_CODES
         )
         if record["timed_out"]:
-            print(f"[fixcheck] WARNING: FixCheck({fqcn}) exceeded its "
-                  f"{self.timeout_seconds}s budget and was stopped; advisory "
-                  "failure, the patch's verdict is unaffected.")
+            print(f"[fixcheck] WARNING: FixCheck({fqcn}::{method}, {literal_type}) "
+                  f"exceeded its {self.timeout_seconds}s budget and was stopped; "
+                  "advisory failure, the patch's verdict is unaffected.")
         elif not exec_result.ok:
             # FixCheck.main() normally exits 0 even when generation partially
             # fails; a non-zero exit means something more fundamental broke
             # (e.g. a bad classpath). Still try to read whatever it produced.
-            print(f"[fixcheck] WARNING: FixCheck({fqcn}) exited "
-                  f"{exec_result.exit_code}; treating as advisory failure.")
+            print(f"[fixcheck] WARNING: FixCheck({fqcn}::{method}, {literal_type}) "
+                  f"exited {exec_result.exit_code}; treating as advisory failure.")
 
-        output_dir = os.path.join(run_dir, "fixcheck-output")
-        report_text = _read_text_or_none(os.path.join(output_dir, "report.csv"))
-        scores_text = _read_text_or_none(os.path.join(output_dir, "scores-failing-tests.csv"))
-
+        report_text = _read_text_or_none(os.path.join(run_dir, "fixcheck-output", "report.csv"))
         record["report"] = parse_fixcheck_report(report_text) if report_text is not None else None
-        record["scores"] = parse_fixcheck_scores(scores_text) if scores_text is not None else []
-        record["max_score"] = max(record["scores"], default=0.0)
+        record["variations"] = parse_fixcheck_variations(exec_result.output)
+        scored = [v["score"] for v in record["variations"] if _is_scored(v)]
+        record["max_score"] = max(scored) if scored else None
         record["ok"] = record["report"] is not None and not record["timed_out"]
         if record["timed_out"]:
             record["error"] = f"FixCheck timed out after {self.timeout_seconds}s"
         elif not record["ok"]:
             record["error"] = "report.csv missing or unparsable"
-            print(f"[fixcheck] WARNING: FixCheck({fqcn}): {record['error']}")
+            print(f"[fixcheck] WARNING: FixCheck({fqcn}::{method}, {literal_type}): "
+                  f"{record['error']}")
         return record

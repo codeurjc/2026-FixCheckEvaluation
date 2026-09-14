@@ -45,14 +45,18 @@ that fail regardless of the patch.
      program, and measures how similar each failing variation's failure trace
      is to the original bug's. A failing variation with high similarity is
      evidence the patch didn't really fix the underlying defect rather than
-     just satisfying the trigger test. This is purely advisory: it never
-     changes `fixed`, only adds a `fixcheck` block and a `fixcheck_suspicious`
-     flag to `result.json`. Before reporting those verdicts as results, read
-     [docs/fixcheck-verdict-limitations.md](docs/fixcheck-verdict-limitations.md):
-     it documents two upstream defects that gutted the check — both now fixed
-     by the patches in `scripts/fixcheck-patches/`, applied automatically by
-     `scripts/buildFixcheck.sh` — and the limitations that still remain
-     (role-blind literal mutation, non-reproducible runs).
+     just satisfying the trigger test. There is one FixCheck run per trigger
+     method and literal type — the method's 100 prefixes split among the
+     literal types it contains — and the patch is flagged when a failing
+     variation scores at least 0.4: the parameters of FixCheck's own
+     evaluation. This is purely advisory: it never changes `fixed`, only adds a
+     `fixcheck` block and a `fixcheck_suspicious` flag to `result.json`. The
+     vendored FixCheck carries the patches in `scripts/fixcheck-patches/` —
+     what each one fixes, and the measured artifact behind it, is in that
+     directory's [README](scripts/fixcheck-patches/README.md). Before reporting
+     a verdict as a result, read
+     [docs/fixcheck-verdict-limitations.md](docs/fixcheck-verdict-limitations.md)
+     and [docs/fixcheck-v2-protocol.md](docs/fixcheck-v2-protocol.md).
    - Writes the validation artifacts (`apply.log`, `test_before.log`,
      `test_after.log`) and the combined `result.json`.
    - Always stops and removes the container at the end.
@@ -110,10 +114,11 @@ connectors.
   ```bash
   bash scripts/buildFixcheck.sh
   ```
-  Needs Docker and network access (the Gradle wrapper downloads Gradle on
-  first use). The script clones `fixcheck/` if missing and applies the local
-  fixes from `scripts/fixcheck-patches/` before building (see
-  [docs/fixcheck-verdict-limitations.md](docs/fixcheck-verdict-limitations.md)).
+  Needs Docker and network access (the Gradle wrapper downloads Gradle and the
+  Shadow plugin on first use). The script clones `fixcheck/` if missing,
+  applies the local patches from `scripts/fixcheck-patches/` (see its
+  [README](scripts/fixcheck-patches/README.md)), runs FixCheck's own unit
+  tests, and refuses a jar that still carries unrelocated dependencies.
 
 ## Usage
 
@@ -136,11 +141,13 @@ Arguments:
 | `--include-test-log`  | Include the regression (trigger) test's isolated failure log in the prompt. | off |
 | `--include-issue`     | Include the original bug-tracker issue report in the prompt. | off |
 | `--fixcheck` | Run FixCheck on plausible patches (applied and every trigger test passing) as an overfitting check. Requires the jar from `bash scripts/buildFixcheck.sh`. | off |
-| `--fixcheck-prefixes` | Number of input variations ("prefixes") FixCheck generates per trigger method. | `25` |
+| `--fixcheck-prefixes` | Input variations ("prefixes") FixCheck generates per trigger method, split among the literal types (String, int, long, double, boolean) the method can mutate in proportion to how many literals of each it has; one FixCheck run per type. | `100` |
 | `--fixcheck-assertions` | FixCheck's assertion-generation strategy: `assert-true`, `previous-assertion`, `codellama`, `llama3.1`, `gpt-3.5`, `replit-code-llm`, or **`ollama:<model>[@[<host>:]<port>]`** for any model an Ollama daemon serves (e.g. `ollama:gpt-oss:120b@1995`). `previous-assertion` keeps the trigger test's own assertions in every variation (restored by the patches in `scripts/fixcheck-patches/` — [background](docs/fixcheck-verdict-limitations.md)); `assert-true` only appends a vacuous `assertTrue(true)`. The Ollama-backed ones generate new assertions with an LLM — see *Ollama-backed assertion generators* below. `gpt-3.5` and `replit-code-llm` aren't wired up for this project's container/network setup yet. | `previous-assertion` |
-| `--fixcheck-inputs-class` | Force FixCheck's `inputs-class` (e.g. `int`, `java.lang.String`) instead of inferring it from the trigger test source. Also the way to run FixCheck on a trigger test the heuristic considers unmutable (see *Not every bug is a FixCheck subject* below). | heuristic |
-| `--fixcheck-similarity-threshold` | Minimum failure-similarity score (0-1) a FixCheck failing variation needs to mark the patch suspicious. | `0.8` |
-| `--fixcheck-timeout` | Wall-clock budget in seconds for each FixCheck run (one per trigger class); `0` = unbounded. FixCheck runs its mutated prefixes with no timeout of its own, and an unbounded one used to hang until the per-bug timeout killed the whole run, losing a verdict already computed. A stop is recorded as `timed_out` and never affects `fixed`; `result.json` is written before FixCheck starts, so an interrupted FixCheck can only cost its own block. | `1800` |
+| `--fixcheck-inputs-class` | Force one `inputs-class` (e.g. `int`, `java.lang.String`): every trigger method gets a single run of that type with the whole prefix budget, instead of the budget being split among the types it contains. | split among the types present |
+| `--fixcheck-similarity-threshold` | Minimum failure-similarity score (0-1) a FixCheck failing variation needs to mark the patch suspicious. | `0.4` |
+| `--fixcheck-timeout` | Wall-clock budget in seconds for each FixCheck run (one trigger method and literal type); `0` = unbounded. A safety net: prefixes and model calls have budgets of their own. A stop is recorded as `timed_out` and never affects `fixed`; `result.json` is written before FixCheck starts, so an interrupted FixCheck can only cost its own block. | `14400` |
+| `--fixcheck-prefix-timeout` | Budget in seconds for running one prefix. One that outlives it — a mutated loop bound or size, as in Math 10 — is stopped, recorded as timed out and not scored; `0` = unbounded. | `60` |
+| `--fixcheck-llm-timeout` | Timeout in seconds of each call to an Ollama-backed assertion generator. | `120` |
 | `--iteration`   | Iteration index; when set, artifacts go to `results/<model>/<project>/Bug_<bug_id>/<iteration>/` instead of `results/<model>/<project>/Bug_<bug_id>/`. Used by `run_iterations.py`. | none |
 
 ### Not every bug is a FixCheck subject
@@ -154,31 +161,25 @@ Many Defects4J trigger tests are nothing but `assertEquals(...)` lines — Lang
 upstream FixCheck dies with `IllegalArgumentException: No locals of type <T>`
 and writes no report.
 
-`Experiment.py` detects this up front (`select_fixcheck_inputs` returns no
-usable type when the trigger methods have no mutable literal) and skips that
-test class with an explanatory message instead of spending minutes on a run
-that cannot produce anything. The `fixcheck` block still records the skip, and
-`analyzed_test_classes` reports how many trigger classes actually yielded a
-report — a `suspicious: false` verdict is only meaningful when that count is
-above zero. Pass `--fixcheck-inputs-class` to force a run anyway.
+`FixCheckWrapper.plan_fixcheck_runs` therefore counts, for each trigger method,
+the literals FixCheck can actually reach — which depends on the generator:
+every generator but `previous-assertion` first removes the assertions at any
+depth, so a `fail("...")` message inside a `try` offers nothing — and plans one
+run per literal type present. A method without a mutable literal is recorded
+under `skipped` with its reason instead of spending minutes on a run that
+cannot produce anything. `analyzed_runs` reports how many runs actually yielded
+a report; a `suspicious: false` verdict is only meaningful when it is above
+zero. Pass `--fixcheck-inputs-class` to force a type anyway.
 
-Three related upstream behaviors are worth knowing about when picking subjects:
+Two related behaviors are worth knowing about when picking subjects:
 
 - **Inherited trigger methods are invisible to FixCheck.** It parses only the
   named test class's own source file, so a trigger like Lang 10's
   `FastDateFormat_ParserTest::testLANG_831` — inherited from
-  `FastDateParserTest` — yields no prefixes. Those classes are skipped too.
-- **One unmutable method used to sink the whole class.** FixCheck generates
-  variations for every method in `test-methods` and lets
-  `IllegalArgumentException` escape `main`, so a single method without a
-  literal of `inputs-class` aborts the run before any report is written.
-  `Experiment.py` therefore passes only the methods it can actually mutate.
-- **A prefix that fails to compile aborts the run.** `PrefixRunner` records a
-  `null` execution result and `FixCheck.generateSimilarPrefixes` dereferences
-  it, so the process dies with a `NullPointerException` and writes no report
-  at all — the `non_compiling` count in `report.csv` is unreachable in
-  practice. This is an upstream bug; the integration treats it as one more
-  advisory failure.
+  `FastDateParserTest` — yields no prefixes. Those methods are skipped too.
+- **A well-factored test leaves nothing to mutate.** A trigger method that only
+  calls a helper with a constant (JxPath 13's
+  `doTestCreateAndSetAttribute(DocumentContainer.MODEL_DOM)`) has no literal.
 
 ### Ollama-backed assertion generators
 
@@ -297,6 +298,33 @@ python summarize_campaign.py --list-failures
 See [scripts/README.md](scripts/README.md) for the options and
 [docs/campaign.md](docs/campaign.md) for the protocol.
 
+### Re-measuring FixCheck on recorded patches
+
+`replay_fixcheck.py` runs **only FixCheck** again on patches whose verdict is
+already recorded. It re-applies the stored patch — it never asks the model for
+a new one, since a re-run would draw a different patch — checks that it still
+compiles and passes the trigger tests (recording `not_reproduced` otherwise),
+and writes `fixcheck_v2.json` with the FixCheck result:
+
+```bash
+# a model's plausible patches, with that model as the assertion oracle
+python replay_fixcheck.py --target plausible --model ollama/qwen3.6:35b --project Lang \
+    --fixcheck-assertions ollama:qwen3.6:35b@11434
+# the controls: developer fixes, and FixCheck's author's labelled DefectRepairing patches
+python replay_fixcheck.py --target devfix --project Lang --fixcheck-assertions ollama:gpt-oss:120b@11434
+python replay_fixcheck.py --target defectrepairing --config author --project Math \
+    --fixcheck-assertions ollama:gpt-oss:120b@11434   # needs external/DefectRepairing
+```
+
+A model's replay lands next to its run in `results/<model>/<Project>/Bug_<id>/`;
+the controls under `results/controls/devfix/<oracle>/` and
+`results/controls/defectrepairing/<author|ours>/<oracle>/`. Mutations are
+seeded by bug, test method and literal type, so every patch of one bug meets
+the same variations. On the cluster, `scripts/runFixcheckReplay.sh` submits one
+job per project, and `summarize_campaign.collect_fixcheck_v2` reads the records
+back. The protocol and its status are in
+[docs/fixcheck-v2-protocol.md](docs/fixcheck-v2-protocol.md).
+
 ### Issue reports are pre-downloaded
 
 `--include-issue` reads each bug's issue report from `d4j/issues/<Project>/<bug_id>.txt`,
@@ -388,19 +416,28 @@ set), where `<model>` is `--model` with any `<provider>/` prefix stripped
   written when `--include-test-log` is set.
 - `issue.txt` — the fetched bug-tracker issue report; only written when
   `--include-issue` is set.
-- `fixcheck/<test-class>/` — only written when `--fixcheck` ran on a plausible
-  patch (one subdirectory per trigger test class): `report.csv` and
-  `scores-failing-tests.csv` (FixCheck's own output; see
-  `fixcheck/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java` and
-  `PrefixWriter.java` for their exact format), the generated `passing-tests/`,
-  `failing-tests/` and `non-compiling-tests/` prefix sources, and
-  `fixcheck.log` (FixCheck's console output). `result.json`'s `fixcheck` block
-  mirrors the same data in
-  structured form: per-class parsed reports/scores, `analyzed_test_classes`,
-  `failing_prefixes`, `max_failure_similarity`, and the `suspicious` verdict
-  (a failing variation scored at or above `--fixcheck-similarity-threshold`).
-  `fixcheck_suspicious` is the top-level convenience boolean mirroring that
-  verdict; both are `null`/`false` when `--fixcheck` wasn't set or the patch
-  wasn't plausible enough to run it on. Check `analyzed_test_classes` before
-  reading a `false` verdict as evidence of correctness — see *Not every bug
-  is a FixCheck subject* above.
+- `fixcheck/<TestClass>/<method>/<literal type>/` — only written when
+  `--fixcheck` ran on a plausible patch, one directory per FixCheck run:
+  `fixcheck.properties`, `fixcheck.log` (FixCheck's console output, with each
+  prefix's mutation, outcome and similarity) and `fixcheck-output/`
+  (`report.csv`, `scores-failing-tests.csv`, and the generated
+  `passing-tests/`, `failing-tests/`, `non-compiling-tests/` and
+  `timed-out-tests/` prefix sources; see
+  `fixcheck/src/main/java/org/imdea/fixcheck/writer/`). `result.json`'s
+  `fixcheck` block (`schema: fixcheck-v2`) mirrors it in structured form: the
+  plan — `runs`, each with its literal counts, prefix share, seed, parsed report
+  and per-prefix `variations`, and the `skipped` methods with their reason —
+  and the aggregate: `analyzed_runs`, `analyzed_test_classes`,
+  `failing_prefixes`, `scored_prefixes`, `timed_out_prefixes`,
+  `identity_prefixes`/`identity_failing_prefixes` (mutations that left the
+  literal unchanged: such a prefix failing measures the harness, not the
+  patch), `max_failure_similarity` (`null` when nothing was scored) and the
+  `suspicious` verdict (a failing variation scored at or above
+  `--fixcheck-similarity-threshold`). `fixcheck_suspicious` is the top-level
+  convenience boolean mirroring that verdict; both are `null`/`false` when
+  `--fixcheck` wasn't set or the patch wasn't plausible. Check `analyzed_runs`
+  before reading a `false` verdict as evidence of correctness — see *Not every
+  bug is a FixCheck subject* above.
+- `fixcheck_v2.json`, `fixcheck_v2/`, `replay_patch.diff`, `replay_apply.log` —
+  written by `replay_fixcheck.py` (see *Re-measuring FixCheck on recorded
+  patches*) next to a run of record, never over its `result.json`.

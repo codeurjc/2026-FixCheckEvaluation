@@ -24,7 +24,9 @@ BUG_IDS="all"
 MODEL="ollama/gpt-oss:120b"
 GPU="H100:1"
 CPUS="8"
-FIXCHECK_PREFIXES="10"
+# 100 prefixes per bug-revealing test method, as in FixCheck's own evaluation;
+# the archived campaigns used 10 (see FixCheckWrapper.DEFAULT_FIXCHECK_PREFIXES).
+FIXCHECK_PREFIXES="100"
 # Per-bug wall clock. Raised from 7200 after the first campaign: 6 runs died at
 # exactly 7200.3 s, and re-running them at the same limit would reproduce them
 # identically. They are test-suite-bound, not generation-bound -- the median run

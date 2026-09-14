@@ -124,8 +124,18 @@ def add_experiment_flags(parser):
     )
     parser.add_argument(
         "--fixcheck-timeout", type=int, default=None,
-        help="Per-class FixCheck wall-clock budget in seconds "
+        help="Wall-clock budget in seconds for each FixCheck run, i.e. each "
+             "trigger method and literal type (default: Experiment.py's default).",
+    )
+    parser.add_argument(
+        "--fixcheck-prefix-timeout", type=int, default=None,
+        help="Budget in seconds for running one FixCheck prefix "
              "(default: Experiment.py's default).",
+    )
+    parser.add_argument(
+        "--fixcheck-llm-timeout", type=int, default=None,
+        help="Timeout in seconds of each call to FixCheck's assertion-generating "
+             "model (default: Experiment.py's default).",
     )
     parser.add_argument(
         "--fixcheck-similarity-threshold", type=float, default=None,
@@ -170,6 +180,10 @@ def experiment_args(args):
                       str(args.fixcheck_similarity_threshold)]
     if getattr(args, "fixcheck_timeout", None) is not None:
         forwarded += ["--fixcheck-timeout", str(args.fixcheck_timeout)]
+    if getattr(args, "fixcheck_prefix_timeout", None) is not None:
+        forwarded += ["--fixcheck-prefix-timeout", str(args.fixcheck_prefix_timeout)]
+    if getattr(args, "fixcheck_llm_timeout", None) is not None:
+        forwarded += ["--fixcheck-llm-timeout", str(args.fixcheck_llm_timeout)]
     return forwarded
 
 
@@ -250,6 +264,17 @@ def run_experiment(project, bug_id, workdir, forwarded, iteration=None,
         *(["--iteration", str(iteration)] if iteration is not None else []),
         *forwarded,
     ]
+    return run_command(cmd, timeout=timeout, log_path=log_path, echo=echo, kill_grace=kill_grace)
+
+
+def run_command(cmd, timeout=None, log_path=None, echo=True, kill_grace=120):
+    """Run ``cmd`` in its own process group, with a real timeout.
+
+    What :func:`run_experiment` does for ``Experiment.py``, for any command --
+    ``replay_fixcheck.py`` runs each subject through it. A timeout sends
+    SIGTERM to the whole group, then SIGKILL after ``kill_grace`` seconds.
+    Output goes to ``log_path`` when given, and to stdout otherwise.
+    """
     if echo:
         print("$ " + " ".join(cmd), flush=True)
 

@@ -58,6 +58,8 @@ import pytest
 import Experiment
 from Experiment import DEFECTS4J_IMAGE, FIXCHECK_JAR, model_dir_name
 from FixCheckWrapper import (
+    fixcheck_failure_log_path,
+    literal_type_dir,
     resolve_ollama_backend,
     validate_assertion_generator,
 )
@@ -73,9 +75,9 @@ NUM_PREFIXES = 3
 _HERE = os.path.dirname(os.path.abspath(__file__))
 RAW_RESPONSE_PATH = os.path.join(_HERE, "fixtures", "lang12_raw_response.txt")
 
-# Lang 12's second trigger method has no mutable String literal, so FixCheck
-# analyzes only the first -- asserted below, since dropping the *wrong* one
-# would still look like a healthy run.
+# Lang 12's testExceptions declares String inputs in ordinary statements, so it
+# always gets a String run -- asserted below, since losing it would still look
+# like a healthy run as long as some other run survived.
 TRIGGER_CLASS = "org.apache.commons.lang3.RandomStringUtilsTest"
 ANALYZED_METHOD = "testExceptions"
 
@@ -238,17 +240,21 @@ def test_fixcheck_received_the_trigger_test_sources(experiment_run):
     """
     result, _results_dir, _workdir = experiment_run
     fixcheck = result["fixcheck"]
-    assert fixcheck["analyzed_test_classes"] > 0, (
-        "no trigger class was analyzed, so the verdict is vacuous"
+    assert fixcheck["analyzed_runs"] > 0, (
+        "no FixCheck run was analyzed, so the verdict is vacuous"
     )
-    assert fixcheck["inputs_class"].get(TRIGGER_CLASS) == "java.lang.String"
 
     record = next(
-        r for r in fixcheck["per_test_class"] if r["test_class"] == TRIGGER_CLASS
+        (r for r in fixcheck["runs"]
+         if r["test_class"] == TRIGGER_CLASS and r["method"] == ANALYZED_METHOD
+         and r["inputs_class"] == "java.lang.String"),
+        None,
     )
-    # Lang 12's other trigger method has no mutable String literal; passing it
-    # anyway would abort the whole class inside FixCheck.
-    assert record["test_methods"] == [ANALYZED_METHOD]
+    assert record is not None, (
+        f"no String run planned for {ANALYZED_METHOD}: "
+        f"{[(r['method'], r['inputs_class']) for r in fixcheck['runs']]}"
+    )
+    assert record["ok"], f"the String run produced no report: {record.get('error')}"
 
     report = record["report"]
     executed = report["passing"] + report["crashing"] + report["assertion_failing"]
@@ -269,9 +275,10 @@ def test_the_prefix_failure_trace_was_captured_before_the_patch(experiment_run):
     computed against nothing.
     """
     _result, _results_dir, workdir = experiment_run
-    trace_path = os.path.join(workdir, ".fixcheck", f"{TRIGGER_CLASS}.failing_tests")
+    trace_path = fixcheck_failure_log_path(workdir, TRIGGER_CLASS, ANALYZED_METHOD)
     assert os.path.exists(trace_path), f"no pre-fix failure trace at {trace_path}"
     trace = open(trace_path, encoding="utf-8", errors="replace").read()
+    assert not trace.startswith("--- "), "Defects4J's header line was left in the trace"
     assert ANALYZED_METHOD in trace and "Exception" in trace, (
         "the captured trace does not look like the original failure -- it may "
         f"have been written after the patch was applied:\n{trace[:500]}"
@@ -281,9 +288,12 @@ def test_the_prefix_failure_trace_was_captured_before_the_patch(experiment_run):
 def test_fixcheck_artifacts_are_copied_into_the_results_dir(experiment_run):
     """The run's evidence outlives the checkout it was produced in."""
     _result, results_dir, _workdir = experiment_run
-    dest = os.path.join(results_dir, "fixcheck", TRIGGER_CLASS.rsplit(".", 1)[-1])
+    dest = os.path.join(
+        results_dir, "fixcheck", TRIGGER_CLASS.rsplit(".", 1)[-1], ANALYZED_METHOD,
+        literal_type_dir("java.lang.String"),
+    )
     assert os.path.isdir(dest), f"FixCheck artifacts were not copied to {dest}"
-    for name in ("report.csv", "fixcheck.log"):
+    for name in ("fixcheck.properties", "fixcheck.log", os.path.join("fixcheck-output", "report.csv")):
         assert os.path.isfile(os.path.join(dest, name)), f"missing {name} in {dest}"
 
 

@@ -751,6 +751,55 @@ def test_collect_project_separates_fixcheck_invoked_from_actually_ran(tmp_path):
     assert record["compiled_after"] is False and record["fixed"] is False
 
 
+def _replay_record(status, fixcheck=None, **extra):
+    return {"schema": "fixcheck-replay-v1", "replay_status": status, "fixcheck": fixcheck, **extra}
+
+
+def test_collect_fixcheck_v2_reads_a_measured_subject(tmp_path):
+    from summarize_campaign import collect_fixcheck_v2
+
+    bug_dir = tmp_path / "Lang" / "Bug_12"
+    bug_dir.mkdir(parents=True)
+    fixcheck = {
+        "analyzed_runs": 2, "planned_runs": 2, "skipped_methods": 1, "timed_out_runs": 0,
+        "generated_prefixes": 100, "failing_prefixes": 7, "scored_prefixes": 3,
+        "timed_out_prefixes": 1, "identity_prefixes": 4, "identity_failing_prefixes": 1,
+        "max_failure_similarity": 0.52, "similarity_threshold": 0.4, "suspicious": True,
+        "runs": [
+            {"ok": True, "variations": [
+                {"outcome": "crashed", "score": 0.52}, {"outcome": "passed", "score": None},
+            ]},
+            # A run without a report contributes no score.
+            {"ok": False, "variations": [{"outcome": "crashed", "score": 0.99}]},
+        ],
+    }
+    (bug_dir / "fixcheck_v2.json").write_text(json.dumps(
+        _replay_record("ok", fixcheck, target="plausible", bug_id="12", patch_fixed=True)
+    ))
+    record = collect_fixcheck_v2(str(tmp_path), "Lang")[0]
+    assert record["subject"] == "Bug_12" and record["patch_fixed"] is True
+    assert record["suspicious"] is True and record["max_failure_similarity"] == 0.52
+    assert record["scores"] == [0.52]
+    assert record["identity_failing_prefixes"] == 1
+
+
+def test_collect_fixcheck_v2_keeps_absent_measurements_absent(tmp_path):
+    """A replay that measured nothing must not read as 'not suspicious'."""
+    from summarize_campaign import collect_fixcheck_v2
+
+    for name, record in {
+        "Bug_1": _replay_record("not_reproduced", reason="the patch no longer applies"),
+        "Bug_2": _replay_record("ok", {"analyzed_runs": 0, "suspicious": False,
+                                       "failing_prefixes": 0, "runs": []}),
+    }.items():
+        (tmp_path / "Lang" / name).mkdir(parents=True)
+        (tmp_path / "Lang" / name / "fixcheck_v2.json").write_text(json.dumps(record))
+    records = {r["subject"]: r for r in collect_fixcheck_v2(str(tmp_path), "Lang")}
+    assert records["Bug_1"]["suspicious"] is None and records["Bug_1"]["analyzed_runs"] is None
+    assert records["Bug_2"]["suspicious"] is None and records["Bug_2"]["analyzed_runs"] == 0
+    assert records["Bug_2"]["failing_prefixes"] is None and records["Bug_2"]["scores"] is None
+
+
 def test_patch_defects4j_image_script_is_safe_to_rerun():
     """The image patch must retag in place, be idempotent, and target the CSVs.
 

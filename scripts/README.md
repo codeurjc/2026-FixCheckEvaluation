@@ -163,7 +163,7 @@ parallelism comes from several project jobs running at once. See
 | `--bug-id` | `all`, or ids/ranges (`1,3-5`); only with a single project | `all` |
 | `--model` | used for the fix **and** for FixCheck's assertions | `ollama/gpt-oss:120b` |
 | `--gpu` | passed to `sbatch --gpus` | `H100:1` |
-| `--fixcheck-prefixes` | variations FixCheck generates per bug | `10` |
+| `--fixcheck-prefixes` | variations FixCheck generates per trigger method, split among its literal types | `100` |
 | `--timeout` | per-bug wall-clock limit, in seconds | `7200` |
 | `--minutes-per-bug` | sizes each job's `--time` | `20` |
 | `--chunks` | split each project's bugs across N jobs | `1` |
@@ -188,6 +188,40 @@ Logs land in `scripts/logs/<job_id>/`: `slurm.out`, `ollama.log`,
 `status.jsonl` (one line per finished bug — `tail -f` this) and
 `bugs/<Project>_<id>.log` (one full `Experiment.py` log per bug, because a
 single Closure test run would otherwise drown the shared log).
+
+## runFixcheckReplay.sh and replay_fixcheck_job.sbatch
+
+Re-measure FixCheck with `replay_fixcheck.py` on patches that already have a
+verdict: the stored patches are re-applied, never regenerated. One job per
+project (or chunk); the subject lists come from `replay_fixcheck.py` itself.
+See [docs/fixcheck-v2-protocol.md](../docs/fixcheck-v2-protocol.md).
+
+```bash
+./scripts/runFixcheckReplay.sh --target plausible --model ollama/qwen3.6:35b --projects all
+./scripts/runFixcheckReplay.sh --target devfix --oracle ollama/gpt-oss:120b --projects Lang,Math
+./scripts/runFixcheckReplay.sh --target defectrepairing --config author \
+    --oracle ollama/qwen3.6:35b --projects Chart,Closure,Lang,Math,Mockito,Time
+./scripts/runFixcheckReplay.sh --target devfix --oracle ollama/gpt-oss:120b \
+    --projects Cli --bug-id 35 --dry-run                      # show, don't submit
+```
+
+| Option | Meaning | Default |
+|---|---|---|
+| `--target` | `plausible` (a model's plausible patches), `devfix` (developer fixes) or `defectrepairing` | — |
+| `--model` | `plausible` only: whose patches; it is also the assertion oracle | — |
+| `--oracle` | `devfix`/`defectrepairing`: the model writing FixCheck's assertions | — |
+| `--config` | `defectrepairing`: `author` (his test, inputs-class and trace) or `ours` | `ours` |
+| `--projects` / `--bug-id` | projects; subject ids (`Patch151`, `1-5`), applied to every listed project | `all` |
+| `--gpu` | `sbatch --gpus` | `H100:1` for gpt-oss, else `L40S:1` |
+| `--timeout` | per-subject wall-clock limit, in seconds | `86400` |
+| `--minutes-per-subject` / `--chunks` | size each job's `--time` / split a project | `30` / `1` |
+| `--retry-errored` / `--no-resume` / `--dry-run` | as in `runCampaign.sh` | off |
+
+`replay_fixcheck_job.sbatch` starts Ollama for `$ORACLE` on its own port and
+derives `--fixcheck-assertions` from both, exactly like `project_job.sbatch`.
+Logs land in `scripts/logs/<job_id>/` (`status.jsonl`, `manifest.json`,
+`subjects/`); the records themselves, `fixcheck_v2.json`, next to each subject's
+results.
 
 ## patchDefects4jImage.sh
 

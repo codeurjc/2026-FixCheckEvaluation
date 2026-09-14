@@ -440,15 +440,20 @@ def test_post_fix_budget_is_clamped_both_ways():
     assert post_fix_test_budget(99_999) == POST_FIX_TEST_MAX_BUDGET   # slow suites
 
 
-def test_post_fix_budget_plus_fixcheck_fits_in_the_per_bug_timeout():
-    """Otherwise the per-bug timeout would still win and erase the verdict."""
+def test_post_fix_budget_fits_in_the_per_bug_timeout():
+    """Otherwise the per-bug timeout would still win and erase the verdict.
+
+    FixCheck no longer has to fit as well: the verdict is written before it
+    starts, so the per-bug timeout interrupting FixCheck costs only FixCheck's
+    own block (left as FIXCHECK_PENDING). With several FixCheck runs per bug
+    at 100 prefixes each, its duration is bounded per run, not per bug.
+    """
     import re
     from Experiment import POST_FIX_TEST_MAX_BUDGET
-    from FixCheckWrapper import DEFAULT_FIXCHECK_TIMEOUT
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     script = open(os.path.join(root, "scripts/runCampaign.sh"), encoding="utf-8").read()
     per_bug = int(re.search(r'^TIMEOUT="(\d+)"', script, re.M).group(1))
-    assert POST_FIX_TEST_MAX_BUDGET + DEFAULT_FIXCHECK_TIMEOUT < per_bug
+    assert POST_FIX_TEST_MAX_BUDGET < per_bug
 
 
 def test_bounded_command_wraps_in_coreutils_timeout():

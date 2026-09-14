@@ -136,17 +136,18 @@ def ollama_fixcheck(tmp_path_factory):
 
 
 def _analyzed(result):
-    """The trigger classes FixCheck actually attempted.
+    """The FixCheck runs actually attempted.
 
-    A class it declined up front (an inherited trigger method, or literals
-    that only occur inside assertions) is expected and unrelated to the
-    generator.
+    A trigger method declined up front (inherited, or with literals that only
+    occur inside assertions) is in ``skipped`` instead: expected, and unrelated
+    to the generator.
     """
-    return [r for r in result["per_test_class"] if not r.get("skipped")]
+    return result["runs"]
 
 
 def _fixcheck_logs(log_dir):
-    return glob.glob(os.path.join(log_dir, "*", "fixcheck.log"))
+    # One run directory per trigger method and literal type.
+    return sorted(glob.glob(os.path.join(log_dir, "**", "fixcheck.log"), recursive=True))
 
 
 def test_fixcheck_runs_with_the_ollama_generator(ollama_fixcheck):
@@ -208,7 +209,9 @@ def test_the_model_wrote_assertions_into_the_prefixes(ollama_fixcheck):
 
     # And they must survive into the sources FixCheck compiled and ran: a
     # returned assertion that JavaParser rejects is dropped silently.
-    sources = glob.glob(os.path.join(log_dir, "*", "fixcheck-output", "*", "*.java"))
+    sources = glob.glob(
+        os.path.join(log_dir, "**", "fixcheck-output", "*", "*.java"), recursive=True
+    )
     assert sources, f"no generated prefix sources under {log_dir}"
     with_assertions = [
         path for path in sources

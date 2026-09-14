@@ -55,6 +55,8 @@ from d4j.defects4j_bugs import (
 from docker_utils import exec_in_container, export_property, run_step
 from FixCheckWrapper import (
     DEFAULT_FIXCHECK_ASSERTIONS,
+    DEFAULT_FIXCHECK_LLM_TIMEOUT,
+    DEFAULT_FIXCHECK_PREFIX_TIMEOUT,
     DEFAULT_FIXCHECK_PREFIXES,
     DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD,
     DEFAULT_FIXCHECK_TIMEOUT,
@@ -62,6 +64,7 @@ from FixCheckWrapper import (
     FIXCHECK_DIR,
     FIXCHECK_JAR,
     FixCheckWrapper,
+    copy_fixcheck_artifacts,
     group_triggers_by_class,
     needs_host_network,
     validate_assertion_generator,
@@ -883,7 +886,9 @@ def main():
     parser.add_argument(
         "--fixcheck-prefixes", type=int, default=DEFAULT_FIXCHECK_PREFIXES,
         help="Number of input variations ('prefixes') FixCheck generates per "
-             f"trigger method (default: {DEFAULT_FIXCHECK_PREFIXES}).",
+             "trigger method, split among the literal types the method can "
+             "mutate, one FixCheck run per type (default: "
+             f"{DEFAULT_FIXCHECK_PREFIXES}, as in FixCheck's own evaluation).",
     )
     parser.add_argument(
         "--fixcheck-assertions", default=DEFAULT_FIXCHECK_ASSERTIONS,
@@ -903,22 +908,36 @@ def main():
     )
     parser.add_argument(
         "--fixcheck-inputs-class", default=None,
-        help="Force FixCheck's inputs-class (e.g. 'int', 'java.lang.String') "
-             "instead of inferring it from the trigger test source.",
+        help="Force FixCheck's inputs-class (e.g. 'int', 'java.lang.String'): "
+             "every trigger method gets a single run of that type with the "
+             "whole prefix budget, instead of the budget being split among the "
+             "literal types its source contains.",
     )
     parser.add_argument(
         "--fixcheck-similarity-threshold", type=float,
         default=DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD,
         help="Minimum failure-similarity score (0-1) a FixCheck failing "
              "variation needs to mark the patch suspicious (default: "
-             f"{DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD}).",
+             f"{DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD}, as in FixCheck's own "
+             "evaluation).",
     )
     parser.add_argument(
         "--fixcheck-timeout", type=int, default=DEFAULT_FIXCHECK_TIMEOUT,
         help="Wall-clock budget in seconds for each FixCheck run (one per "
-             f"trigger class; default: {DEFAULT_FIXCHECK_TIMEOUT}, 0 = "
-             "unbounded). Exceeding it is recorded as an advisory FixCheck "
-             "failure and never affects `fixed`.",
+             "trigger method and literal type; default: "
+             f"{DEFAULT_FIXCHECK_TIMEOUT}, 0 = unbounded). Exceeding it is "
+             "recorded as an advisory FixCheck failure and never affects `fixed`.",
+    )
+    parser.add_argument(
+        "--fixcheck-prefix-timeout", type=int, default=DEFAULT_FIXCHECK_PREFIX_TIMEOUT,
+        help="Budget in seconds for running one FixCheck prefix; one that "
+             "outlives it is recorded as timed out and not scored (default: "
+             f"{DEFAULT_FIXCHECK_PREFIX_TIMEOUT}, 0 = unbounded).",
+    )
+    parser.add_argument(
+        "--fixcheck-llm-timeout", type=int, default=DEFAULT_FIXCHECK_LLM_TIMEOUT,
+        help="Timeout in seconds of each call to an Ollama-backed assertion "
+             f"generator (default: {DEFAULT_FIXCHECK_LLM_TIMEOUT}).",
     )
     parser.add_argument(
         "--iteration", default=None,
@@ -1264,24 +1283,16 @@ def main():
                 similarity_threshold=args.fixcheck_similarity_threshold,
                 inputs_class=args.fixcheck_inputs_class,
                 timeout_seconds=args.fixcheck_timeout,
+                prefix_timeout_seconds=args.fixcheck_prefix_timeout,
+                llm_timeout_seconds=args.fixcheck_llm_timeout,
             )
+            # The subject id seeds the mutations, so every patch of this bug
+            # -- whichever model wrote it -- meets the same variations.
             fixcheck_result = fixcheck.run(
-                container, workdir, trigger_tests, trigger_method_sources
+                container, workdir, trigger_tests, trigger_method_sources,
+                subject_id=f"{project}-{bug_id}",
             )
-            for record in fixcheck_result["per_test_class"]:
-                run_dir = record.get("run_dir")
-                if not run_dir:
-                    continue
-                simple_name = record["test_class"].rsplit(".", 1)[-1]
-                dest = os.path.join(results_dir, "fixcheck", simple_name)
-                src_output = os.path.join(run_dir, "fixcheck-output")
-                if os.path.isdir(src_output):
-                    os.makedirs(dest, exist_ok=True)
-                    shutil.copytree(src_output, dest, dirs_exist_ok=True)
-                log_src = os.path.join(run_dir, "fixcheck.log")
-                if os.path.exists(log_src):
-                    os.makedirs(dest, exist_ok=True)
-                    shutil.copy(log_src, os.path.join(dest, "fixcheck.log"))
+            copy_fixcheck_artifacts(fixcheck_result, os.path.join(results_dir, "fixcheck"))
         fixcheck_suspicious = bool(fixcheck_result and fixcheck_result.get("suspicious"))
 
         if will_fixcheck:
@@ -1306,19 +1317,21 @@ def main():
                 print("[experiment] FixCheck: not run (patch not plausible)")
         elif not fixcheck_result.get("ok", True):
             print(f"[experiment] FixCheck: not run cleanly ({fixcheck_result.get('error')})")
-        elif not fixcheck_result["analyzed_test_classes"]:
+        elif not fixcheck_result["analyzed_runs"]:
             reasons = "; ".join(
-                r["error"] for r in fixcheck_result["per_test_class"] if r.get("error")
+                [f"{s['method']}: {s['reason']}" for s in fixcheck_result["skipped"]]
+                + [f"{r['method']}: {r['error']}" for r in fixcheck_result["runs"] if r.get("error")]
             )
             print(f"[experiment] FixCheck: no verdict -- nothing analyzed ({reasons})")
         else:
             verdict = "SUSPICIOUS" if fixcheck_result["suspicious"] else "supported"
+            similarity = fixcheck_result["max_failure_similarity"]
             print(
-                f"[experiment] FixCheck: {fixcheck_result['failing_prefixes']} "
-                f"variation(s) failing across "
-                f"{fixcheck_result['analyzed_test_classes']} test class(es), "
-                f"max similarity "
-                f"{fixcheck_result['max_failure_similarity']:.2f} -> {verdict}"
+                f"[experiment] FixCheck: {fixcheck_result['failing_prefixes']} of "
+                f"{fixcheck_result['generated_prefixes']} variation(s) failing across "
+                f"{fixcheck_result['analyzed_runs']} run(s), max similarity "
+                f"{'n/a' if similarity is None else format(similarity, '.2f')} "
+                f"(threshold {fixcheck_result['similarity_threshold']}) -> {verdict}"
             )
         print(f"[experiment] Results stored under: {results_dir}/")
 

@@ -23,16 +23,28 @@ import pytest
 from Experiment import extract_trigger_method_sources_by_class
 from FixCheckWrapper import (
     _resolve_classpath,
+    allocate_prefixes,
     build_fixcheck_properties,
     check_ollama_backend,
+    copy_fixcheck_artifacts,
+    count_mutable_literals,
+    derive_seed,
+    fixcheck_failure_log_path,
+    generator_removes_assertions,
     group_triggers_by_class,
+    literal_type_dir,
+    missing_test_classes,
     needs_host_network,
     parse_fixcheck_report,
     parse_fixcheck_scores,
+    parse_fixcheck_variations,
     parse_ollama_generator,
+    plan_fixcheck_runs,
     resolve_ollama_backend,
-    select_fixcheck_inputs,
+    strip_defects4j_headers,
+    summarize_fixcheck_runs,
     validate_assertion_generator,
+    write_fixcheck_failure_logs,
 )
 
 # Verbatim header from fixcheck/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java.
@@ -66,66 +78,70 @@ def test_group_triggers_by_class_empty():
     assert group_triggers_by_class([]) == {}
 
 
-# ------------------------------------------------------------- inputs-class
+# -------------------------------------------------------- mutable literal counts
+#
+# FixCheck mutates a literal only where its InputTransformer can reach it; a run
+# planned for a type it cannot find dies with "No locals of type <T>" and no
+# report. These pin the count to what FixCheck actually reaches.
 
-def infer(src):
-    """The single-method form of select_fixcheck_inputs: its chosen type."""
-    return select_fixcheck_inputs(["m"], {"m": src})[0]
-
-
-def test_infer_inputs_class_string_dominated():
-    src = 'String a = "abc"; foo("def", "ghi");'
-    assert infer(src) == "java.lang.String"
-
-
-def test_infer_inputs_class_int_only():
-    assert infer("foo(1, 2, 3);") == "int"
+def mutable(src, assertions_removed=True):
+    """The literal types with at least one mutable literal."""
+    return {t for t, n in count_mutable_literals(src, assertions_removed).items() if n}
 
 
-def test_infer_inputs_class_float_prefers_double():
-    assert infer("foo(1.5, 2.75);") == "double"
+def test_counts_string_literals():
+    assert count_mutable_literals('String a = "abc"; foo("def", "ghi");')["java.lang.String"] == 3
 
 
-def test_infer_inputs_class_boolean():
-    assert infer("foo(true); bar(false); baz(true);") == "boolean"
+def test_counts_int_literals():
+    counts = count_mutable_literals("foo(1, 2, 3);")
+    assert counts["int"] == 3 and counts["long"] == 0
 
 
-def test_infer_inputs_class_long_suffix():
-    assert infer("foo(100L, 200L, 300L);") == "long"
+def test_floating_point_literals_are_double_not_int():
+    counts = count_mutable_literals("foo(1.5, 2.75, 3f, 4e10, .5);")
+    assert counts["double"] == 5 and counts["int"] == 0
 
 
-def test_infer_inputs_class_none_when_no_literals():
-    assert infer("foo(bar, baz);") is None
+def test_counts_boolean_literals():
+    assert count_mutable_literals("foo(true); bar(false); baz(true);")["boolean"] == 3
 
 
-def test_infer_inputs_class_none_when_empty():
-    assert infer("") is None
+def test_long_suffix_counts_as_long():
+    counts = count_mutable_literals("foo(100L, 200L, 300l);")
+    assert counts["long"] == 3 and counts["int"] == 0
 
 
-def test_infer_inputs_class_digits_inside_string_not_double_counted():
-    # The "1" in toString(1) is a real int literal; the "123" is inside a
-    # string literal and must not also be counted as one -- otherwise they
-    # would tie and java.lang.String would win on the tie-break instead.
-    assert infer('foo("123", NumberUtils.toString(1));') == "java.lang.String"
+def test_hex_binary_and_underscored_literals_count_as_int():
+    assert count_mutable_literals("foo(0x8000, 0b101, 1_000);")["int"] == 3
+
+
+def test_nothing_mutable_without_literals():
+    assert mutable("foo(bar, baz);") == set()
+    assert mutable("") == set()
+
+
+def test_digits_inside_string_or_char_literals_are_not_numbers():
+    # The "1" in toString(1) is a real int literal; the "123" and the '7' are
+    # inside a string and a char literal.
+    counts = count_mutable_literals("foo(\"123\", '7', NumberUtils.toString(1));")
+    assert counts["java.lang.String"] == 1 and counts["int"] == 1
 
 
 # FixCheck refuses to mutate literals that only occur inside assertions
-# (InputTransformer.isAssertion), so the heuristic must ignore them too --
-# otherwise it proposes a type FixCheck then dies looking for.
+# (InputTransformer.isAssertion), so the count must ignore them too.
 
-def test_infer_inputs_class_ignores_literals_inside_assertions():
-    # Lang 1's TestLang747 shape: nothing but assertEquals(...) lines. There
-    # is no inputs-class FixCheck could use, so the heuristic must say so
-    # rather than proposing java.lang.String.
+def test_ignores_literals_inside_assertions():
+    # Lang 1's TestLang747 shape: nothing but assertEquals(...) lines.
     src = """\
 public void TestLang747() {
     assertEquals(Integer.valueOf(0x8000), NumberUtils.createNumber("0x8000"));
     assertEquals(Integer.valueOf(0x80000), NumberUtils.createNumber("0x80000"));
 }"""
-    assert infer(src) is None
+    assert mutable(src) == set()
 
 
-def test_infer_inputs_class_prefers_type_outside_assertions():
+def test_only_literals_outside_assertions_count():
     # Strings dominate the method overall, but they all sit inside
     # assertions; only the int literal is actually mutable.
     src = """\
@@ -134,10 +150,10 @@ public void testThing() {
     assertEquals("aaa", f("bbb"));
     assertEquals("ccc", f("ddd"));
 }"""
-    assert infer(src) == "int"
+    assert mutable(src) == {"int"}
 
 
-def test_infer_inputs_class_counts_all_assertion_call_names():
+def test_every_assertion_call_name_counts_as_an_assertion():
     src = """\
 public void testThing() {
     assertTrue(flag);
@@ -147,13 +163,22 @@ public void testThing() {
     fail("boom");
     check("nope");
 }"""
-    assert infer(src) is None
+    assert mutable(src) == set()
 
 
-def test_infer_inputs_class_ignores_literals_in_comments():
+def test_qualified_assertion_calls_are_assertions_too():
+    # FixCheck compares the method name only.
+    src = """\
+public void testThing() {
+    Assert.assertEquals("aaa", f("bbb"));
+    org.junit.Assert.assertTrue(g("ccc"));
+}"""
+    assert mutable(src) == set()
+
+
+def test_ignores_literals_in_comments():
     # Lang 6's testEscapeSurrogatePairs is all assertions plus a comment
-    # linking to ".../wiki/UTF-16"; that 16 must not be read as an int
-    # literal, which would wrongly make the method look mutable.
+    # linking to ".../wiki/UTF-16"; that 16 must not be read as an int.
     src = """\
 public void testEscapeSurrogatePairs() {
     // Examples from https://en.wikipedia.org/wiki/UTF-16
@@ -161,13 +186,10 @@ public void testEscapeSurrogatePairs() {
     /* block comment with 42 and "quoted" text */
     assertEquals("c", escapeCsv("d"));
 }"""
-    assert infer(src) is None
+    assert mutable(src) == set()
 
 
-def test_infer_inputs_class_block_statement_does_not_absorb_next_assertion():
-    # An if-block ends at '}' with no ';'. If the splitter glued it to the
-    # following assertion, that assertion's strings would count as mutable
-    # and the answer would flip to java.lang.String.
+def test_block_statement_does_not_absorb_next_assertion():
     src = """\
 public void testThing() {
     if (cond) {
@@ -175,29 +197,111 @@ public void testThing() {
     }
     assertEquals("aaa", f("bbb"));
 }"""
-    assert infer(src) == "int"
+    assert mutable(src) == {"int"}
 
 
-def test_infer_inputs_class_counts_assertions_nested_in_a_block():
-    # FixCheck's findAll is recursive over non-assertion statements, so
-    # literals inside an assertion nested in an if-block *are* reachable.
+def test_assertion_nested_in_a_block_depends_on_the_generator():
+    # With previous-assertion FixCheck keeps the assertions, and an if-block's
+    # literals include those of the assertion inside it. Every other generator
+    # removes the assertion first, at any depth.
     src = """\
 public void testThing() {
     if (cond) {
         assertEquals("aaa", f("bbb"));
     }
 }"""
-    assert infer(src) == "java.lang.String"
+    assert mutable(src, assertions_removed=False) == {"java.lang.String"}
+    assert mutable(src, assertions_removed=True) == set()
 
 
-def test_infer_inputs_class_semicolon_inside_string_does_not_split():
+def test_fail_message_inside_try_is_out_of_reach_once_assertions_are_removed():
+    # Math 67's testQuinticMin: its only strings are fail(...) messages inside
+    # a try. Counting them planned a String run FixCheck died on (No locals of
+    # type java.lang.String); the other statements' literals still count.
+    src = """\
+public void testQuinticMin() {
+    UnivariateRealOptimizer underlying = new BrentOptimizer(1e-9, 1e-14);
+    underlying.setMaxEvaluations(40);
+    try {
+        minimizer.getOptima();
+        fail("an exception should have been thrown");
+    } catch (IllegalStateException ise) {
+        // expected
+    }
+}"""
+    counts = count_mutable_literals(src)
+    assert counts["java.lang.String"] == 0
+    assert counts["int"] == 1 and counts["double"] == 2
+
+
+def test_semicolon_inside_string_does_not_split():
     # A ';' inside a string literal must not end the assertion statement,
     # which would leak the rest of it back into the mutable part.
     src = """\
 public void testThing() {
     assertEquals("a;b", f("c;d"));
 }"""
-    assert infer(src) is None
+    assert mutable(src) == set()
+
+
+def test_annotation_braces_are_not_the_method_body():
+    src = """\
+@SuppressWarnings({"unchecked"})
+public void testThing() {
+    helper(7);
+}"""
+    assert mutable(src) == {"int"}
+
+
+# ------------------------------------------------------------ allocate_prefixes
+
+def test_allocation_is_proportional_and_exact():
+    shares = allocate_prefixes({"java.lang.String": 6, "int": 3, "boolean": 1}, total=100)
+    assert sum(shares.values()) == 100
+    assert shares["java.lang.String"] > shares["int"] > shares["boolean"] >= 1
+    assert list(shares) == ["java.lang.String", "int", "boolean"]
+
+
+def test_allocation_gives_every_present_type_at_least_one_prefix():
+    shares = allocate_prefixes({"java.lang.String": 1000, "long": 1}, total=100)
+    assert shares["long"] >= 1 and sum(shares.values()) == 100
+
+
+def test_allocation_with_fewer_prefixes_than_types_favours_the_most_literals():
+    assert allocate_prefixes({"java.lang.String": 1, "int": 5, "double": 3}, total=2) == {
+        "int": 1, "double": 1,
+    }
+
+
+def test_allocation_breaks_ties_in_type_order():
+    assert allocate_prefixes({"int": 1, "java.lang.String": 1}, total=3) == {
+        "java.lang.String": 2, "int": 1,
+    }
+
+
+def test_allocation_is_empty_when_nothing_is_mutable():
+    assert allocate_prefixes({"java.lang.String": 0, "int": 0}) == {}
+    assert allocate_prefixes({"int": 3}, total=0) == {}
+
+
+# ------------------------------------------------------ seeds and run layout
+
+def test_seed_is_derived_from_the_run_and_repeatable():
+    seed = derive_seed("Lang-12", "org.foo.ATest", "testA", "int")
+    assert seed == derive_seed("Lang-12", "org.foo.ATest", "testA", "int")
+    assert seed != derive_seed("Lang-12", "org.foo.ATest", "testA", "java.lang.String")
+    assert 0 <= seed < 2 ** 63
+
+
+def test_literal_type_dir_names():
+    assert literal_type_dir("java.lang.String") == "String"
+    assert literal_type_dir("int") == "int"
+
+
+def test_only_previous_assertion_keeps_the_assertions():
+    assert generator_removes_assertions("previous-assertion") is False
+    for generator in ("assert-true", "codellama", "ollama:gpt-oss:120b@1995"):
+        assert generator_removes_assertions(generator) is True
 
 
 # --------------------------------------------------------- build_fixcheck_properties
@@ -253,6 +357,8 @@ def test_parse_fixcheck_report_happy_path():
         "passing": 15,
         "crashing": 3,
         "assertion_failing": 2,
+        # A report from before patch 0008 has no such column: not measured.
+        "timed_out": None,
         "non_compiling": 0,
     }
 
@@ -348,39 +454,47 @@ def test_extract_trigger_method_sources_by_class_omits_missing_file():
     assert result == {}
 
 
-# ------------------------------------------------------- select_fixcheck_inputs
+# ----------------------------------------------------------- plan_fixcheck_runs
 
-def test_select_fixcheck_inputs_drops_unmutable_methods():
-    # FixCheck aborts the whole run if any listed method has no literal of
-    # inputs-class, so testB must not be passed along with testA.
-    sources = {
-        "testA": 'public void testA() { f("x"); }',
-        "testB": 'public void testB() { assertEquals("y", g()); }',
-    }
-    inputs_class, usable = select_fixcheck_inputs(["testA", "testB"], sources)
-    assert inputs_class == "java.lang.String"
-    assert usable == ["testA"]
+def test_plan_splits_each_methods_budget_among_its_literal_types():
+    sources = {"org.foo.ATest": {"testA": 'public void testA() { f("x", "y", 3); }'}}
+    runs, skipped = plan_fixcheck_runs(["org.foo.ATest::testA"], sources, total=10)
+    assert skipped == []
+    assert [(r["method"], r["inputs_class"], r["num_prefixes"]) for r in runs] == [
+        ("testA", "java.lang.String", 6), ("testA", "int", 4),
+    ]
 
 
-def test_select_fixcheck_inputs_prefers_type_covering_most_methods():
-    sources = {
+def test_plan_reports_the_methods_fixcheck_cannot_work_on():
+    sources = {"org.foo.ATest": {
         "testA": "public void testA() { f(1); }",
-        "testB": "public void testB() { g(2); }",
-        "testC": 'public void testC() { h("s"); }',
-    }
-    inputs_class, usable = select_fixcheck_inputs(["testA", "testB", "testC"], sources)
-    assert inputs_class == "int"
-    assert usable == ["testA", "testB"]
+        "testB": 'public void testB() { assertEquals("y", g()); }',
+    }}
+    triggers = ["org.foo.ATest::testA", "org.foo.ATest::testB", "org.foo.ATest::testC"]
+    runs, skipped = plan_fixcheck_runs(triggers, sources, total=5)
+    assert [(r["method"], r["inputs_class"], r["num_prefixes"]) for r in runs] == [
+        ("testA", "int", 5),
+    ]
+    reasons = {s["method"]: s["reason"] for s in skipped}
+    assert reasons["testB"].startswith("no mutable literal")
+    # testC has no source in its own class: inherited, invisible to FixCheck.
+    assert "inherited" in reasons["testC"]
 
 
-def test_select_fixcheck_inputs_none_when_nothing_mutable():
-    sources = {"testA": 'public void testA() { assertEquals("y", g()); }'}
-    assert select_fixcheck_inputs(["testA"], sources) == (None, [])
+def test_plan_with_a_forced_inputs_class_gives_it_the_whole_budget():
+    sources = {"org.foo.ATest": {"testA": 'public void testA() { f("x", 3); }'}}
+    runs, _ = plan_fixcheck_runs(["org.foo.ATest::testA"], sources, total=100, inputs_class="int")
+    assert [(r["inputs_class"], r["num_prefixes"]) for r in runs] == [("int", 100)]
 
 
-def test_select_fixcheck_inputs_none_when_source_missing():
-    # An inherited method has no entry in method_sources at all.
-    assert select_fixcheck_inputs(["testA"], {}) == (None, [])
+def test_plan_counts_with_the_generators_assertion_handling():
+    sources = {"org.foo.ATest": {
+        "testA": 'public void testA() { if (c) { assertEquals("x", f()); } }',
+    }}
+    kept, _ = plan_fixcheck_runs(["org.foo.ATest::testA"], sources, assertions_removed=False)
+    removed, skipped = plan_fixcheck_runs(["org.foo.ATest::testA"], sources, assertions_removed=True)
+    assert [r["inputs_class"] for r in kept] == ["java.lang.String"]
+    assert removed == [] and skipped[0]["method"] == "testA"
 
 
 # ------------------------------------------------------------------ _resolve_classpath
@@ -565,19 +679,225 @@ def test_fixcheck_command_can_be_unbounded():
     assert fixcheck_command("/cp", "/p", None).startswith("java ")
 
 
-def test_fixcheck_timeout_is_below_the_per_bug_timeout():
-    """The budget only helps if FixCheck is stopped before the run is."""
-    import os, re
-    from FixCheckWrapper import DEFAULT_FIXCHECK_TIMEOUT
+def test_a_runs_budget_covers_its_prefixes_at_the_measured_p99():
+    """The run budget is a safety net, not a working limit.
 
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    script = open(os.path.join(root, "scripts/runCampaign.sh"), encoding="utf-8").read()
-    per_bug = int(re.search(r'^TIMEOUT="(\d+)"', script, re.M).group(1))
-    assert 0 < DEFAULT_FIXCHECK_TIMEOUT < per_bug / 2
+    Measured on the campaign of record: a prefix runs in 0.7 s and a model call
+    returns in 46 s at the 99th percentile. A run of the default size whose
+    every prefix hit both would still end inside the budget.
+    """
+    from FixCheckWrapper import (
+        DEFAULT_FIXCHECK_LLM_TIMEOUT, DEFAULT_FIXCHECK_PREFIX_TIMEOUT,
+        DEFAULT_FIXCHECK_PREFIXES, DEFAULT_FIXCHECK_TIMEOUT,
+    )
+
+    assert DEFAULT_FIXCHECK_PREFIXES * (0.7 + 46) < DEFAULT_FIXCHECK_TIMEOUT
+    assert 0.7 < DEFAULT_FIXCHECK_PREFIX_TIMEOUT < DEFAULT_FIXCHECK_TIMEOUT
+    assert 46 < DEFAULT_FIXCHECK_LLM_TIMEOUT < DEFAULT_FIXCHECK_TIMEOUT
 
 
-def test_wrapper_carries_its_timeout():
-    from FixCheckWrapper import DEFAULT_FIXCHECK_TIMEOUT, FixCheckWrapper
+def test_defaults_follow_fixchecks_own_evaluation():
+    """100 prefixes and 0.4, as agreed with FixCheck's author."""
+    from FixCheckWrapper import DEFAULT_FIXCHECK_PREFIXES, DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD
 
-    assert FixCheckWrapper().timeout_seconds == DEFAULT_FIXCHECK_TIMEOUT
+    assert DEFAULT_FIXCHECK_PREFIXES == 100
+    assert DEFAULT_FIXCHECK_SIMILARITY_THRESHOLD == 0.4
+
+
+def test_wrapper_carries_its_timeouts():
+    from FixCheckWrapper import (
+        DEFAULT_FIXCHECK_LLM_TIMEOUT, DEFAULT_FIXCHECK_PREFIX_TIMEOUT,
+        DEFAULT_FIXCHECK_TIMEOUT, FixCheckWrapper,
+    )
+
+    wrapper = FixCheckWrapper()
+    assert wrapper.timeout_seconds == DEFAULT_FIXCHECK_TIMEOUT
+    assert wrapper.prefix_timeout_seconds == DEFAULT_FIXCHECK_PREFIX_TIMEOUT
+    assert wrapper.llm_timeout_seconds == DEFAULT_FIXCHECK_LLM_TIMEOUT
     assert FixCheckWrapper(timeout_seconds=60).timeout_seconds == 60
+
+
+# ---------------------------------------------------------- pre-fix traces
+
+def test_strip_defects4j_headers_drops_only_the_header_lines():
+    trace = (
+        "--- org.foo.ATest::testA\n"
+        "java.lang.AssertionError: boom\n"
+        "\tat org.foo.ATest.testA(ATest.java:10)\n"
+    )
+    assert strip_defects4j_headers(trace) == (
+        "java.lang.AssertionError: boom\n\tat org.foo.ATest.testA(ATest.java:10)"
+    )
+
+
+def test_failure_logs_are_written_per_method_without_headers(tmp_path):
+    triggers = ["org.foo.ATest::testA", "org.foo.ATest::testB"]
+    raw = {
+        "org.foo.ATest::testA": ("cmd", "--- org.foo.ATest::testA\nError: A\n"),
+        "org.foo.ATest::testB": ("cmd", "--- org.foo.ATest::testB\nError: B\n"),
+    }
+    paths = write_fixcheck_failure_logs(str(tmp_path), triggers, raw)
+    assert paths["org.foo.ATest::testA"] == fixcheck_failure_log_path(
+        str(tmp_path), "org.foo.ATest", "testA"
+    )
+    assert open(paths["org.foo.ATest::testA"], encoding="utf-8").read() == "Error: A"
+    assert open(paths["org.foo.ATest::testB"], encoding="utf-8").read() == "Error: B"
+
+
+# ------------------------------------------------ properties, reports and logs
+
+def test_build_fixcheck_properties_writes_the_optional_properties_when_given():
+    text = build_fixcheck_properties(
+        test_classes_path="p", test_class="C", test_methods=["m"], test_classes_src="s",
+        failure_log_path="f", inputs_class="int", num_prefixes=40,
+        assertion_generator="ollama:m@1",
+        subject_classpath="/wd/classes:/wd/tests", output_dir="/wd/run/out", seed=42,
+        prefix_timeout_seconds=60, ollama_timeout_seconds=120,
+        ollama_temperature=0, ollama_seed=42,
+    )
+    assert text.strip("\n").split("\n")[8:] == [
+        "subject-classpath=/wd/classes:/wd/tests",
+        "output-dir=/wd/run/out",
+        "seed=42",
+        "prefix-timeout-seconds=60",
+        "ollama-timeout-seconds=120",
+        "ollama-temperature=0",
+        "ollama-seed=42",
+    ]
+
+
+def test_parse_fixcheck_report_reads_timed_out_prefixes():
+    report = parse_fixcheck_report(
+        REPORT_HEADER + ",timed_out_prefixes\nC,1,int,,5,6,7,10,4,2,1,2\n"
+    )
+    assert report["timed_out"] == 2 and report["non_compiling"] == 1
+
+
+def test_parse_fixcheck_report_without_the_column_has_no_timed_out_measurement():
+    report = parse_fixcheck_report(REPORT_HEADER + "\nC,1,int,,5,6,7,10,4,2,1\n")
+    assert report["timed_out"] is None and report["non_compiling"] == 3
+
+
+SAMPLE_LOG = """\
+> FixCheck
+====== GENERATION ======
+PREFIX 1 of 3
+---> transformer: InputTransformer
+---> transformation: ["--prefix":java.lang.String] replaced by ["--pref":java.lang.String]
+---> prefix execution without assertions
+---> prefix crashed
+
+---> Checking similarity
+Original failure:
+x
+Current failure:
+y
+---> failure similarity: 0.8123
+PREFIX 2 of 3
+---> transformation: [1:int] replaced by [1:java.lang.Integer]
+---> prefix execution without assertions
+---> assertion generator: OllamaGenerator
+---> prefix execution with assertions
+---> prefix failed assertion
+---> failure similarity: 0.25
+PREFIX 3 of 3
+---> transformation: [30:int] replaced by [86:java.lang.Integer]
+---> prefix timed out after 60s
+---> prefix timed out
+====== OUTPUT ======
+"""
+
+
+def test_parse_fixcheck_variations_reads_each_prefix():
+    variations = parse_fixcheck_variations(SAMPLE_LOG)
+    assert [v["outcome"] for v in variations] == ["crashed", "failed assertion", "timed out"]
+    assert variations[0]["original"] == '"--prefix"'
+    assert variations[0]["replacement"] == '"--pref"'
+    assert variations[0]["score"] == pytest.approx(0.8123)
+    assert variations[1]["identity"] and not variations[0]["identity"]
+    assert variations[1]["assertions_generated"] and not variations[0]["assertions_generated"]
+    assert variations[2]["score"] is None
+
+
+def test_parse_fixcheck_variations_of_an_empty_log():
+    assert parse_fixcheck_variations("") == []
+
+
+# ------------------------------------------------------------ the verdict
+
+def _run(method="testA", ok=True, report=None, variations=(), timed_out=False):
+    default_report = {
+        "total": 3, "passing": 1, "crashing": 1, "assertion_failing": 1,
+        "non_compiling": 0, "timed_out": 0,
+    }
+    return {
+        "test_class": "org.foo.ATest", "method": method, "inputs_class": "int",
+        "ok": ok, "timed_out": timed_out,
+        "report": report if report is not None else (default_report if ok else None),
+        "variations": list(variations),
+    }
+
+
+def test_a_scored_prefix_at_the_threshold_flags_the_patch():
+    variations = [
+        {"outcome": "crashed", "score": 0.4, "identity": False},
+        {"outcome": "passed", "score": None, "identity": True},
+    ]
+    summary = summarize_fixcheck_runs([_run(variations=variations)], [], similarity_threshold=0.4)
+    assert summary["suspicious"] is True
+    assert summary["max_failure_similarity"] == 0.4
+    assert summary["analyzed_runs"] == 1 and summary["analyzed_test_classes"] == 1
+    assert summary["failing_prefixes"] == 2
+    assert summary["identity_prefixes"] == 1 and summary["identity_failing_prefixes"] == 0
+
+
+def test_runs_without_a_report_measure_nothing():
+    variations = [{"outcome": "crashed", "score": 0.9, "identity": False}]
+    summary = summarize_fixcheck_runs(
+        [_run(ok=False, variations=variations, timed_out=True)], [{"method": "testB"}], 0.4
+    )
+    assert summary["suspicious"] is False
+    assert summary["analyzed_runs"] == 0 and summary["timed_out_runs"] == 1
+    assert summary["max_failure_similarity"] is None      # nothing measured, not 0.0
+    assert summary["timed_out_prefixes"] is None
+    assert summary["skipped_methods"] == 1
+
+
+def test_failing_identity_prefixes_are_counted_as_noise():
+    variations = [{"outcome": "failed assertion", "score": 0.1, "identity": True}]
+    summary = summarize_fixcheck_runs([_run(variations=variations)], [], 0.4)
+    assert summary["identity_failing_prefixes"] == 1 and summary["suspicious"] is False
+
+
+def test_timed_out_prefixes_is_unknown_for_reports_without_the_column():
+    old = {"total": 3, "passing": 3, "crashing": 0, "assertion_failing": 0,
+           "non_compiling": 0, "timed_out": None}
+    assert summarize_fixcheck_runs([_run(report=old)], [], 0.4)["timed_out_prefixes"] is None
+
+
+def test_copy_fixcheck_artifacts_keeps_one_directory_per_run(tmp_path):
+    run_dir = tmp_path / "wd" / ".fixcheck" / "runs" / "x"
+    (run_dir / "fixcheck-output").mkdir(parents=True)
+    (run_dir / "fixcheck.log").write_text("log")
+    (run_dir / "fixcheck-output" / "report.csv").write_text("csv")
+    result = {"runs": [
+        {"test_class": "org.foo.ATest", "method": "testA",
+         "inputs_class": "java.lang.String", "run_dir": str(run_dir)},
+        {"test_class": "org.foo.ATest", "method": "testB",
+         "inputs_class": "int", "run_dir": None},
+    ]}
+    dest = tmp_path / "out"
+    assert copy_fixcheck_artifacts(result, str(dest)) == 1
+    copied = dest / "ATest" / "testA" / "String"
+    assert (copied / "fixcheck.log").read_text() == "log"
+    assert (copied / "fixcheck-output" / "report.csv").exists()
+
+
+def test_missing_test_classes_finds_the_uncompiled_trigger_classes(tmp_path):
+    # Right after `defects4j compile`, Mockito's test-classes directory is
+    # empty; FixCheck's prefixes then cannot compile against TestBase & co.
+    compiled = tmp_path / "org" / "foo"
+    compiled.mkdir(parents=True)
+    (compiled / "ATest.class").write_bytes(b"")
+    triggers = ["org.foo.ATest::testA", "org.foo.BTest::testB", "org.foo.BTest::testC"]
+    assert missing_test_classes(str(tmp_path), triggers) == ["org.foo.BTest"]

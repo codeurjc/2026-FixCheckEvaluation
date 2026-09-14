@@ -65,9 +65,10 @@ start_ollama() {
     local seed=$(( _OLLAMA_PORT_BASE + (${SLURM_JOB_ID:-$$} % _OLLAMA_PORT_SPAN) ))
 
     # One runner, one model, and a context length matching what the fix
-    # generator requests. FixCheck's OllamaGenerator sends no options at all, so
-    # without this the server would spin up a *second* runner at its default
-    # context for the assertion calls -- and two runners of a 64 GB model do not
+    # generator requests. FixCheck's OllamaGenerator sends no num_ctx (only
+    # temperature and seed, which need no reload), so without this the server
+    # would spin up a *second* runner at its default context for the assertion
+    # calls -- and two runners of a 64 GB model do not
     # fit on a 96 GB H100, so the model would be unloaded and reloaded on every
     # alternation between fix and assertions.
     #
