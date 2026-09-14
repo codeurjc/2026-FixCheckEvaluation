@@ -1,0 +1,227 @@
+diff --git a/src/main/java/org/imdea/fixcheck/assertion/OllamaGenerator.java b/src/main/java/org/imdea/fixcheck/assertion/OllamaGenerator.java
+index d6ba939..9591afb 100644
+--- a/src/main/java/org/imdea/fixcheck/assertion/OllamaGenerator.java
++++ b/src/main/java/org/imdea/fixcheck/assertion/OllamaGenerator.java
+@@ -54,15 +54,30 @@ public class OllamaGenerator extends AssertionGenerator {
+ 
+   private final OllamaProperty endpoint;
+   private final int timeoutMillis;
++  private final Double temperature;
++  private final Long seed;
+ 
+   /** Used by FixCheck itself, which instantiates generators reflectively. */
+   public OllamaGenerator() {
+-    this(OllamaProperty.fromProperties(), FixCheckProperties.OLLAMA_TIMEOUT_SECONDS);
++    this(OllamaProperty.fromProperties(), FixCheckProperties.OLLAMA_TIMEOUT_SECONDS,
++        FixCheckProperties.OLLAMA_TEMPERATURE, FixCheckProperties.OLLAMA_SEED);
+   }
+ 
+   public OllamaGenerator(OllamaProperty endpoint, int timeoutSeconds) {
++    this(endpoint, timeoutSeconds, null, null);
++  }
++
++  /**
++   * @param endpoint model and endpoint to query
++   * @param timeoutSeconds connect/read timeout of each call
++   * @param temperature sampling temperature, or null for the model's default
++   * @param seed sampling seed, or null to send none
++   */
++  public OllamaGenerator(OllamaProperty endpoint, int timeoutSeconds, Double temperature, Long seed) {
+     this.endpoint = endpoint;
+     this.timeoutMillis = timeoutSeconds * 1000;
++    this.temperature = temperature;
++    this.seed = seed;
+   }
+ 
+   @Override
+@@ -98,6 +113,27 @@ public class OllamaGenerator extends AssertionGenerator {
+         + "- Do NOT use markdown code fences.\n";
+   }
+ 
++  /**
++   * Build the body of a generate request. Sampling options are sent only when
++   * configured: an {@code options} object without {@code num_ctx} leaves the
++   * model loaded with the daemon's context length.
++   *
++   * @param prompt the prompt
++   * @return the request body
++   */
++  JSONObject buildRequestBody(String prompt) {
++    JSONObject requestBody = new JSONObject();
++    requestBody.put("model", endpoint.getModel());
++    requestBody.put("system", SYSTEM);
++    requestBody.put("prompt", prompt);
++    requestBody.put("stream", false);
++    JSONObject options = new JSONObject();
++    if (temperature != null) options.put("temperature", temperature.doubleValue());
++    if (seed != null) options.put("seed", seed.longValue());
++    if (options.length() > 0) requestBody.put("options", options);
++    return requestBody;
++  }
++
+   /**
+    * Perform the call to the Ollama generate API.
+    */
+@@ -110,11 +146,7 @@ public class OllamaGenerator extends AssertionGenerator {
+       // Without these an unreachable or wedged daemon hangs the whole run.
+       con.setConnectTimeout(timeoutMillis);
+       con.setReadTimeout(timeoutMillis);
+-      JSONObject requestBody = new JSONObject();
+-      requestBody.put("model", endpoint.getModel());
+-      requestBody.put("system", SYSTEM);
+-      requestBody.put("prompt", prompt);
+-      requestBody.put("stream", false);
++      JSONObject requestBody = buildRequestBody(prompt);
+       System.out.println("request: " + requestBody);
+       con.setDoOutput(true);
+       con.getOutputStream().write(requestBody.toString().getBytes(StandardCharsets.UTF_8));
+diff --git a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+index 7216484..182161b 100644
+--- a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
++++ b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+@@ -54,6 +54,8 @@ public class FixCheckProperties {
+   public static String OLLAMA_HOST; // Host serving the Ollama API (default localhost)
+   public static int OLLAMA_PORT = -1; // Port of the Ollama API (default 11434)
+   public static int OLLAMA_TIMEOUT_SECONDS = 600; // Connect/read timeout for each model call
++  public static Double OLLAMA_TEMPERATURE; // Sampling temperature sent to the model; null keeps the model's default
++  public static Long OLLAMA_SEED; // Sampling seed sent to the model; null sends none
+ 
+   // Properties related to inputs
+   public static String INPUTS_CLASS; // Full name of the inputs class
+@@ -140,6 +142,14 @@ public class FixCheckProperties {
+         RandomSource.setSeed(FixCheckProperties.SEED);
+         System.out.println("seed: " + FixCheckProperties.SEED);
+       }
++      // Where the report and the generated prefixes go. The default, relative
++      // to the working directory, forces running from a scratch directory; a
++      // subject whose tests open files relative to its own root needs FixCheck
++      // to run from that root, with the output sent elsewhere.
++      String outputDir = prop.getProperty("output-dir");
++      FixCheckProperties.OUTPUT_DIR =
++          (outputDir == null || outputDir.trim().isEmpty()) ? "fixcheck-output" : outputDir.trim();
++      System.out.println("output dir: " + FixCheckProperties.OUTPUT_DIR);
+       System.out.println("classpath: " + FixCheckProperties.FULL_CLASSPATH);
+       if (FixCheckProperties.SUBJECT_CLASSPATH != null)
+         System.out.println("subject classpath: " + FixCheckProperties.SUBJECT_CLASSPATH);
+@@ -170,10 +180,19 @@ public class FixCheckProperties {
+     if (prop.getProperty("ollama-timeout-seconds") != null)
+       FixCheckProperties.OLLAMA_TIMEOUT_SECONDS =
+           Integer.parseInt(prop.getProperty("ollama-timeout-seconds").trim());
++    // Without these the model samples with its own defaults, so the same
++    // prefix gets different assertions on every run.
++    String temperature = prop.getProperty("ollama-temperature");
++    FixCheckProperties.OLLAMA_TEMPERATURE = temperature == null ? null : Double.valueOf(temperature.trim());
++    String ollamaSeed = prop.getProperty("ollama-seed");
++    FixCheckProperties.OLLAMA_SEED = ollamaSeed == null ? null : Long.valueOf(ollamaSeed.trim());
+     if (!OllamaProperty.isOllamaOption(FixCheckProperties.ASSERTION_GENERATOR_OPTION)) return;
+     try {
+       System.out.println("ollama endpoint: " + OllamaProperty.fromProperties()
+           + " (timeout " + FixCheckProperties.OLLAMA_TIMEOUT_SECONDS + "s)");
++      if (FixCheckProperties.OLLAMA_TEMPERATURE != null || FixCheckProperties.OLLAMA_SEED != null)
++        System.out.println("ollama options: temperature=" + FixCheckProperties.OLLAMA_TEMPERATURE
++            + " seed=" + FixCheckProperties.OLLAMA_SEED);
+     } catch (IllegalArgumentException e) {
+       System.out.println("Error: " + e.getMessage());
+       System.exit(1);
+diff --git a/src/test/java/org/imdea/fixcheck/assertion/OllamaGeneratorTest.java b/src/test/java/org/imdea/fixcheck/assertion/OllamaGeneratorTest.java
+new file mode 100644
+index 0000000..811f379
+--- /dev/null
++++ b/src/test/java/org/imdea/fixcheck/assertion/OllamaGeneratorTest.java
+@@ -0,0 +1,45 @@
++package org.imdea.fixcheck.assertion;
++
++import org.imdea.fixcheck.properties.OllamaProperty;
++import org.json.JSONObject;
++import org.junit.Test;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++/**
++ * OllamaGeneratorTest class: sampling options reach the request only when configured.
++ */
++public class OllamaGeneratorTest {
++
++  private static final OllamaProperty ENDPOINT =
++      OllamaProperty.parse("ollama:gpt-oss:120b@1995", null, null, -1);
++
++  @Test
++  public void samplingOptionsAreSentWhenConfigured() {
++    JSONObject body = new OllamaGenerator(ENDPOINT, 120, 0.0, 7L).buildRequestBody("prompt");
++
++    JSONObject options = body.getJSONObject("options");
++    assertEquals(0.0, options.getDouble("temperature"), 0.0);
++    assertEquals(7L, options.getLong("seed"));
++    assertEquals("gpt-oss:120b", body.getString("model"));
++    assertFalse(body.getBoolean("stream"));
++  }
++
++  @Test
++  public void noOptionsAreSentByDefault() {
++    JSONObject body = new OllamaGenerator(ENDPOINT, 120).buildRequestBody("prompt");
++
++    assertFalse(body.has("options"));
++  }
++
++  @Test
++  public void aSeedAloneIsSentWithoutATemperature() {
++    JSONObject options = new OllamaGenerator(ENDPOINT, 120, null, 7L)
++        .buildRequestBody("prompt").getJSONObject("options");
++
++    assertTrue(options.has("seed"));
++    assertFalse(options.has("temperature"));
++  }
++}
+diff --git a/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java b/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
+index 92f0987..d34876f 100644
+--- a/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
++++ b/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
+@@ -51,6 +51,46 @@ public class FixCheckPropertiesTest {
+     FixCheckProperties.PREFIX_TIMEOUT_SECONDS = 0;
+     FixCheckProperties.SEED = null;
+     RandomSource.reset();
++    FixCheckProperties.OUTPUT_DIR = "fixcheck-output";
++    FixCheckProperties.OLLAMA_TEMPERATURE = null;
++    FixCheckProperties.OLLAMA_SEED = null;
++  }
++
++  @Test
++  public void outputDirDefaultsToFixcheckOutput() throws IOException {
++    FixCheckProperties.OUTPUT_DIR = "/somewhere/else";
++
++    FixCheckProperties.loadProperties(propertiesFile());
++
++    assertEquals("fixcheck-output", FixCheckProperties.OUTPUT_DIR);
++    assertEquals("fixcheck-output/report.csv", FixCheckProperties.getReportFileName());
++  }
++
++  @Test
++  public void outputDirIsRead() throws IOException {
++    FixCheckProperties.loadProperties(propertiesFile("output-dir=/scratch/run"));
++
++    assertEquals("/scratch/run", FixCheckProperties.OUTPUT_DIR);
++    assertEquals("/scratch/run/report.csv", FixCheckProperties.getReportFileName());
++  }
++
++  @Test
++  public void ollamaSamplingOptionsAreRead() throws IOException {
++    FixCheckProperties.loadProperties(propertiesFile("ollama-temperature=0", "ollama-seed=7"));
++
++    assertEquals(Double.valueOf(0.0), FixCheckProperties.OLLAMA_TEMPERATURE);
++    assertEquals(Long.valueOf(7), FixCheckProperties.OLLAMA_SEED);
++  }
++
++  @Test
++  public void ollamaSamplingOptionsDefaultToUnset() throws IOException {
++    FixCheckProperties.OLLAMA_TEMPERATURE = 1.0;
++    FixCheckProperties.OLLAMA_SEED = 1L;
++
++    FixCheckProperties.loadProperties(propertiesFile());
++
++    assertNull(FixCheckProperties.OLLAMA_TEMPERATURE);
++    assertNull(FixCheckProperties.OLLAMA_SEED);
+   }
+ 
+   @Test

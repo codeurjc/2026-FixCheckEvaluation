@@ -1,0 +1,461 @@
+diff --git a/src/main/java/org/imdea/fixcheck/compilation/SubjectClassLoader.java b/src/main/java/org/imdea/fixcheck/compilation/SubjectClassLoader.java
+new file mode 100644
+index 0000000..2928185
+--- /dev/null
++++ b/src/main/java/org/imdea/fixcheck/compilation/SubjectClassLoader.java
+@@ -0,0 +1,121 @@
++package org.imdea.fixcheck.compilation;
++
++import java.io.File;
++import java.net.MalformedURLException;
++import java.net.URL;
++import java.net.URLClassLoader;
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++import java.util.Map;
++
++/**
++ * SubjectClassLoader class: defines a prefix and the subject under analysis in
++ * one class loader.
++ *
++ * <p>The JVM only treats two classes as members of the same package when the
++ * same loader defined them. With the subject on the application class path and
++ * the prefix defined by {@link InMemoryClassLoader}, every access from the
++ * prefix to a package-private or protected member of the subject or its tests
++ * raised {@code IllegalAccessError}, and any library bundled with FixCheck
++ * shadowed the subject's class of the same name.
++ *
++ * <p>Lookup is child-first: the in-memory prefix classes, then the subject's
++ * class path, then the parent. Only the platform and the test framework are
++ * asked of the parent first, so that the JUnit runner FixCheck drives and the
++ * tests it runs agree on {@code TestCase}, {@code Assert} and friends.
++ */
++public class SubjectClassLoader extends URLClassLoader {
++
++  private static final String[] PARENT_FIRST = {
++      "java.", "javax.", "sun.", "jdk.", "junit.", "org.junit.", "org.hamcrest."
++  };
++
++  private final Map<String, JavaClassAsBytes> inMemoryClasses;
++
++  /**
++   * @param subjectClasspath the subject's class path, entries separated by the platform path separator
++   * @param parent loader of FixCheck itself (provides the JDK and JUnit)
++   * @param inMemoryClasses classes compiled in memory, by binary name; may be null
++   */
++  public SubjectClassLoader(String subjectClasspath, ClassLoader parent,
++                            Map<String, JavaClassAsBytes> inMemoryClasses) {
++    super(toUrls(subjectClasspath), parent);
++    this.inMemoryClasses = inMemoryClasses == null
++        ? Collections.<String, JavaClassAsBytes>emptyMap() : inMemoryClasses;
++  }
++
++  @Override
++  protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
++    synchronized (getClassLoadingLock(name)) {
++      Class<?> loaded = findLoadedClass(name);
++      if (loaded == null) {
++        if (isParentFirst(name)) {
++          try {
++            loaded = getParent().loadClass(name);
++          } catch (ClassNotFoundException e) {
++            loaded = findClass(name);
++          }
++        } else {
++          try {
++            loaded = findClass(name);
++          } catch (ClassNotFoundException e) {
++            loaded = getParent().loadClass(name);
++          }
++        }
++      }
++      if (resolve) resolveClass(loaded);
++      return loaded;
++    }
++  }
++
++  @Override
++  protected Class<?> findClass(String name) throws ClassNotFoundException {
++    JavaClassAsBytes compiled = inMemoryClasses.get(name);
++    if (compiled != null) {
++      byte[] bytes = compiled.getBytes();
++      return defineClass(name, bytes, 0, bytes.length);
++    }
++    return super.findClass(name);
++  }
++
++  @Override
++  public URL getResource(String name) {
++    // Child-first as well: tests load fixtures from their own class path.
++    URL url = findResource(name);
++    return url != null ? url : super.getResource(name);
++  }
++
++  private static boolean isParentFirst(String name) {
++    for (String prefix : PARENT_FIRST) {
++      if (name.startsWith(prefix)) return true;
++    }
++    return false;
++  }
++
++  /**
++   * Turn a class path string into URLs. A trailing {@code *} entry stands for
++   * every jar in its directory, as it does for {@code java -cp} and {@code javac}.
++   */
++  static URL[] toUrls(String classpath) {
++    List<URL> urls = new ArrayList<>();
++    if (classpath == null) return new URL[0];
++    for (String entry : classpath.split(File.pathSeparator)) {
++      if (entry.isEmpty()) continue;
++      try {
++        if (entry.equals("*") || entry.endsWith(File.separator + "*")) {
++          File dir = new File(entry.substring(0, entry.length() - 1));
++          File[] jars = dir.listFiles((d, n) -> n.endsWith(".jar") || n.endsWith(".JAR"));
++          if (jars == null) continue;
++          java.util.Arrays.sort(jars);
++          for (File jar : jars) urls.add(jar.toURI().toURL());
++        } else {
++          urls.add(new File(entry).toURI().toURL());
++        }
++      } catch (MalformedURLException e) {
++        throw new IllegalArgumentException("Invalid class path entry: " + entry, e);
++      }
++    }
++    return urls.toArray(new URL[0]);
++  }
++}
+diff --git a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+index f040fcc..9a332ef 100644
+--- a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
++++ b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+@@ -7,6 +7,7 @@ import com.github.javaparser.utils.SourceRoot;
+ import org.imdea.fixcheck.prefix.Prefix;
+ import org.imdea.fixcheck.transform.input.InputHelper;
+ 
++import java.io.File;
+ import java.io.IOException;
+ import java.io.InputStream;
+ import java.nio.file.Files;
+@@ -21,6 +22,7 @@ public class FixCheckProperties {
+ 
+   // General properties
+   public static String FULL_CLASSPATH = System.getProperty("java.class.path"); // Full classpath (test classes + dependencies + fixcheck)
++  public static String SUBJECT_CLASSPATH; // Class path of the subject, when given apart from FixCheck's own (subject-classpath)
+ 
+   // Properties related to the tests
+   public static String TEST_CLASSES_PATH; // Path to where the test classes are located
+@@ -118,7 +120,10 @@ public class FixCheckProperties {
+         FixCheckProperties.ASSERTION_GENERATOR = AssertionGeneratorProperty.parseOption(prop.getProperty("assertion-generator"));
+       }
+       loadOllamaProperties(prop);
++      loadSubjectClasspath(prop);
+       System.out.println("classpath: " + FixCheckProperties.FULL_CLASSPATH);
++      if (FixCheckProperties.SUBJECT_CLASSPATH != null)
++        System.out.println("subject classpath: " + FixCheckProperties.SUBJECT_CLASSPATH);
+       System.out.println("test classes path: " + FixCheckProperties.TEST_CLASSES_PATH);
+       System.out.println("test class: " + FixCheckProperties.TEST_CLASS);
+       System.out.println("test class methods: " + String.join(", ", FixCheckProperties.TEST_CLASS_METHODS));
+@@ -156,6 +161,28 @@ public class FixCheckProperties {
+     }
+   }
+ 
++  /**
++   * Load the subject's class path, when it is given apart from FixCheck's own.
++   *
++   * <p>With the subject on {@code java -cp} next to FixCheck, the application
++   * class loader defines the subject's classes while an in-memory loader
++   * defines the prefixes: two loaders make two runtime packages, so every
++   * package-private or protected member a test touches raises
++   * {@code IllegalAccessError}. With {@code subject-classpath} set, each prefix
++   * shares a {@link org.imdea.fixcheck.compilation.SubjectClassLoader} with the
++   * subject instead. Compilation sees the subject first and FixCheck's own
++   * class path last, which only has to provide JUnit.
++   */
++  private static void loadSubjectClasspath(Properties prop) {
++    String launcherClasspath = System.getProperty("java.class.path");
++    String subject = prop.getProperty("subject-classpath");
++    FixCheckProperties.SUBJECT_CLASSPATH =
++        (subject == null || subject.trim().isEmpty()) ? null : subject.trim();
++    FixCheckProperties.FULL_CLASSPATH = FixCheckProperties.SUBJECT_CLASSPATH == null
++        ? launcherClasspath
++        : FixCheckProperties.SUBJECT_CLASSPATH + File.pathSeparator + launcherClasspath;
++  }
++
+   /**
+    * Setup all Properties.
+    */
+diff --git a/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java b/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
+index b1af278..17508f4 100644
+--- a/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
++++ b/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
+@@ -3,6 +3,7 @@ package org.imdea.fixcheck.runner;
+ import org.imdea.fixcheck.properties.FixCheckProperties;
+ import org.imdea.fixcheck.compilation.InMemoryFileManager;
+ import org.imdea.fixcheck.compilation.JavaSourceFromString;
++import org.imdea.fixcheck.compilation.SubjectClassLoader;
+ import org.imdea.fixcheck.prefix.Prefix;
+ import org.junit.runner.Description;
+ import org.junit.runner.JUnitCore;
+@@ -55,7 +56,13 @@ public class PrefixRunner {
+     if (!result) {
+       diagnostics.getDiagnostics().forEach(System.out::println);
+     } else {
+-      ClassLoader classLoader = manager.getClassLoader(null);
++      // With a separate subject class path, a fresh loader per prefix defines
++      // both the prefix and the subject: they share runtime packages, and no
++      // static state of the subject survives into the next prefix.
++      ClassLoader classLoader = FixCheckProperties.SUBJECT_CLASSPATH == null
++          ? manager.getClassLoader(null)
++          : new SubjectClassLoader(FixCheckProperties.SUBJECT_CLASSPATH,
++              PrefixRunner.class.getClassLoader(), manager.getBytesMap());
+       Class<?> justCreatedClass = classLoader.loadClass(prefix.getFullClassName());
+       System.out.println("---> running test class: " + justCreatedClass.getName());
+ 
+@@ -69,7 +76,17 @@ public class PrefixRunner {
+       } else {
+         System.out.println("---> no @Test annotation found, running all tests");
+       }
+-      Result testResult = jUnitCore.run(req);
++      // Tests that look up resources or classes through the context loader
++      // must find the subject's, not FixCheck's.
++      Thread current = Thread.currentThread();
++      ClassLoader previousContext = current.getContextClassLoader();
++      current.setContextClassLoader(classLoader);
++      Result testResult;
++      try {
++        testResult = jUnitCore.run(req);
++      } finally {
++        current.setContextClassLoader(previousContext);
++      }
+       System.out.printf("---> test ran: %s, Failed: %s%n", testResult.getRunCount(), testResult.getFailureCount());
+       if (testResult.getFailureCount() > 0) {
+         System.out.println("---> failures:");
+diff --git a/src/test/java/org/imdea/fixcheck/compilation/SubjectClassLoaderTest.java b/src/test/java/org/imdea/fixcheck/compilation/SubjectClassLoaderTest.java
+new file mode 100644
+index 0000000..30ae61e
+--- /dev/null
++++ b/src/test/java/org/imdea/fixcheck/compilation/SubjectClassLoaderTest.java
+@@ -0,0 +1,147 @@
++package org.imdea.fixcheck.compilation;
++
++import org.junit.Rule;
++import org.junit.Test;
++import org.junit.rules.TemporaryFolder;
++
++import javax.tools.DiagnosticCollector;
++import javax.tools.JavaCompiler;
++import javax.tools.JavaFileObject;
++import javax.tools.StandardJavaFileManager;
++import javax.tools.StandardLocation;
++import javax.tools.ToolProvider;
++import java.io.File;
++import java.lang.reflect.InvocationTargetException;
++import java.lang.reflect.Method;
++import java.net.URL;
++import java.net.URLClassLoader;
++import java.util.Arrays;
++import java.util.Collections;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertSame;
++import static org.junit.Assert.assertTrue;
++import static org.junit.Assert.fail;
++
++/**
++ * SubjectClassLoaderTest class: a prefix and the subject must share runtime packages.
++ */
++public class SubjectClassLoaderTest {
++
++  @Rule
++  public TemporaryFolder tmp = new TemporaryFolder();
++
++  private static final String SUBJECT =
++      "package subject;\n"
++    + "public class Subject {\n"
++    + "  static int secret() { return 42; }\n"
++    + "}\n";
++
++  private static final String PREFIX =
++      "package subject;\n"
++    + "public class Prefix {\n"
++    + "  public static int callSecret() { return Subject.secret(); }\n"
++    + "}\n";
++
++  // A subject class that happens to share its name with one of FixCheck's own.
++  private static final String NAMESAKE =
++      "package org.imdea.fixcheck.utils;\n"
++    + "public class Stats {\n"
++    + "  public static String origin() { return \"subject\"; }\n"
++    + "}\n";
++
++  /** Compile sources to a directory, the way a subject's classes sit on disk. */
++  private File compileToDirectory(String name, String source) throws Exception {
++    File out = tmp.newFolder();
++    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
++    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
++    StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
++    fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Collections.singletonList(out));
++    boolean ok = compiler.getTask(null, fileManager, diagnostics, null, null,
++        Collections.singletonList(new JavaSourceFromString(name, source))).call();
++    assertTrue(diagnostics.getDiagnostics().toString(), ok);
++    return out;
++  }
++
++  /** Compile the prefix in memory against the subject, the way PrefixRunner does. */
++  private InMemoryFileManager compilePrefix(File subjectClasses) {
++    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
++    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
++    InMemoryFileManager manager = new InMemoryFileManager(compiler.getStandardFileManager(null, null, null));
++    boolean ok = compiler.getTask(null, manager, diagnostics,
++        Arrays.asList("-classpath", subjectClasses.getAbsolutePath()), null,
++        Collections.singletonList(new JavaSourceFromString("subject.Prefix", PREFIX))).call();
++    assertTrue(diagnostics.getDiagnostics().toString(), ok);
++    return manager;
++  }
++
++  @Test
++  public void prefixReachesPackagePrivateMembersOfTheSubject() throws Exception {
++    File subjectClasses = compileToDirectory("subject.Subject", SUBJECT);
++    InMemoryFileManager manager = compilePrefix(subjectClasses);
++    SubjectClassLoader loader = new SubjectClassLoader(
++        subjectClasses.getAbsolutePath(), getClass().getClassLoader(), manager.getBytesMap());
++
++    Method callSecret = loader.loadClass("subject.Prefix").getMethod("callSecret");
++
++    assertEquals(42, callSecret.invoke(null));
++  }
++
++  @Test
++  public void prefixDefinedByAnotherLoaderThanTheSubjectCannot() throws Exception {
++    // The layout FixCheck used before: subject on one loader, prefix on a child.
++    File subjectClasses = compileToDirectory("subject.Subject", SUBJECT);
++    InMemoryFileManager manager = compilePrefix(subjectClasses);
++    URLClassLoader subjectLoader = new URLClassLoader(
++        new URL[]{subjectClasses.toURI().toURL()}, getClass().getClassLoader());
++    InMemoryClassLoader prefixLoader = new InMemoryClassLoader(subjectLoader, manager);
++
++    Method callSecret = prefixLoader.loadClass("subject.Prefix").getMethod("callSecret");
++
++    try {
++      callSecret.invoke(null);
++      fail("expected IllegalAccessError across class loaders");
++    } catch (InvocationTargetException e) {
++      assertTrue(String.valueOf(e.getCause()), e.getCause() instanceof IllegalAccessError);
++    }
++  }
++
++  @Test
++  public void subjectClassesWinOverFixChecksOwn() throws Exception {
++    File subjectClasses = compileToDirectory("org.imdea.fixcheck.utils.Stats", NAMESAKE);
++    SubjectClassLoader loader = new SubjectClassLoader(
++        subjectClasses.getAbsolutePath(), getClass().getClassLoader(), null);
++
++    Class<?> stats = loader.loadClass("org.imdea.fixcheck.utils.Stats");
++
++    assertSame(loader, stats.getClassLoader());
++    assertEquals("subject", stats.getMethod("origin").invoke(null));
++  }
++
++  @Test
++  public void testFrameworkIsSharedWithTheParent() throws Exception {
++    File subjectClasses = compileToDirectory("subject.Subject", SUBJECT);
++    SubjectClassLoader loader = new SubjectClassLoader(
++        subjectClasses.getAbsolutePath(), getClass().getClassLoader(), null);
++
++    assertSame(org.junit.Test.class, loader.loadClass("org.junit.Test"));
++    assertSame(junit.framework.TestCase.class, loader.loadClass("junit.framework.TestCase"));
++  }
++
++  @Test
++  public void classpathWildcardExpandsToTheJarsOfItsDirectory() throws Exception {
++    File lib = tmp.newFolder("lib");
++    assertTrue(new File(lib, "b.jar").createNewFile());
++    assertTrue(new File(lib, "a.jar").createNewFile());
++    assertTrue(new File(lib, "notes.txt").createNewFile());
++    File classes = tmp.newFolder("classes");
++
++    URL[] urls = SubjectClassLoader.toUrls(
++        classes.getAbsolutePath() + File.pathSeparator + File.pathSeparator
++            + lib.getAbsolutePath() + File.separator + "*");
++
++    assertEquals(3, urls.length);
++    assertTrue(urls[1].getPath().endsWith("/a.jar"));
++    assertTrue(urls[2].getPath().endsWith("/b.jar"));
++  }
++}
+diff --git a/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java b/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
+new file mode 100644
+index 0000000..f35d56b
+--- /dev/null
++++ b/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
+@@ -0,0 +1,69 @@
++package org.imdea.fixcheck.properties;
++
++import org.junit.After;
++import org.junit.Rule;
++import org.junit.Test;
++import org.junit.rules.TemporaryFolder;
++
++import java.io.File;
++import java.io.IOException;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.List;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertNull;
++
++/**
++ * FixCheckPropertiesTest class: optional properties are read from the properties file.
++ */
++public class FixCheckPropertiesTest {
++
++  @Rule
++  public TemporaryFolder tmp = new TemporaryFolder();
++
++  private static final String LAUNCHER_CLASSPATH = System.getProperty("java.class.path");
++
++  /** A properties file with every required property, plus the given extra lines. */
++  private String propertiesFile(String... extra) throws IOException {
++    File file = tmp.newFile();
++    List<String> lines = new ArrayList<>(Arrays.asList(
++        "test-classes-path=/subject/tests",
++        "test-class=subject.SubjectTest",
++        "test-methods=testSomething",
++        "test-classes-src=/subject/src/test",
++        "test-failure-trace-log=/subject/failing_tests",
++        "inputs-class=int",
++        "number-of-prefixes=3",
++        "assertion-generator=previous-assertion"));
++    lines.addAll(Arrays.asList(extra));
++    Files.write(file.toPath(), lines, StandardCharsets.UTF_8);
++    return file.getAbsolutePath();
++  }
++
++  @After
++  public void restoreDefaults() {
++    FixCheckProperties.SUBJECT_CLASSPATH = null;
++    FixCheckProperties.FULL_CLASSPATH = LAUNCHER_CLASSPATH;
++  }
++
++  @Test
++  public void withoutSubjectClasspathCompilationUsesTheLauncherClasspath() throws IOException {
++    FixCheckProperties.loadProperties(propertiesFile());
++
++    assertNull(FixCheckProperties.SUBJECT_CLASSPATH);
++    assertEquals(LAUNCHER_CLASSPATH, FixCheckProperties.FULL_CLASSPATH);
++  }
++
++  @Test
++  public void subjectClasspathComesFirstForCompilation() throws IOException {
++    String subject = "/subject/classes" + File.pathSeparator + "/subject/tests";
++
++    FixCheckProperties.loadProperties(propertiesFile("subject-classpath=" + subject));
++
++    assertEquals(subject, FixCheckProperties.SUBJECT_CLASSPATH);
++    assertEquals(subject + File.pathSeparator + LAUNCHER_CLASSPATH, FixCheckProperties.FULL_CLASSPATH);
++  }
++}

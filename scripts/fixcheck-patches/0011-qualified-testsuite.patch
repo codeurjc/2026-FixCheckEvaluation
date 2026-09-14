@@ -1,0 +1,87 @@
+diff --git a/src/main/java/org/imdea/fixcheck/transform/common/TransformationHelper.java b/src/main/java/org/imdea/fixcheck/transform/common/TransformationHelper.java
+index cb5e759..3f767d2 100644
+--- a/src/main/java/org/imdea/fixcheck/transform/common/TransformationHelper.java
++++ b/src/main/java/org/imdea/fixcheck/transform/common/TransformationHelper.java
+@@ -55,11 +55,14 @@ public class TransformationHelper {
+       if (constructorDeclaration.getNameAsString().equals(oldClassName))
+         constructorDeclaration.setName(newClassName);
+     });
+-    // If the original class has the method suite, then replace its body
++    // If the original class has the method suite, then replace its body.
++    // TestSuite is fully qualified: the original suite() often builds its suite
++    // some other way (e.g. BulkTest.makeSuite) and never imports TestSuite, and
++    // the prefix would then not compile.
+     compilationUnit.findAll(MethodDeclaration.class).forEach(methodDeclaration -> {
+       if (methodDeclaration.getNameAsString().equals("suite")) {
+         methodDeclaration.setBody(StaticJavaParser.parseBlock("{\n" +
+-            "        return new TestSuite(" + newClassName + ".class);\n" +
++            "        return new junit.framework.TestSuite(" + newClassName + ".class);\n" +
+             "    }"));
+       }
+     });
+diff --git a/src/test/java/org/imdea/fixcheck/transform/common/TransformationHelperTest.java b/src/test/java/org/imdea/fixcheck/transform/common/TransformationHelperTest.java
+new file mode 100644
+index 0000000..082435e
+--- /dev/null
++++ b/src/test/java/org/imdea/fixcheck/transform/common/TransformationHelperTest.java
+@@ -0,0 +1,60 @@
++package org.imdea.fixcheck.transform.common;
++
++import com.github.javaparser.StaticJavaParser;
++import com.github.javaparser.ast.CompilationUnit;
++import org.imdea.fixcheck.compilation.InMemoryFileManager;
++import org.imdea.fixcheck.compilation.JavaSourceFromString;
++import org.junit.Rule;
++import org.junit.Test;
++import org.junit.rules.TemporaryFolder;
++
++import java.io.File;
++import java.io.IOException;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++import javax.tools.DiagnosticCollector;
++import javax.tools.JavaCompiler;
++import javax.tools.JavaFileObject;
++import javax.tools.ToolProvider;
++import java.util.Arrays;
++import java.util.Collections;
++
++import static org.junit.Assert.assertTrue;
++
++/**
++ * TransformationHelperTest class: a renamed test class still compiles.
++ */
++public class TransformationHelperTest {
++
++  // A JUnit 3 test whose suite() is built without ever importing TestSuite,
++  // the way commons-collections' tests use BulkTest.makeSuite.
++  private static final String SUITE_WITHOUT_TESTSUITE_IMPORT =
++      "package sample;\n"
++    + "import junit.framework.Test;\n"
++    + "import junit.framework.TestCase;\n"
++    + "public class SampleTest extends TestCase {\n"
++    + "  public static Test suite() { return null; }\n"
++    + "  public void testSomething() {}\n"
++    + "}\n";
++
++  @Rule
++  public TemporaryFolder tmp = new TemporaryFolder();
++
++  @Test
++  public void renamedSuiteMethodCompilesWithoutATestSuiteImport() throws IOException {
++    // Parsed from a file, as FixCheck does: the primary type name comes from it.
++    File source = new File(tmp.newFolder("sample"), "SampleTest.java");
++    Files.write(source.toPath(), SUITE_WITHOUT_TESTSUITE_IMPORT.getBytes(StandardCharsets.UTF_8));
++    CompilationUnit original = StaticJavaParser.parse(source.toPath());
++
++    CompilationUnit renamed = TransformationHelper.initializeTransformedClass("SimilarPrefix0", original);
++
++    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
++    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
++    InMemoryFileManager manager = new InMemoryFileManager(compiler.getStandardFileManager(null, null, null));
++    boolean ok = compiler.getTask(null, manager, diagnostics,
++        Arrays.asList("-classpath", System.getProperty("java.class.path")), null,
++        Collections.singletonList(new JavaSourceFromString("sample.SimilarPrefix0", renamed.toString()))).call();
++    assertTrue(diagnostics.getDiagnostics() + "\n" + renamed, ok);
++  }
++}

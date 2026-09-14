@@ -1,0 +1,402 @@
+diff --git a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+index b642490..7216484 100644
+--- a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
++++ b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+@@ -6,6 +6,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
+ import com.github.javaparser.utils.SourceRoot;
+ import org.imdea.fixcheck.prefix.Prefix;
+ import org.imdea.fixcheck.transform.input.InputHelper;
++import org.imdea.fixcheck.utils.RandomSource;
+ 
+ import java.io.File;
+ import java.io.IOException;
+@@ -42,6 +43,7 @@ public class FixCheckProperties {
+   // Properties related to prefixes
+   public static int PREFIX_VARIATIONS = 1; // Total number of prefix variations to generate
+   public static int PREFIX_TIMEOUT_SECONDS = 0; // Wall-clock budget for running one prefix; 0 means no limit
++  public static Long SEED; // Seed of the input transformation's random choices; null means unseeded
+   public static String ASSERTION_GENERATOR = "org.imdea.fixcheck.assertion.AssertTrueGenerator"; // Assertion mechanism to use
+   public static String ASSERTION_GENERATOR_OPTION; // The assertion-generator option as written, before resolving it to a class
+ 
+@@ -130,6 +132,14 @@ public class FixCheckProperties {
+           prefixTimeout == null ? 0 : Integer.parseInt(prefixTimeout.trim());
+       if (FixCheckProperties.PREFIX_TIMEOUT_SECONDS > 0)
+         System.out.println("prefix timeout: " + FixCheckProperties.PREFIX_TIMEOUT_SECONDS + "s");
++      // One seed drives every random choice of the input transformation, so a
++      // run can be repeated exactly; unseeded, every run draws other inputs.
++      String seed = prop.getProperty("seed");
++      FixCheckProperties.SEED = seed == null ? null : Long.parseLong(seed.trim());
++      if (FixCheckProperties.SEED != null) {
++        RandomSource.setSeed(FixCheckProperties.SEED);
++        System.out.println("seed: " + FixCheckProperties.SEED);
++      }
+       System.out.println("classpath: " + FixCheckProperties.FULL_CLASSPATH);
+       if (FixCheckProperties.SUBJECT_CLASSPATH != null)
+         System.out.println("subject classpath: " + FixCheckProperties.SUBJECT_CLASSPATH);
+diff --git a/src/main/java/org/imdea/fixcheck/transform/input/InputTransformer.java b/src/main/java/org/imdea/fixcheck/transform/input/InputTransformer.java
+index dec10ba..8951b59 100644
+--- a/src/main/java/org/imdea/fixcheck/transform/input/InputTransformer.java
++++ b/src/main/java/org/imdea/fixcheck/transform/input/InputTransformer.java
+@@ -15,6 +15,7 @@ import org.imdea.fixcheck.prefix.ObjectInput;
+ import org.imdea.fixcheck.prefix.Prefix;
+ import org.imdea.fixcheck.transform.PrefixTransformer;
+ import org.imdea.fixcheck.transform.common.TransformationHelper;
++import org.imdea.fixcheck.utils.RandomSource;
+ 
+ import java.util.ArrayList;
+ import java.util.List;
+@@ -145,7 +146,7 @@ public class InputTransformer extends PrefixTransformer {
+       }
+     });
+     if (allInputsOfType.isEmpty()) throw new IllegalArgumentException("No locals of type " + FixCheckProperties.INPUTS_CLASS);
+-    Random random = new Random();
++    Random random = RandomSource.get();
+     int index = random.nextInt(allInputsOfType.size());
+     return new BasicInput(classToSearch,allInputsOfType.get(index));
+   }
+@@ -175,7 +176,7 @@ public class InputTransformer extends PrefixTransformer {
+       }
+     }
+     if (expressionsWithInputType.isEmpty()) throw new IllegalArgumentException("No expressions with type " + FixCheckProperties.INPUTS_CLASS);
+-    Random random = new Random();
++    Random random = RandomSource.get();
+     int index = random.nextInt(expressionsWithInputType.size());
+     Expression expr = expressionsWithInputType.get(index);
+     return new ObjectInput(expr.getClass(),expr);
+@@ -189,7 +190,7 @@ public class InputTransformer extends PrefixTransformer {
+   private Class<? extends Expression> getClassForNewInput(String typeName) {
+     if (InputHelper.INPUTS_BY_TYPE.containsKey(typeName)) {
+       List<Class<? extends Expression>> possibleInputs = InputHelper.INPUTS_BY_TYPE.get(typeName);
+-      Random random = new Random();
++      Random random = RandomSource.get();
+       int index = random.nextInt(possibleInputs.size());
+       return possibleInputs.get(index);
+     }
+diff --git a/src/main/java/org/imdea/fixcheck/transform/input/provider/BooleanProvider.java b/src/main/java/org/imdea/fixcheck/transform/input/provider/BooleanProvider.java
+index 6204f33..b4a99b9 100644
+--- a/src/main/java/org/imdea/fixcheck/transform/input/provider/BooleanProvider.java
++++ b/src/main/java/org/imdea/fixcheck/transform/input/provider/BooleanProvider.java
+@@ -1,17 +1,15 @@
+ package org.imdea.fixcheck.transform.input.provider;
+ 
+-import java.util.Random;
++import org.imdea.fixcheck.utils.RandomSource;
+ 
+ /**
+  * Boolean Provider class: provides booleans for the input transformer.
+  */
+ public class BooleanProvider implements InputProvider {
+ 
+-  private final Random random = new Random();
+-
+   @Override
+   public Object getInput() {
+-    return random.nextBoolean();
++    return RandomSource.get().nextBoolean();
+   }
+ 
+   @Override
+diff --git a/src/main/java/org/imdea/fixcheck/transform/input/provider/DoubleProvider.java b/src/main/java/org/imdea/fixcheck/transform/input/provider/DoubleProvider.java
+index 58a7204..fc15e0d 100644
+--- a/src/main/java/org/imdea/fixcheck/transform/input/provider/DoubleProvider.java
++++ b/src/main/java/org/imdea/fixcheck/transform/input/provider/DoubleProvider.java
+@@ -1,6 +1,6 @@
+ package org.imdea.fixcheck.transform.input.provider;
+ 
+-import java.util.Random;
++import org.imdea.fixcheck.utils.RandomSource;
+ 
+ /**
+  * DoubleProvider class: provides doubles for the input transformer.
+@@ -8,11 +8,9 @@ import java.util.Random;
+  */
+ public class DoubleProvider implements InputProvider {
+ 
+-  private final Random random = new Random();
+-
+   @Override
+   public Object getInput() {
+-    return random.nextDouble();
++    return RandomSource.get().nextDouble();
+   }
+ 
+   @Override
+diff --git a/src/main/java/org/imdea/fixcheck/transform/input/provider/IntegerProvider.java b/src/main/java/org/imdea/fixcheck/transform/input/provider/IntegerProvider.java
+index d059205..21fc5f5 100644
+--- a/src/main/java/org/imdea/fixcheck/transform/input/provider/IntegerProvider.java
++++ b/src/main/java/org/imdea/fixcheck/transform/input/provider/IntegerProvider.java
+@@ -1,6 +1,6 @@
+ package org.imdea.fixcheck.transform.input.provider;
+ 
+-import java.util.Random;
++import org.imdea.fixcheck.utils.RandomSource;
+ 
+ /**
+  * Integer Provider class: provides integers for the input transformer.
+@@ -8,11 +8,9 @@ import java.util.Random;
+  */
+ public class IntegerProvider implements InputProvider {
+ 
+-  private final Random random = new Random();
+-
+   @Override
+   public Object getInput() {
+-    return random.nextInt(100);
++    return RandomSource.get().nextInt(100);
+   }
+ 
+   @Override
+diff --git a/src/main/java/org/imdea/fixcheck/transform/input/provider/LongProvider.java b/src/main/java/org/imdea/fixcheck/transform/input/provider/LongProvider.java
+index ffb9b43..77c1cbf 100644
+--- a/src/main/java/org/imdea/fixcheck/transform/input/provider/LongProvider.java
++++ b/src/main/java/org/imdea/fixcheck/transform/input/provider/LongProvider.java
+@@ -1,6 +1,6 @@
+ package org.imdea.fixcheck.transform.input.provider;
+ 
+-import java.util.Random;
++import org.imdea.fixcheck.utils.RandomSource;
+ 
+ /**
+  * Long Provider class: provides longs for the input transformer.
+@@ -8,11 +8,9 @@ import java.util.Random;
+  */
+ public class LongProvider implements InputProvider {
+ 
+-  private final Random random = new Random();
+-
+   @Override
+   public Object getInput() {
+-    return (long) random.nextInt();
++    return (long) RandomSource.get().nextInt();
+   }
+ 
+   @Override
+diff --git a/src/main/java/org/imdea/fixcheck/transform/input/provider/StringProvider.java b/src/main/java/org/imdea/fixcheck/transform/input/provider/StringProvider.java
+index 9263ea8..0c565a4 100644
+--- a/src/main/java/org/imdea/fixcheck/transform/input/provider/StringProvider.java
++++ b/src/main/java/org/imdea/fixcheck/transform/input/provider/StringProvider.java
+@@ -1,5 +1,7 @@
+ package org.imdea.fixcheck.transform.input.provider;
+ 
++import org.imdea.fixcheck.utils.RandomSource;
++
+ import java.util.ArrayList;
+ import java.util.List;
+ import java.util.Random;
+@@ -10,12 +12,12 @@ import java.util.Random;
+ public class StringProvider implements InputProvider {
+ 
+   List<Object> usedInputs = new ArrayList<>();
+-  Random random = new Random();
+ 
+   private static final String specialChars = "!@#$%^&*()_+-=[]{};':,./<>?\\|`~";
+ 
+   @Override
+   public Object getInput() {
++    Random random = RandomSource.get();
+     String input = "test";
+     if (usedInputs.size() > 0) {
+       int i = random.nextInt(usedInputs.size());
+diff --git a/src/main/java/org/imdea/fixcheck/utils/RandomSource.java b/src/main/java/org/imdea/fixcheck/utils/RandomSource.java
+new file mode 100644
+index 0000000..68fb53e
+--- /dev/null
++++ b/src/main/java/org/imdea/fixcheck/utils/RandomSource.java
+@@ -0,0 +1,40 @@
++package org.imdea.fixcheck.utils;
++
++import java.util.Random;
++
++/**
++ * RandomSource class: the single source of randomness of the input transformation.
++ *
++ * <p>Which literal is mutated and the value it gets used to be drawn from a
++ * fresh {@code new Random()} at every call site, so two runs on the same
++ * subject never generated the same prefixes and a result could not be
++ * repeated. Seeding this one source (property {@code seed}) makes them repeat.
++ */
++public final class RandomSource {
++
++  private static Random random = new Random();
++
++  private RandomSource() {}
++
++  /**
++   * @return the shared random number generator
++   */
++  public static Random get() {
++    return random;
++  }
++
++  /**
++   * Restart the shared generator from the given seed.
++   * @param seed the seed
++   */
++  public static void setSeed(long seed) {
++    random = new Random(seed);
++  }
++
++  /**
++   * Go back to an unseeded generator.
++   */
++  public static void reset() {
++    random = new Random();
++  }
++}
+diff --git a/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java b/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
+index 37c259e..92f0987 100644
+--- a/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
++++ b/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
+@@ -1,5 +1,6 @@
+ package org.imdea.fixcheck.properties;
+ 
++import org.imdea.fixcheck.utils.RandomSource;
+ import org.junit.After;
+ import org.junit.Rule;
+ import org.junit.Test;
+@@ -48,6 +49,19 @@ public class FixCheckPropertiesTest {
+     FixCheckProperties.SUBJECT_CLASSPATH = null;
+     FixCheckProperties.FULL_CLASSPATH = LAUNCHER_CLASSPATH;
+     FixCheckProperties.PREFIX_TIMEOUT_SECONDS = 0;
++    FixCheckProperties.SEED = null;
++    RandomSource.reset();
++  }
++
++  @Test
++  public void seedMakesTheRandomChoicesRepeatable() throws IOException {
++    FixCheckProperties.loadProperties(propertiesFile("seed=42"));
++    int first = RandomSource.get().nextInt();
++
++    FixCheckProperties.loadProperties(propertiesFile("seed=42"));
++
++    assertEquals(Long.valueOf(42), FixCheckProperties.SEED);
++    assertEquals(first, RandomSource.get().nextInt());
+   }
+ 
+   @Test
+diff --git a/src/test/java/org/imdea/fixcheck/transform/input/SeededInputTransformationTest.java b/src/test/java/org/imdea/fixcheck/transform/input/SeededInputTransformationTest.java
+new file mode 100644
+index 0000000..c3f50d8
+--- /dev/null
++++ b/src/test/java/org/imdea/fixcheck/transform/input/SeededInputTransformationTest.java
+@@ -0,0 +1,55 @@
++package org.imdea.fixcheck.transform.input;
++
++import com.github.javaparser.ast.body.MethodDeclaration;
++import org.imdea.fixcheck.prefix.Prefix;
++import org.imdea.fixcheck.properties.FixCheckProperties;
++import org.imdea.fixcheck.transform.common.TransformationHelper;
++import org.imdea.fixcheck.utils.RandomSource;
++import org.junit.After;
++import org.junit.Before;
++import org.junit.Test;
++
++import java.util.ArrayList;
++import java.util.List;
++
++import static org.junit.Assert.assertEquals;
++
++/**
++ * SeededInputTransformationTest class: a seeded run mutates the same literals to the same values.
++ */
++public class SeededInputTransformationTest {
++
++  @Before
++  public void initialize() {
++    // The target methods live in PrimitiveInputTransformationsTest's TargetClass.
++    FixCheckProperties.TEST_CLASS_SRC_DIR = "src/test/java";
++    FixCheckProperties.TEST_CLASS = "org.imdea.fixcheck.transform.input.PrimitiveInputTransformationsTest";
++    FixCheckProperties.setup();
++    InputHelper.initializeHelper();
++    FixCheckProperties.INPUTS_CLASS = "int";
++  }
++
++  @After
++  public void unseed() {
++    RandomSource.reset();
++  }
++
++  private static List<String> transformations(long seed) {
++    RandomSource.setSeed(seed);
++    InputTransformer transformer = new InputTransformer();
++    MethodDeclaration method = TransformationHelper.getMethodDeclFromCompilationUnit(
++        FixCheckProperties.TEST_CLASS_SRC, "testIntMethod");
++    Prefix prefix = new Prefix(method, FixCheckProperties.TEST_CLASS_SRC);
++    List<String> applied = new ArrayList<>();
++    for (int i = 0; i < 10; i++) {
++      transformer.transform(prefix);
++      applied.add(transformer.getLastTransformation());
++    }
++    return applied;
++  }
++
++  @Test
++  public void theSameSeedMutatesTheSameWay() {
++    assertEquals(transformations(7), transformations(7));
++  }
++}
+diff --git a/src/test/java/org/imdea/fixcheck/utils/RandomSourceTest.java b/src/test/java/org/imdea/fixcheck/utils/RandomSourceTest.java
+new file mode 100644
+index 0000000..1cdd5c9
+--- /dev/null
++++ b/src/test/java/org/imdea/fixcheck/utils/RandomSourceTest.java
+@@ -0,0 +1,59 @@
++package org.imdea.fixcheck.utils;
++
++import org.imdea.fixcheck.transform.input.provider.BooleanProvider;
++import org.imdea.fixcheck.transform.input.provider.DoubleProvider;
++import org.imdea.fixcheck.transform.input.provider.InputProvider;
++import org.imdea.fixcheck.transform.input.provider.IntegerProvider;
++import org.imdea.fixcheck.transform.input.provider.LongProvider;
++import org.imdea.fixcheck.transform.input.provider.StringProvider;
++import org.junit.After;
++import org.junit.Test;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.List;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertNotEquals;
++
++/**
++ * RandomSourceTest class: every input provider draws from the one seedable source.
++ */
++public class RandomSourceTest {
++
++  @After
++  public void unseed() {
++    RandomSource.reset();
++  }
++
++  private static List<Object> draws() {
++    StringProvider strings = new StringProvider();
++    strings.addInput("seed");
++    strings.addInput("value");
++    List<InputProvider> providers = Arrays.asList(
++        new BooleanProvider(), new IntegerProvider(), new LongProvider(), new DoubleProvider(), strings);
++    List<Object> values = new ArrayList<>();
++    for (int i = 0; i < 20; i++) {
++      for (InputProvider provider : providers) values.add(provider.getInput());
++    }
++    return values;
++  }
++
++  @Test
++  public void theSameSeedDrawsTheSameInputs() {
++    RandomSource.setSeed(42);
++    List<Object> first = draws();
++    RandomSource.setSeed(42);
++
++    assertEquals(first, draws());
++  }
++
++  @Test
++  public void differentSeedsDrawDifferentInputs() {
++    RandomSource.setSeed(42);
++    List<Object> first = draws();
++    RandomSource.setSeed(43);
++
++    assertNotEquals(first, draws());
++  }
++}

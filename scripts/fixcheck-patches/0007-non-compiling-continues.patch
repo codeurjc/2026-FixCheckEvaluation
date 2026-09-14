@@ -1,0 +1,87 @@
+diff --git a/src/main/java/org/imdea/fixcheck/FixCheck.java b/src/main/java/org/imdea/fixcheck/FixCheck.java
+index d9acb9b..b20755a 100644
+--- a/src/main/java/org/imdea/fixcheck/FixCheck.java
++++ b/src/main/java/org/imdea/fixcheck/FixCheck.java
+@@ -148,8 +148,7 @@ public class FixCheck {
+         PrefixRunner.runPrefix(newPrefix);
+         elapsedTime = System.currentTimeMillis() - start;
+         Stats.MS_RUNNING_PREFIXES += elapsedTime;
+-        Result result = newPrefix.getExecutionResult();
+-        if (result.getFailureCount() == 0) {
++        if (shouldGenerateAssertions(newPrefix)) {
+           // If it doesn't crash, generate the assertions
+           start = System.currentTimeMillis();
+           System.out.println("---> assertion generator: " + assertionGenerator.getClass().getSimpleName());
+@@ -181,6 +180,20 @@ public class FixCheck {
+     return generatedPrefixes;
+   }
+ 
++  /**
++   * Whether to generate assertions for a prefix that has just run without them:
++   * only when it compiled and did not fail. A prefix that did not compile has no
++   * execution result; dereferencing it used to abort the whole run with a
++   * NullPointerException, losing every prefix generated until then. Now it is
++   * recorded as non-compiling and generation goes on.
++   * @param prefix the prefix, after its first execution
++   * @return true if assertions should be generated for it
++   */
++  static boolean shouldGenerateAssertions(Prefix prefix) {
++    Result result = prefix.getExecutionResult();
++    return result != null && result.getFailureCount() == 0;
++  }
++
+   /**
+    * Get the assertion generator to use
+    */
+diff --git a/src/test/java/org/imdea/fixcheck/FixCheckTest.java b/src/test/java/org/imdea/fixcheck/FixCheckTest.java
+new file mode 100644
+index 0000000..c1c7c9a
+--- /dev/null
++++ b/src/test/java/org/imdea/fixcheck/FixCheckTest.java
+@@ -0,0 +1,46 @@
++package org.imdea.fixcheck;
++
++import com.github.javaparser.StaticJavaParser;
++import com.github.javaparser.ast.CompilationUnit;
++import com.github.javaparser.ast.body.MethodDeclaration;
++import org.imdea.fixcheck.prefix.Prefix;
++import org.junit.Test;
++import org.junit.runner.Description;
++import org.junit.runner.Result;
++import org.junit.runner.notification.Failure;
++
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++/**
++ * FixCheckTest class: the generation loop survives prefixes that do not compile.
++ */
++public class FixCheckTest {
++
++  private static Prefix prefixWith(Result result) {
++    CompilationUnit unit = StaticJavaParser.parse("class SampleTest { void testSomething() {} }");
++    MethodDeclaration method = unit.findFirst(MethodDeclaration.class).get();
++    Prefix prefix = new Prefix(method, unit);
++    prefix.setExecutionResult(result);
++    return prefix;
++  }
++
++  @Test
++  public void aPrefixThatDidNotCompileGetsNoAssertionsAndDoesNotThrow() {
++    assertFalse(FixCheck.shouldGenerateAssertions(prefixWith(null)));
++  }
++
++  @Test
++  public void aPassingPrefixGetsAssertions() {
++    assertTrue(FixCheck.shouldGenerateAssertions(prefixWith(new Result())));
++  }
++
++  @Test
++  public void aFailingPrefixGetsNoAssertions() throws Exception {
++    Result result = new Result();
++    result.createListener().testFailure(
++        new Failure(Description.createTestDescription(FixCheckTest.class, "sample"), new RuntimeException("boom")));
++
++    assertFalse(FixCheck.shouldGenerateAssertions(prefixWith(result)));
++  }
++}

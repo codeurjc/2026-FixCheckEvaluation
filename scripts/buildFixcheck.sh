@@ -33,12 +33,10 @@ if [ ! -d "$FIXCHECK_DIR" ]; then
   git clone git@github.com:facumolina/fixcheck.git "$FIXCHECK_DIR"
 fi
 
-# Apply the local fixes for the two upstream defects that gut the verdict
-# (assertion stripping under previous-assertion, and the Java 9+ stack-trace
-# normalization; see docs/fixcheck-verdict-limitations.md). The clone is
-# gitignored, so the patches live in scripts/fixcheck-patches/ and are
-# re-applied here after every fresh clone. Idempotent: a patch that already
-# reverse-applies is skipped.
+# Apply the local patches, in order (what each one fixes and why is in
+# scripts/fixcheck-patches/README.md). The clone is gitignored, so the patches
+# live in scripts/fixcheck-patches/ and are re-applied here after every fresh
+# clone. Idempotent: a patch that already reverse-applies is skipped.
 for patch in "$REPO_ROOT"/scripts/fixcheck-patches/*.patch; do
   name="$(basename "$patch")"
   if git -C "$FIXCHECK_DIR" apply --reverse --check "$patch" >/dev/null 2>&1; then
@@ -57,10 +55,28 @@ done
 # defects4j image ships a nameserver that may not be reachable). Sharing the
 # host's network namespace makes the build work wherever the host itself has
 # network access.
+#
+# FixCheck's own unit tests run first: the patches change how prefixes are
+# compiled, loaded and run, and a jar that builds but no longer does that
+# correctly would only show up as silently different verdicts.
 docker run --rm --network=host \
   -u "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$FIXCHECK_DIR":"$FIXCHECK_DIR" -w "$FIXCHECK_DIR" \
-  "$DEFECTS4J_IMAGE" ./gradlew --no-daemon shadowJar
+  "$DEFECTS4J_IMAGE" ./gradlew --no-daemon test shadowJar
+
+# The jar must not carry third-party libraries under their own package names:
+# placed on a class path next to a subject that is one of them, FixCheck's copy
+# shadows the program under analysis (Defects4J's Cli, Lang and Collections all
+# ran against it before 0004-relocate-dependencies.patch).
+JAR="$FIXCHECK_DIR/build/libs/fixcheck-all-1.0.0.jar"
+unrelocated=$(unzip -Z1 "$JAR" \
+  | grep -E '^(org/apache/commons|com/google|com/github/javaparser|javassist|com/opencsv|org/json)/.*\.class$' \
+  | head -5 || true)
+if [ -n "$unrelocated" ]; then
+  echo "ERROR: $JAR carries unrelocated dependency classes, e.g.:" >&2
+  echo "$unrelocated" >&2
+  exit 1
+fi
 
 # Smoke-test: the jar must start under the image's Java 11.
 docker run --rm \

@@ -1,0 +1,375 @@
+diff --git a/src/main/java/org/imdea/fixcheck/FixCheck.java b/src/main/java/org/imdea/fixcheck/FixCheck.java
+index b20755a..cc57283 100644
+--- a/src/main/java/org/imdea/fixcheck/FixCheck.java
++++ b/src/main/java/org/imdea/fixcheck/FixCheck.java
+@@ -29,6 +29,7 @@ public class FixCheck {
+   private static Set<Prefix> assertionFailingPrefixes = new HashSet<>(); // Built prefixes that fail the assertion when executed
+   private static Set<Prefix> passingPrefixes = new HashSet<>(); // Built prefixes that pass the assertion when executed
+   private static Set<Prefix> nonCompilingPrefixes = new HashSet<>(); // Built prefixes that do not compile
++  private static Set<Prefix> timedOutPrefixes = new HashSet<>(); // Built prefixes stopped at the prefix timeout
+ 
+   private static Map<Prefix, Double> failingPrefixesScores = new HashMap<>(); // Failing prefixes with their scores (similarity to the original failure)
+ 
+@@ -109,6 +110,7 @@ public class FixCheck {
+     System.out.println("passing: " + Stats.TOTAL_PASSING_PREFIXES);
+     System.out.println("crashing: " + Stats.TOTAL_CRASHING_PREFIXES);
+     System.out.println("assertion failing: " + Stats.TOTAL_ASSERTION_FAILING_PREFIXES);
++    System.out.println("timed out: " + Stats.TOTAL_TIMED_OUT_PREFIXES);
+     System.out.println();
+ 
+     generateOutputFiles();
+@@ -176,6 +178,7 @@ public class FixCheck {
+     Stats.TOTAL_ASSERTION_FAILING_PREFIXES = assertionFailingPrefixes.size();
+     Stats.TOTAL_PASSING_PREFIXES = passingPrefixes.size();
+     Stats.TOTAL_NON_COMPILING_PREFIXES = nonCompilingPrefixes.size();
++    Stats.TOTAL_TIMED_OUT_PREFIXES = timedOutPrefixes.size();
+ 
+     return generatedPrefixes;
+   }
+@@ -191,7 +194,7 @@ public class FixCheck {
+    */
+   static boolean shouldGenerateAssertions(Prefix prefix) {
+     Result result = prefix.getExecutionResult();
+-    return result != null && result.getFailureCount() == 0;
++    return !prefix.isTimedOut() && result != null && result.getFailureCount() == 0;
+   }
+ 
+   /**
+@@ -212,7 +215,12 @@ public class FixCheck {
+    */
+   private static void savePrefix(Prefix prefix) {
+     Result result = prefix.getExecutionResult();
+-    if (result == null) {
++    if (prefix.isTimedOut()) {
++      // Neither passing nor failing: there is no failure to score against the
++      // original one, so it is kept out of both.
++      System.out.println("---> prefix timed out");
++      timedOutPrefixes.add(prefix);
++    } else if (result == null) {
+       System.out.println("---> prefix did not compile");
+       nonCompilingPrefixes.add(prefix);
+     } else {
+@@ -258,6 +266,10 @@ public class FixCheck {
+     String nonCompilingPrefixesDir = FixCheckProperties.getNonCompilingTestsDir();
+     System.out.println("non compiling prefixes: "+nonCompilingPrefixesDir);
+     PrefixWriter.saveNonCompilingPrefixes(nonCompilingPrefixes, nonCompilingPrefixesDir);
++    String timedOutPrefixesDir = FixCheckProperties.getTimedOutTestsDir();
++    System.out.println("timed out prefixes: "+timedOutPrefixesDir);
++    // Same shape as non-compiling prefixes: only the source is kept.
++    PrefixWriter.saveNonCompilingPrefixes(timedOutPrefixes, timedOutPrefixesDir);
+     String passingPrefixesDir = FixCheckProperties.getPassingTestsDir();
+     System.out.println("passing prefixes: "+passingPrefixesDir);
+     PrefixWriter.savePassingPrefixes(passingPrefixes, passingPrefixesDir);
+diff --git a/src/main/java/org/imdea/fixcheck/prefix/Prefix.java b/src/main/java/org/imdea/fixcheck/prefix/Prefix.java
+index d5c603e..db4bf25 100644
+--- a/src/main/java/org/imdea/fixcheck/prefix/Prefix.java
++++ b/src/main/java/org/imdea/fixcheck/prefix/Prefix.java
+@@ -20,6 +20,7 @@ public class Prefix {
+   String className;
+   boolean methodHasTestAnnotation; // True if the method has a @Test annotation
+   Result executionResult; // Result of the execution of the test prefix
++  boolean timedOut; // True if the last execution was stopped at the prefix timeout
+ 
+   /**
+    * Constructor
+@@ -106,4 +107,7 @@ public class Prefix {
+   public void setExecutionResult(Result result) { executionResult = result;}
+   public Result getExecutionResult() { return executionResult; }
+ 
++  public void setTimedOut(boolean timedOut) { this.timedOut = timedOut; }
++  public boolean isTimedOut() { return timedOut; }
++
+ }
+diff --git a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+index 9a332ef..b642490 100644
+--- a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
++++ b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+@@ -41,6 +41,7 @@ public class FixCheckProperties {
+ 
+   // Properties related to prefixes
+   public static int PREFIX_VARIATIONS = 1; // Total number of prefix variations to generate
++  public static int PREFIX_TIMEOUT_SECONDS = 0; // Wall-clock budget for running one prefix; 0 means no limit
+   public static String ASSERTION_GENERATOR = "org.imdea.fixcheck.assertion.AssertTrueGenerator"; // Assertion mechanism to use
+   public static String ASSERTION_GENERATOR_OPTION; // The assertion-generator option as written, before resolving it to a class
+ 
+@@ -61,6 +62,7 @@ public class FixCheckProperties {
+   public static String OUTPUT_PASSING_PREFIXES_DIR = "passing-tests"; // Output dir for passing tests
+   public static String OUTPUT_FAILING_PREFIXES_DIR = "failing-tests"; // Output dir for failing tests
+   public static String OUTPUT_NONCOMPILING_PREFIXES_DIR = "non-compiling-tests"; // Output dir for non compiling tests
++  public static String OUTPUT_TIMEDOUT_PREFIXES_DIR = "timed-out-tests"; // Output dir for tests stopped at the prefix timeout
+   public static String OUTPUT_SCORES = "scores-failing-tests.csv"; // Output file for score of each failing prefix
+ 
+   /**
+@@ -121,6 +123,13 @@ public class FixCheckProperties {
+       }
+       loadOllamaProperties(prop);
+       loadSubjectClasspath(prop);
++      // A mutated input can turn a loop bound or a size into something that
++      // never ends; without a budget one such prefix stalls the whole run.
++      String prefixTimeout = prop.getProperty("prefix-timeout-seconds");
++      FixCheckProperties.PREFIX_TIMEOUT_SECONDS =
++          prefixTimeout == null ? 0 : Integer.parseInt(prefixTimeout.trim());
++      if (FixCheckProperties.PREFIX_TIMEOUT_SECONDS > 0)
++        System.out.println("prefix timeout: " + FixCheckProperties.PREFIX_TIMEOUT_SECONDS + "s");
+       System.out.println("classpath: " + FixCheckProperties.FULL_CLASSPATH);
+       if (FixCheckProperties.SUBJECT_CLASSPATH != null)
+         System.out.println("subject classpath: " + FixCheckProperties.SUBJECT_CLASSPATH);
+@@ -311,4 +320,11 @@ public class FixCheckProperties {
+     return OUTPUT_DIR + "/" + OUTPUT_NONCOMPILING_PREFIXES_DIR;
+   }
+ 
++  /**
++   * Get the folder name for prefixes stopped at the prefix timeout
++   */
++  public static String getTimedOutTestsDir() {
++    return OUTPUT_DIR + "/" + OUTPUT_TIMEDOUT_PREFIXES_DIR;
++  }
++
+ }
+\ No newline at end of file
+diff --git a/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java b/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
+index 8e5c4f3..2c044bd 100644
+--- a/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
++++ b/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
+@@ -35,6 +35,7 @@ public class PrefixRunner {
+   public static void runPrefix(Prefix prefix) throws ClassNotFoundException {
+     System.out.println("---> prefix: ");
+     System.out.println(prefix.getMethod());
++    prefix.setTimedOut(false);
+ 
+     System.out.println("---> going to compile test class: " + prefix.getClassName());
+ 
+@@ -76,15 +77,20 @@ public class PrefixRunner {
+       Request req = requestFor(justCreatedClass, methodName);
+       System.out.println("---> running only the mutated method: " + methodName);
+       // Tests that look up resources or classes through the context loader
+-      // must find the subject's, not FixCheck's.
+-      Thread current = Thread.currentThread();
+-      ClassLoader previousContext = current.getContextClassLoader();
+-      current.setContextClassLoader(classLoader);
++      // must find the subject's, not FixCheck's: the runner thread gets it.
+       Result testResult;
+       try {
+-        testResult = jUnitCore.run(req);
+-      } finally {
+-        current.setContextClassLoader(previousContext);
++        testResult = runWithTimeout(jUnitCore, req, classLoader,
++            FixCheckProperties.PREFIX_TIMEOUT_SECONDS * 1000L);
++      } catch (InterruptedException e) {
++        Thread.currentThread().interrupt();
++        throw new RuntimeException("Interrupted while running prefix " + prefix.getClassName(), e);
++      }
++      if (testResult == null) {
++        System.out.println("---> prefix timed out after " + FixCheckProperties.PREFIX_TIMEOUT_SECONDS + "s");
++        prefix.setTimedOut(true);
++        prefix.setExecutionResult(null);
++        return;
+       }
+       if (matchedNoTest(testResult)) {
+         System.out.println("---> no test matched method " + methodName + ", unable to run it");
+@@ -106,6 +112,60 @@ public class PrefixRunner {
+     prefix.setExecutionResult(null);
+   }
+ 
++  /**
++   * Run a request on a thread of its own, with the given context class loader,
++   * for at most {@code timeoutMillis}.
++   * @param core the JUnit core to run the request with
++   * @param request the request to run
++   * @param contextLoader context class loader for the tests
++   * @param timeoutMillis budget in milliseconds; 0 or less means no limit
++   * @return the result, or null if the request did not finish in time
++   * @throws InterruptedException if the calling thread is interrupted while waiting
++   */
++  public static Result runWithTimeout(final JUnitCore core, final Request request,
++                                      ClassLoader contextLoader, long timeoutMillis)
++      throws InterruptedException {
++    final Result[] outcome = new Result[1];
++    final Throwable[] crash = new Throwable[1];
++    Thread runner = new Thread(() -> {
++      try {
++        outcome[0] = core.run(request);
++      } catch (Throwable t) {
++        crash[0] = t;
++      }
++    }, "fixcheck-prefix-runner");
++    runner.setDaemon(true);
++    runner.setContextClassLoader(contextLoader);
++    runner.start();
++    if (timeoutMillis > 0) runner.join(timeoutMillis);
++    else runner.join();
++    if (runner.isAlive()) {
++      stop(runner);
++      return null;
++    }
++    if (crash[0] != null) throw new RuntimeException("Prefix runner crashed", crash[0]);
++    return outcome[0];
++  }
++
++  /**
++   * Stop a runner thread that outlived its budget. A loop that never checks for
++   * interruption ignores {@link Thread#interrupt()}, so the thread is stopped
++   * outright if it does not end on its own.
++   */
++  @SuppressWarnings("deprecation")
++  private static void stop(Thread runner) throws InterruptedException {
++    runner.interrupt();
++    runner.join(1000);
++    if (!runner.isAlive()) return;
++    try {
++      runner.stop();
++      runner.join(1000);
++    } catch (UnsupportedOperationException e) {
++      // Thread.stop is no longer supported on recent JDKs: the daemon thread is left behind.
++      System.out.println("---> could not stop the timed-out prefix thread: " + e);
++    }
++  }
++
+   /**
+    * A request that runs only the given method of a test class, whether it is a
+    * JUnit 4 test or a JUnit 3 {@code TestCase} (with or without a
+diff --git a/src/main/java/org/imdea/fixcheck/utils/Stats.java b/src/main/java/org/imdea/fixcheck/utils/Stats.java
+index 3e7f03f..31ca103 100644
+--- a/src/main/java/org/imdea/fixcheck/utils/Stats.java
++++ b/src/main/java/org/imdea/fixcheck/utils/Stats.java
+@@ -12,6 +12,7 @@ public class Stats {
+   public static int TOTAL_ASSERTION_FAILING_PREFIXES = 0;
+   public static int TOTAL_PASSING_PREFIXES = 0;
+   public static int TOTAL_NON_COMPILING_PREFIXES = 0;
++  public static int TOTAL_TIMED_OUT_PREFIXES = 0;
+ 
+   // Time data
+   public static long MS_PREFIXES_GENERATION = 0;
+diff --git a/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java b/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java
+index 0b832f8..ba46154 100644
+--- a/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java
++++ b/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java
+@@ -15,7 +15,7 @@ import java.nio.file.Paths;
+  */
+ public class ReportWriter {
+ 
+-  private static final String[] reportHeader = {"test_class", "input_prefixes", "inputs_class", "target_class", "prefixes_gen_time", "assertions_gen_time", "prefixes_running_time","output_prefixes", "passing_prefixes", "crashing_prefixes", "assertion_failing_prefixes"};
++  private static final String[] reportHeader = {"test_class", "input_prefixes", "inputs_class", "target_class", "prefixes_gen_time", "assertions_gen_time", "prefixes_running_time","output_prefixes", "passing_prefixes", "crashing_prefixes", "assertion_failing_prefixes", "timed_out_prefixes"};
+ 
+   public static void writeReport(String reportFileName) {
+     try {
+@@ -48,6 +48,7 @@ public class ReportWriter {
+     data[8] = String.valueOf(Stats.TOTAL_PASSING_PREFIXES);
+     data[9] = String.valueOf(Stats.TOTAL_CRASHING_PREFIXES);
+     data[10] = String.valueOf(Stats.TOTAL_ASSERTION_FAILING_PREFIXES);
++    data[11] = String.valueOf(Stats.TOTAL_TIMED_OUT_PREFIXES);
+     writer.writeNext(data);
+   }
+ 
+diff --git a/src/test/java/org/imdea/fixcheck/FixCheckTest.java b/src/test/java/org/imdea/fixcheck/FixCheckTest.java
+index c1c7c9a..2afb4c3 100644
+--- a/src/test/java/org/imdea/fixcheck/FixCheckTest.java
++++ b/src/test/java/org/imdea/fixcheck/FixCheckTest.java
+@@ -35,6 +35,14 @@ public class FixCheckTest {
+     assertTrue(FixCheck.shouldGenerateAssertions(prefixWith(new Result())));
+   }
+ 
++  @Test
++  public void aTimedOutPrefixGetsNoAssertions() {
++    Prefix prefix = prefixWith(null);
++    prefix.setTimedOut(true);
++
++    assertFalse(FixCheck.shouldGenerateAssertions(prefix));
++  }
++
+   @Test
+   public void aFailingPrefixGetsNoAssertions() throws Exception {
+     Result result = new Result();
+diff --git a/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java b/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
+index f35d56b..37c259e 100644
+--- a/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
++++ b/src/test/java/org/imdea/fixcheck/properties/FixCheckPropertiesTest.java
+@@ -47,6 +47,23 @@ public class FixCheckPropertiesTest {
+   public void restoreDefaults() {
+     FixCheckProperties.SUBJECT_CLASSPATH = null;
+     FixCheckProperties.FULL_CLASSPATH = LAUNCHER_CLASSPATH;
++    FixCheckProperties.PREFIX_TIMEOUT_SECONDS = 0;
++  }
++
++  @Test
++  public void prefixTimeoutDefaultsToNoLimit() throws IOException {
++    FixCheckProperties.PREFIX_TIMEOUT_SECONDS = 99;
++
++    FixCheckProperties.loadProperties(propertiesFile());
++
++    assertEquals(0, FixCheckProperties.PREFIX_TIMEOUT_SECONDS);
++  }
++
++  @Test
++  public void prefixTimeoutIsRead() throws IOException {
++    FixCheckProperties.loadProperties(propertiesFile("prefix-timeout-seconds=60"));
++
++    assertEquals(60, FixCheckProperties.PREFIX_TIMEOUT_SECONDS);
+   }
+ 
+   @Test
+diff --git a/src/test/java/org/imdea/fixcheck/runner/PrefixRunnerTest.java b/src/test/java/org/imdea/fixcheck/runner/PrefixRunnerTest.java
+index d32cd6d..b5e3655 100644
+--- a/src/test/java/org/imdea/fixcheck/runner/PrefixRunnerTest.java
++++ b/src/test/java/org/imdea/fixcheck/runner/PrefixRunnerTest.java
+@@ -15,6 +15,7 @@ import java.util.Collections;
+ 
+ import static org.junit.Assert.assertEquals;
+ import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertNull;
+ import static org.junit.Assert.assertTrue;
+ 
+ /**
+@@ -102,6 +103,52 @@ public class PrefixRunnerTest {
+     assertFalse(PrefixRunner.matchedNoTest(result));
+   }
+ 
++  // Never checks for interruption: only stopping the thread ends it.
++  private static final String SPINNER =
++      "package sample;\n"
++    + "import org.junit.Test;\n"
++    + "public class Spinner {\n"
++    + "  @Test public void spin() { long n = 0; while (true) { n++; } }\n"
++    + "  @Test public void contextLoader() {\n"
++    + "    if (Thread.currentThread().getContextClassLoader() != getClass().getClassLoader())\n"
++    + "      throw new AssertionError(\"wrong context class loader\");\n"
++    + "  }\n"
++    + "}\n";
++
++  @Test
++  public void aPrefixThatNeverEndsIsStoppedAtItsBudget() throws Exception {
++    Class<?> spinner = compile("sample.Spinner", SPINNER);
++    long start = System.currentTimeMillis();
++
++    Result result = PrefixRunner.runWithTimeout(new JUnitCore(),
++        PrefixRunner.requestFor(spinner, "spin"), spinner.getClassLoader(), 300);
++
++    assertNull(result);
++    assertTrue("took " + (System.currentTimeMillis() - start) + " ms",
++        System.currentTimeMillis() - start < 5000);
++  }
++
++  @Test
++  public void aPrefixThatEndsInTimeReturnsItsResult() throws Exception {
++    Class<?> sample = compile("sample.Junit4", JUNIT4);
++
++    Result result = PrefixRunner.runWithTimeout(new JUnitCore(),
++        PrefixRunner.requestFor(sample, "target"), sample.getClassLoader(), 10000);
++
++    assertEquals(1, result.getRunCount());
++    assertEquals(0, result.getFailureCount());
++  }
++
++  @Test
++  public void theTestRunsWithTheGivenContextClassLoader() throws Exception {
++    Class<?> spinner = compile("sample.Spinner", SPINNER);
++
++    Result result = PrefixRunner.runWithTimeout(new JUnitCore(),
++        PrefixRunner.requestFor(spinner, "contextLoader"), spinner.getClassLoader(), 0);
++
++    assertEquals(result.getFailures().toString(), 0, result.getFailureCount());
++  }
++
+   @Test
+   public void aMethodThatDoesNotExistMatchesNoTest() throws Exception {
+     Result result = run(compile("sample.Junit4", JUNIT4), "absent");

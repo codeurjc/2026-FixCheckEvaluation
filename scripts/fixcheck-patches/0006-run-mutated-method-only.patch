@@ -1,0 +1,213 @@
+diff --git a/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java b/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
+index 17508f4..8e5c4f3 100644
+--- a/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
++++ b/src/main/java/org/imdea/fixcheck/runner/PrefixRunner.java
+@@ -9,6 +9,7 @@ import org.junit.runner.Description;
+ import org.junit.runner.JUnitCore;
+ import org.junit.runner.Request;
+ import org.junit.runner.Result;
++import org.junit.runner.manipulation.Filter;
+ import org.junit.runner.notification.Failure;
+ 
+ import javax.tools.DiagnosticCollector;
+@@ -66,16 +67,14 @@ public class PrefixRunner {
+       Class<?> justCreatedClass = classLoader.loadClass(prefix.getFullClassName());
+       System.out.println("---> running test class: " + justCreatedClass.getName());
+ 
+-      // Use JUnit core to run the prefix test
++      // Use JUnit core to run the prefix test. Only the mutated method runs:
++      // running the whole copied class (what happened for JUnit 3 tests, which
++      // have no @Test to filter on) re-ran every sibling test on its original
++      // data, so a regression anywhere in the class fed the similarity score.
+       JUnitCore jUnitCore = new JUnitCore();
+-      Request req = Request.aClass(justCreatedClass);
+-      if (prefix.methodHasTestAnnotation()) {
+-        Description description = Description.createTestDescription(justCreatedClass, prefix.getMethod().getNameAsString());
+-        req = req.filterWith(description);
+-        System.out.println("---> using description: " + description);
+-      } else {
+-        System.out.println("---> no @Test annotation found, running all tests");
+-      }
++      String methodName = prefix.getMethod().getNameAsString();
++      Request req = requestFor(justCreatedClass, methodName);
++      System.out.println("---> running only the mutated method: " + methodName);
+       // Tests that look up resources or classes through the context loader
+       // must find the subject's, not FixCheck's.
+       Thread current = Thread.currentThread();
+@@ -87,6 +86,11 @@ public class PrefixRunner {
+       } finally {
+         current.setContextClassLoader(previousContext);
+       }
++      if (matchedNoTest(testResult)) {
++        System.out.println("---> no test matched method " + methodName + ", unable to run it");
++        prefix.setExecutionResult(null);
++        return;
++      }
+       System.out.printf("---> test ran: %s, Failed: %s%n", testResult.getRunCount(), testResult.getFailureCount());
+       if (testResult.getFailureCount() > 0) {
+         System.out.println("---> failures:");
+@@ -102,4 +106,47 @@ public class PrefixRunner {
+     prefix.setExecutionResult(null);
+   }
+ 
++  /**
++   * A request that runs only the given method of a test class, whether it is a
++   * JUnit 4 test or a JUnit 3 {@code TestCase} (with or without a
++   * {@code suite()} method). Parameterized runs of the method
++   * ({@code method[0]}, ...) are kept.
++   * @param testClass the test class
++   * @param methodName the method to run
++   * @return the filtered request
++   */
++  public static Request requestFor(Class<?> testClass, final String methodName) {
++    return Request.aClass(testClass).filterWith(new Filter() {
++      @Override
++      public boolean shouldRun(Description description) {
++        if (description.isTest()) {
++          String name = description.getMethodName();
++          return name != null && (name.equals(methodName) || name.startsWith(methodName + "["));
++        }
++        for (Description child : description.getChildren()) {
++          if (shouldRun(child)) return true;
++        }
++        return false;
++      }
++
++      @Override
++      public String describe() {
++        return "method " + methodName;
++      }
++    });
++  }
++
++  /**
++   * True when a filtered request found no test to run, which JUnit reports as
++   * an initialization failure of {@link Filter} rather than as zero tests.
++   * @param result the result of running a request built by {@link #requestFor}
++   * @return true if the filter matched no test
++   */
++  public static boolean matchedNoTest(Result result) {
++    for (Failure failure : result.getFailures()) {
++      if (Filter.class.getName().equals(failure.getDescription().getClassName())) return true;
++    }
++    return false;
++  }
++
+ }
+diff --git a/src/test/java/org/imdea/fixcheck/runner/PrefixRunnerTest.java b/src/test/java/org/imdea/fixcheck/runner/PrefixRunnerTest.java
+new file mode 100644
+index 0000000..d32cd6d
+--- /dev/null
++++ b/src/test/java/org/imdea/fixcheck/runner/PrefixRunnerTest.java
+@@ -0,0 +1,111 @@
++package org.imdea.fixcheck.runner;
++
++import org.imdea.fixcheck.compilation.InMemoryFileManager;
++import org.imdea.fixcheck.compilation.JavaSourceFromString;
++import org.junit.Test;
++import org.junit.runner.JUnitCore;
++import org.junit.runner.Result;
++
++import javax.tools.DiagnosticCollector;
++import javax.tools.JavaCompiler;
++import javax.tools.JavaFileObject;
++import javax.tools.ToolProvider;
++import java.util.Arrays;
++import java.util.Collections;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++/**
++ * PrefixRunnerTest class: a prefix runs only the method that was mutated.
++ *
++ * <p>The sample test classes are compiled at test time rather than written as
++ * test sources, so that the build's own test runner does not pick them up.
++ */
++public class PrefixRunnerTest {
++
++  // A sibling that fails: if it runs, the result says so.
++  private static final String JUNIT3_WITH_SUITE =
++      "package sample;\n"
++    + "import junit.framework.TestCase;\n"
++    + "import junit.framework.TestSuite;\n"
++    + "public class Junit3WithSuite extends TestCase {\n"
++    + "  public static junit.framework.Test suite() { return new TestSuite(Junit3WithSuite.class); }\n"
++    + "  public void testTarget() {}\n"
++    + "  public void testSibling() { fail(\"sibling ran\"); }\n"
++    + "}\n";
++
++  private static final String JUNIT3 =
++      "package sample;\n"
++    + "import junit.framework.TestCase;\n"
++    + "public class Junit3 extends TestCase {\n"
++    + "  public void testTarget() {}\n"
++    + "  public void testSibling() { fail(\"sibling ran\"); }\n"
++    + "}\n";
++
++  private static final String JUNIT4 =
++      "package sample;\n"
++    + "import org.junit.Test;\n"
++    + "import static org.junit.Assert.fail;\n"
++    + "public class Junit4 {\n"
++    + "  @Test public void target() {}\n"
++    + "  @Test public void sibling() { fail(\"sibling ran\"); }\n"
++    + "}\n";
++
++  private static Class<?> compile(String name, String source) throws ClassNotFoundException {
++    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
++    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
++    InMemoryFileManager manager = new InMemoryFileManager(compiler.getStandardFileManager(null, null, null));
++    boolean ok = compiler.getTask(null, manager, diagnostics,
++        Arrays.asList("-classpath", System.getProperty("java.class.path")), null,
++        Collections.singletonList(new JavaSourceFromString(name, source))).call();
++    assertTrue(diagnostics.getDiagnostics().toString(), ok);
++    return manager.getClassLoader(null).loadClass(name);
++  }
++
++  private static Result run(Class<?> testClass, String method) {
++    return new JUnitCore().run(PrefixRunner.requestFor(testClass, method));
++  }
++
++  @Test
++  public void junit3RunsOnlyTheNamedMethod() throws Exception {
++    Result result = run(compile("sample.Junit3", JUNIT3), "testTarget");
++
++    assertEquals(1, result.getRunCount());
++    assertEquals(0, result.getFailureCount());
++  }
++
++  @Test
++  public void junit3WithSuiteMethodRunsOnlyTheNamedMethod() throws Exception {
++    Result result = run(compile("sample.Junit3WithSuite", JUNIT3_WITH_SUITE), "testTarget");
++
++    assertEquals(1, result.getRunCount());
++    assertEquals(0, result.getFailureCount());
++  }
++
++  @Test
++  public void junit4RunsOnlyTheNamedMethod() throws Exception {
++    Result result = run(compile("sample.Junit4", JUNIT4), "target");
++
++    assertEquals(1, result.getRunCount());
++    assertEquals(0, result.getFailureCount());
++  }
++
++  @Test
++  public void failuresBelongToTheNamedMethod() throws Exception {
++    Result result = run(compile("sample.Junit3", JUNIT3), "testSibling");
++
++    assertEquals(1, result.getRunCount());
++    assertEquals(1, result.getFailureCount());
++    assertEquals("testSibling", result.getFailures().get(0).getDescription().getMethodName());
++    assertFalse(PrefixRunner.matchedNoTest(result));
++  }
++
++  @Test
++  public void aMethodThatDoesNotExistMatchesNoTest() throws Exception {
++    Result result = run(compile("sample.Junit4", JUNIT4), "absent");
++
++    assertTrue(PrefixRunner.matchedNoTest(result));
++  }
++}

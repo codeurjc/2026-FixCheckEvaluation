@@ -1,0 +1,50 @@
+diff --git a/build.gradle b/build.gradle
+index 0a219ab..17aca36 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -1,4 +1,8 @@
+-apply plugin: 'java'
++plugins {
++    id 'java'
++    // Relocates the dependencies bundled into fixcheck-all (see shadowJar below).
++    id 'com.github.johnrengelman.shadow' version '8.1.1'
++}
+ 
+ repositories {
+     maven {
+@@ -27,13 +31,30 @@ jar {
+     archiveVersion = '1.0.0'
+ }
+ 
+-task shadowJar(type: Jar) {
++// The jar used to carry its dependencies under their own package names. Put on
++// the class path next to a subject that *is* one of those libraries (commons-cli,
++// commons-lang3, commons-collections...), FixCheck's copy won and the generated
++// tests ran against it instead of the patched program under analysis.
++shadowJar {
+     manifest {
+         attributes 'Main-Class': 'org.imdea.fixcheck.FixCheck'
+     }
+     archiveBaseName = 'fixcheck-all'
+     archiveVersion = '1.0.0'
++    archiveClassifier = ''
+     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+-    with jar
+-}
+\ No newline at end of file
++
++    // Not relocated: JUnit and hamcrest are the API FixCheck shares with the
++    // tests it runs, and de.kherud.llama binds its native libraries by name.
++    def shaded = 'org.imdea.fixcheck.shaded'
++    ['org.apache.commons', 'com.google', 'com.github.javaparser', 'com.strobel',
++     'org.checkerframework', 'javassist', 'com.opencsv', 'org.json',
++     'org.jetbrains.annotations', 'org.intellij.lang'].each { pkg ->
++        relocate pkg, "${shaded}.${pkg}"
++    }
++    dependencies {
++        // Annotations only; relocating javax.annotation would also rewrite
++        // references to the JDK's javax.annotation.processing.
++        exclude(dependency('com.google.code.findbugs:jsr305'))
++    }
++}
