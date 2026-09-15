@@ -255,6 +255,16 @@ All are measured. If one fails, it is fixed before Phase 4.
 
 ### Pilot log
 
+**2026-09-15, submission** (commit `39ffa9f`): 65 jobs, 32 for qwen on L40S
+and 33 for gpt-oss on H100 (`scripts/logs/pilot_submission_*.txt`).
+- All of them sat in `Priority` with the L40S cards idle. With no `--mem`,
+  this cluster's `DefMemPerNode=UNLIMITED` made each job request the node's
+  whole 1.5 TB, which cannot fit next to another user's 576 GB.
+- The pending jobs were lowered with `scontrol update MinMemoryNode=` (which
+  takes MB): 96000 for qwen, 160000 for gpt-oss.
+- `runFixcheckReplay.sh` now always passes `--mem`. The campaign scripts never
+  did; they ran on an otherwise empty node.
+
 **2026-09-15, smoke job 16307** (developer fix of Cli 35, qwen3.6:35b oracle
 on an L40S, 100 prefixes):
 - `ok` in 35 min, 1 run analysed (String, 100 prefixes), flagged.

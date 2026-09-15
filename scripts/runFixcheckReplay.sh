@@ -26,6 +26,7 @@ CONFIG="ours"
 PROJECTS="all"
 BUG_IDS="all"
 GPU=""
+MEM=""
 CPUS="8"
 TIMEOUT="86400"
 MINUTES_PER_SUBJECT="30"
@@ -42,6 +43,7 @@ while [[ $# -gt 0 ]]; do
         --projects) PROJECTS="$2"; shift 2 ;;
         --bug-id) BUG_IDS="$2"; shift 2 ;;
         --gpu) GPU="$2"; shift 2 ;;
+        --mem) MEM="$2"; shift 2 ;;
         --cpus) CPUS="$2"; shift 2 ;;
         --timeout) TIMEOUT="$2"; shift 2 ;;
         --minutes-per-subject) MINUTES_PER_SUBJECT="$2"; shift 2 ;;
@@ -82,6 +84,17 @@ if [ -z "$GPU" ]; then
     case "$ORACLE" in
         *gpt-oss*) GPU="H100:1" ;;
         *) GPU="L40S:1" ;;
+    esac
+fi
+
+# Always explicit: without --mem this cluster allocates the node's whole memory
+# (1.5 TB), so a job waits until nothing else runs -- the pilot's 65 jobs sat
+# behind another user's 576 GB with free L40S cards. gpt-oss loads ~65 GB of
+# weights through host memory first.
+if [ -z "$MEM" ]; then
+    case "$ORACLE" in
+        *gpt-oss*) MEM="160G" ;;
+        *) MEM="96G" ;;
     esac
 fi
 
@@ -137,7 +150,7 @@ while IFS=$'\t' read -r project label subjects count walltime; do
     if [ -n "$DRY_RUN" ]; then
         printf "%-18s %-10s %-14s %s\n" "$label" "$count" "$walltime" "(dry-run)"
         echo "    TARGET=$TARGET PROJECT=$project SUBJECTS=$subjects ORACLE=$ORACLE MODEL=$MODEL CONFIG=$CONFIG \\"
-        echo "      sbatch --job-name=fcr-$TARGET-$label --gpus=$GPU --cpus-per-task=$CPUS --time=$walltime \\"
+        echo "      sbatch --job-name=fcr-$TARGET-$label --gpus=$GPU --mem=$MEM --cpus-per-task=$CPUS --time=$walltime \\"
         echo "        --export=ALL scripts/replay_fixcheck_job.sbatch"
         continue
     fi
@@ -150,6 +163,7 @@ while IFS=$'\t' read -r project label subjects count walltime; do
     JOB_ID=$(sbatch --parsable --hold \
         --job-name="fcr-$TARGET-$label" \
         --gpus="$GPU" \
+        --mem="$MEM" \
         --cpus-per-task="$CPUS" \
         --time="$walltime" \
         --output="scripts/logs/%j/slurm.out" \

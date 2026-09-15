@@ -213,6 +213,7 @@ See [docs/fixcheck-v2-protocol.md](../docs/fixcheck-v2-protocol.md).
 | `--config` | `defectrepairing`: `author` (his test, inputs-class and trace) or `ours` | `ours` |
 | `--projects` / `--bug-id` | projects; subject ids (`Patch151`, `1-5`), applied to every listed project | `all` |
 | `--gpu` | `sbatch --gpus` | `H100:1` for gpt-oss, else `L40S:1` |
+| `--mem` | `sbatch --mem`; always passed, since this cluster otherwise allocates the node's whole memory and the job waits for an empty node | `160G` for gpt-oss, else `96G` |
 | `--timeout` | per-subject wall-clock limit, in seconds | `86400` |
 | `--minutes-per-subject` / `--chunks` | size each job's `--time` / split a project | `30` / `1` |
 | `--retry-errored` / `--no-resume` / `--dry-run` | as in `runCampaign.sh` | off |
