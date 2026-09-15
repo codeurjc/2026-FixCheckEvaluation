@@ -75,6 +75,33 @@ def sibling_failures(log_text, method):
     return sorted({m for m, _cls in _FAILURE_LINE_RE.findall(log_text or "") if m != method})
 
 
+def mutation_independent(run, log_text):
+    """Why a run's failures do not depend on its mutations, or ``None``.
+
+    Two signs: the identity mutations (literal unchanged, on a patch that
+    passes the trigger test) fail too, or every prefix failed before any
+    assertion was generated with one and the same failure message. Collections
+    20 shows both: removing ``assertEquals("A", li.next())`` also removed the
+    ``li.next()`` a later ``li.remove()`` needs.
+    """
+    variations = run.get("variations") or []
+    if not variations:
+        return None
+    identity = [v for v in variations if v.get("identity")]
+    failing_identity = [v for v in identity if v.get("outcome") in FIXCHECK_FAILING_OUTCOMES]
+    messages = {re.sub(r"SimilarPrefixInputTransformer\d+", "P", m)
+                for m in re.findall(r"^\t[\w$]+(?:\[[^\]]*\])?\([\w.$]+\): ?(.*)$", log_text or "", re.M)}
+    all_failed_early = all(v.get("outcome") in FIXCHECK_FAILING_OUTCOMES and not v.get("assertions_generated")
+                           for v in variations)
+    reasons = []
+    if identity and len(failing_identity) == len(identity):
+        reasons.append(f"all {len(identity)} identity mutations fail")
+    if all_failed_early and len(messages) == 1:
+        reasons.append(f"all {len(variations)} prefixes fail before assertion generation with one message "
+                       f"{next(iter(messages))[:80]!r}")
+    return "; ".join(reasons) or None
+
+
 def analyze_record(record_path):
     with open(record_path, encoding="utf-8") as f:
         record = json.load(f)
@@ -112,6 +139,7 @@ def analyze_record(record_path):
         "file_not_found": 0,
         "shaded_frames": 0,
         "sibling_failures": [],
+        "mutation_independent": [],
         "failed_runs": [],
         "missing_logs": 0,
         "run_seconds": [],
@@ -140,6 +168,10 @@ def analyze_record(record_path):
         row["file_not_found"] += len(_FILE_NOT_FOUND_RE.findall(text))
         row["shaded_frames"] += len(_SHADED_FRAME_RE.findall(text))
         row["sibling_failures"] += sibling_failures(text, run["method"])
+        independent = mutation_independent(run, text)
+        if independent:
+            row["mutation_independent"].append(
+                f"{run['test_class'].rsplit('.', 1)[-1]}::{run['method']}/{run['inputs_class']}: {independent}")
         if record.get("project") == "Cli" and str(record.get("subject")) == "35":
             lines = set(re.findall(r"DefaultParser\.java:(\d+)", text))
             row["cli35_checkout_lines"] = sorted(lines | set(row["cli35_checkout_lines"] or []), key=int)
@@ -220,6 +252,14 @@ def report(rows):
     noisy = [r for r in ok if r["identity_failing"]]
     for r in noisy:
         p(f"   {r['id']}: {r['identity_failing']}/{r['identity']}")
+    independent = [r for r in ok if r["mutation_independent"]]
+    analysed = [r for r in ok if r["analyzed_runs"]]
+    p(f"   records with a mutation-independent run: {len(independent)}/{len(analysed)} "
+      f"({pct(len(independent), len(analysed))}); flagged among them: "
+      f"{sum(1 for r in independent if r['suspicious'])}")
+    for r in independent:
+        for why in r["mutation_independent"]:
+            p(f"   {r['id']}: {why}")
     gen = sum(r["generated"] or 0 for r in ok)
     fail = sum(r["failing"] or 0 for r in ok)
     p(f"   all prefixes: {gen}, failing {fail} ({pct(fail, gen)}), "

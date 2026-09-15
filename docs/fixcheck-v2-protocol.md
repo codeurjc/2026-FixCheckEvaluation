@@ -264,6 +264,35 @@ and 33 for gpt-oss on H100 (`scripts/logs/pilot_submission_*.txt`).
   takes MB): 96000 for qwen, 160000 for gpt-oss.
 - `runFixcheckReplay.sh` now always passes `--mem`. The campaign scripts never
   did; they ran on an otherwise empty node.
+- The first 5 jobs (qwen, plausible) started at 15:50 when the other user's H100
+  reservation began. Each loaded 42/42 layers on its own L40S (PCI 43, 44, 83,
+  84; checked against `nvidia-smi`).
+
+**First observations** (to confirm in the analysis):
+- *Codec 10, qwen's plausible patch (fixed):* `ok` in 24 s, 100/100 prefixes
+  failing, max similarity 0.869, flagged, no oracle call at all.
+  - `testEndMb` is a table of {input, expected encoding} String pairs. FixCheck
+    mutates either role (`"MPM1111111"` → `"Kyl&en"`), so every prefix fails
+    the original assertion.
+  - The failure always goes through the same helper
+    (`StringEncoderAbstractTest.checkEncoding`) with the same
+    `ComparisonFailure`, so its trace resembles the original bug's.
+  - This is the role-blind mutation limitation, not a harness artifact: a
+    false positive the controls must quantify.
+- *Collections 20, qwen's plausible patch (fixed):* `ok` in 24 s, 100/100
+  prefixes crashed, including both identity mutations, all with
+  `IllegalStateException` at `TreeListIterator.remove`. Not flagged (0.30).
+  - **A new, undocumented artifact.** With every generator but
+    `previous-assertion`, FixCheck deletes the assertions before running a
+    prefix. The trigger test's assertions carry the iterator's moves inside
+    them: `assertEquals("A", li.next())`, `assertEquals("B", li.next())`,
+    `assertEquals("B", li.previous())`. Deleting them deletes the calls, so
+    `li.remove()` fails on every prefix whatever the mutation.
+  - The oracle is never called, and the run measures nothing.
+  - `assertEquals(expected, obj.call())` is a very common shape, so this may
+    be widespread. `analyze_fixcheck_pilot.py` now reports runs whose failures
+    are mutation-independent, to measure it before proposing anything (e.g.
+    keeping the call as a statement when its assertion is removed).
 
 **2026-09-15, smoke job 16307** (developer fix of Cli 35, qwen3.6:35b oracle
 on an L40S, 100 prefixes):
