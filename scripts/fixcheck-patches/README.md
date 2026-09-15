@@ -29,6 +29,7 @@ investigation is written up in `notes/informe-fixcheck-reunion.md` and
 | 0009 seed | runs could not be repeated | `seed` |
 | 0010 output-dir-and-ollama-options | output tied to the working directory; LLM assertions not repeatable | `output-dir`, `ollama-temperature`, `ollama-seed` |
 | 0011 qualified-testsuite | rewritten `suite()` referenced an unimported `TestSuite` | -- |
+| 0012 assertion-generation-failure-continues | one failed or timed-out assertion-generator call aborted the run | -- |
 
 ## 0001 -- `previous-assertion` keeps the original assertions
 
@@ -136,6 +137,20 @@ import `TestSuite` -- commons-collections' `BulkTest.makeSuite` -- then produced
 prefixes that could not compile (`cannot find symbol: class TestSuite`, 10 of
 Collections' test classes, each of which aborted its run before 0007). The body
 now names `junit.framework.TestSuite` in full.
+
+## 0012 -- A failed assertion-generator call no longer aborts the run
+
+`generateAssertions` was called unguarded, and `OllamaGenerator` throws when a
+call fails or outlives `ollama-timeout-seconds`: the exception left `main` and
+the run ended with no report, discarding every prefix generated so far -- the
+same failure 0007 fixed for non-compiling prefixes. Reasoning models make it
+likely: in the archived campaign qwen3.6:35b took 17 s per call at the median,
+51 s at the 90th percentile and up to 135 s (it thinks for ~5000 tokens before
+writing one assertion). A prefix whose generator throws is now recorded as such:
+it ran only without assertions, so it is neither passing nor failing, is not
+scored, is counted in the new `assertion_generation_failed_prefixes` column of
+`report.csv` (appended last) and saved under
+`assertion-generation-failed-tests/`. Test: `FixCheckTest`.
 
 ## Regenerating a patch
 

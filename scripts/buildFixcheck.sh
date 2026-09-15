@@ -36,14 +36,26 @@ fi
 # Apply the local patches, in order (what each one fixes and why is in
 # scripts/fixcheck-patches/README.md). The clone is gitignored, so the patches
 # live in scripts/fixcheck-patches/ and are re-applied here after every fresh
-# clone. Idempotent: a patch that already reverse-applies is skipped.
+# clone. Idempotent: applied patches are recorded in the clone's .git (outside
+# the working tree, so never part of a regenerated patch) and skipped. The
+# record is needed because a later patch can edit what an earlier one added --
+# 0010 changes 0003's OllamaGenerator -- and then the earlier one no longer
+# reverse-applies. Each applied patch is staged, so `git diff` in the clone is
+# always the next patch being written (see the patches README).
+APPLIED="$FIXCHECK_DIR/.git/fixcheck-applied-patches"
+touch "$APPLIED"
 for patch in "$REPO_ROOT"/scripts/fixcheck-patches/*.patch; do
   name="$(basename "$patch")"
-  if git -C "$FIXCHECK_DIR" apply --reverse --check "$patch" >/dev/null 2>&1; then
+  if grep -qxF "$name" "$APPLIED"; then
     echo "Patch already applied: $name"
+  elif git -C "$FIXCHECK_DIR" apply --reverse --check "$patch" >/dev/null 2>&1; then
+    echo "Patch already applied: $name"
+    echo "$name" >> "$APPLIED"
   elif git -C "$FIXCHECK_DIR" apply --check "$patch" >/dev/null 2>&1; then
     echo "Applying patch: $name"
     git -C "$FIXCHECK_DIR" apply "$patch"
+    git -C "$FIXCHECK_DIR" add -A
+    echo "$name" >> "$APPLIED"
   else
     echo "ERROR: $name neither applies nor reverse-applies in $FIXCHECK_DIR" >&2
     exit 1

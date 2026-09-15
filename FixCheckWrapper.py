@@ -61,7 +61,7 @@ DEFAULT_FIXCHECK_TIMEOUT = 14400
 # Measured p99: 0.7 s; the maximum, 439 s, was a mutated derivation order.
 DEFAULT_FIXCHECK_PREFIX_TIMEOUT = 60
 # Timeout of each call to the assertion-generating model (measured p99: 46 s).
-DEFAULT_FIXCHECK_LLM_TIMEOUT = 120
+DEFAULT_FIXCHECK_LLM_TIMEOUT = 300
 # Recorded in every result, so readers can tell this layout -- one run per
 # (trigger method, literal type) -- from the one-run-per-class records of the
 # archived campaigns.
@@ -755,7 +755,9 @@ def parse_fixcheck_report(report_csv_text):
     partition of every generated prefix; see ``FixCheck.savePrefix()``), where
     ``total`` is the report's ``output_prefixes`` column. ``timed_out`` is
     ``None`` for a report from before patch 0008, which had no such column:
-    not measured, rather than zero.
+    not measured, rather than zero. Likewise ``assertion_generation_failed``
+    (prefixes whose generator threw, e.g. an Ollama call outliving its
+    timeout) before patch 0012; it is subtracted from ``non_compiling`` too.
 
     Returns ``None`` when the content is empty, headerless, or its data row
     doesn't line up with its header (e.g. a partially-written file).
@@ -783,6 +785,7 @@ def parse_fixcheck_report(report_csv_text):
     if None in (total, passing, crashing, assertion_failing):
         return None
     timed_out = as_int("timed_out_prefixes")
+    assertion_generation_failed = as_int("assertion_generation_failed_prefixes")
 
     return {
         "test_class": record.get("test_class", ""),
@@ -797,7 +800,9 @@ def parse_fixcheck_report(report_csv_text):
         "crashing": crashing,
         "assertion_failing": assertion_failing,
         "timed_out": timed_out,
-        "non_compiling": total - passing - crashing - assertion_failing - (timed_out or 0),
+        "assertion_generation_failed": assertion_generation_failed,
+        "non_compiling": (total - passing - crashing - assertion_failing
+                          - (timed_out or 0) - (assertion_generation_failed or 0)),
     }
 
 
@@ -828,7 +833,8 @@ def parse_fixcheck_scores(scores_csv_text):
 
 _PREFIX_HEADER_RE = re.compile(r"^PREFIX \d+ of \d+$", re.M)
 _OUTCOME_RE = re.compile(
-    r"^---> prefix (passed|crashed|failed assertion|did not compile|timed out)$", re.M
+    r"^---> prefix (passed|crashed|failed assertion|did not compile|timed out|assertion generation failed)$",
+    re.M,
 )
 _SIMILARITY_RE = re.compile(r"^---> failure similarity: ([-\d.Ee]+)$", re.M)
 _TRANSFORMATION_PREFIX = "---> transformation: "
@@ -913,6 +919,7 @@ def summarize_fixcheck_runs(runs, skipped, similarity_threshold):
     scores = [v["score"] for v in variations if _is_scored(v)]
     identity = [v for v in variations if v.get("identity")]
     timed_out = [rep.get("timed_out") for rep in reports]
+    generation_failed = [rep.get("assertion_generation_failed") for rep in reports]
     return {
         "planned_runs": len(runs),
         "analyzed_runs": len(analyzed),
@@ -925,6 +932,9 @@ def summarize_fixcheck_runs(runs, skipped, similarity_threshold):
         "non_compiling_prefixes": sum(rep["non_compiling"] for rep in reports),
         "timed_out_prefixes": (
             None if not reports or any(t is None for t in timed_out) else sum(timed_out)
+        ),
+        "assertion_generation_failed_prefixes": (
+            None if not reports or any(g is None for g in generation_failed) else sum(generation_failed)
         ),
         "scored_prefixes": len(scores),
         "max_failure_similarity": max(scores) if scores else None,

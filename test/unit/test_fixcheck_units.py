@@ -359,6 +359,8 @@ def test_parse_fixcheck_report_happy_path():
         "assertion_failing": 2,
         # A report from before patch 0008 has no such column: not measured.
         "timed_out": None,
+        # Nor this one before patch 0012.
+        "assertion_generation_failed": None,
         "non_compiling": 0,
     }
 
@@ -776,6 +778,17 @@ def test_parse_fixcheck_report_reads_timed_out_prefixes():
 def test_parse_fixcheck_report_without_the_column_has_no_timed_out_measurement():
     report = parse_fixcheck_report(REPORT_HEADER + "\nC,1,int,,5,6,7,10,4,2,1\n")
     assert report["timed_out"] is None and report["non_compiling"] == 3
+    assert report["assertion_generation_failed"] is None
+
+
+def test_parse_fixcheck_report_reads_assertion_generation_failures():
+    report = parse_fixcheck_report(
+        REPORT_HEADER + ",timed_out_prefixes,assertion_generation_failed_prefixes\n"
+        "C,1,int,,5,6,7,10,3,2,1,1,2\n"
+    )
+    assert report["assertion_generation_failed"] == 2
+    # Not a non-compiling prefix: the buckets still partition every prefix.
+    assert report["non_compiling"] == 1
 
 
 SAMPLE_LOG = """\
@@ -804,13 +817,23 @@ PREFIX 3 of 3
 ---> transformation: [30:int] replaced by [86:java.lang.Integer]
 ---> prefix timed out after 60s
 ---> prefix timed out
+PREFIX 4 of 4
+---> transformation: [2:int] replaced by [7:java.lang.Integer]
+---> prefix execution without assertions
+---> assertion generator: OllamaGenerator
+---> assertion generation failed: java.lang.RuntimeException: Ollama call failed
+---> time: 300012ms
+---> prefix assertion generation failed
 ====== OUTPUT ======
 """
 
 
 def test_parse_fixcheck_variations_reads_each_prefix():
     variations = parse_fixcheck_variations(SAMPLE_LOG)
-    assert [v["outcome"] for v in variations] == ["crashed", "failed assertion", "timed out"]
+    assert [v["outcome"] for v in variations] == [
+        "crashed", "failed assertion", "timed out", "assertion generation failed",
+    ]
+    assert variations[3]["score"] is None
     assert variations[0]["original"] == '"--prefix"'
     assert variations[0]["replacement"] == '"--pref"'
     assert variations[0]["score"] == pytest.approx(0.8123)
@@ -873,6 +896,17 @@ def test_timed_out_prefixes_is_unknown_for_reports_without_the_column():
     old = {"total": 3, "passing": 3, "crashing": 0, "assertion_failing": 0,
            "non_compiling": 0, "timed_out": None}
     assert summarize_fixcheck_runs([_run(report=old)], [], 0.4)["timed_out_prefixes"] is None
+
+
+def test_assertion_generation_failures_are_summed_and_never_scored():
+    report = {"total": 3, "passing": 1, "crashing": 0, "assertion_failing": 0,
+              "non_compiling": 0, "timed_out": 0, "assertion_generation_failed": 2}
+    variations = [{"outcome": "assertion generation failed", "score": None, "identity": False}] * 2
+    summary = summarize_fixcheck_runs([_run(report=report, variations=variations)], [], 0.4)
+    assert summary["assertion_generation_failed_prefixes"] == 2
+    assert summary["failing_prefixes"] == 0 and summary["scored_prefixes"] == 0
+    # A report from before patch 0012 did not measure it.
+    assert summarize_fixcheck_runs([_run()], [], 0.4)["assertion_generation_failed_prefixes"] is None
 
 
 def test_copy_fixcheck_artifacts_keeps_one_directory_per_run(tmp_path):

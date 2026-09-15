@@ -147,7 +147,7 @@ Arguments:
 | `--fixcheck-similarity-threshold` | Minimum failure-similarity score (0-1) a FixCheck failing variation needs to mark the patch suspicious. | `0.4` |
 | `--fixcheck-timeout` | Wall-clock budget in seconds for each FixCheck run (one trigger method and literal type); `0` = unbounded. A safety net: prefixes and model calls have budgets of their own. A stop is recorded as `timed_out` and never affects `fixed`; `result.json` is written before FixCheck starts, so an interrupted FixCheck can only cost its own block. | `14400` |
 | `--fixcheck-prefix-timeout` | Budget in seconds for running one prefix. One that outlives it — a mutated loop bound or size, as in Math 10 — is stopped, recorded as timed out and not scored; `0` = unbounded. | `60` |
-| `--fixcheck-llm-timeout` | Timeout in seconds of each call to an Ollama-backed assertion generator. | `120` |
+| `--fixcheck-llm-timeout` | Timeout in seconds of each call to an Ollama-backed assertion generator. A call that fails or outlives it leaves that prefix without assertions, recorded as `assertion_generation_failed` and not scored; the run goes on. Reasoning models are slow here: qwen3.6:35b took up to 135 s. | `300` |
 | `--iteration`   | Iteration index; when set, artifacts go to `results/<model>/<project>/Bug_<bug_id>/<iteration>/` instead of `results/<model>/<project>/Bug_<bug_id>/`. Used by `run_iterations.py`. | none |
 
 ### Not every bug is a FixCheck subject

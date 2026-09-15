@@ -1,8 +1,8 @@
 # FixCheck v2: protocol, status and handoff
 
-Status on 2026-09-14: **Phases 1 and 2 are done and committed. Phase 3 (the
-pilot) has not started.** This document is what is needed to pick the work up
-on another machine.
+Status on 2026-09-15: **Phases 1 and 2 are done and committed. Phase 3 (the
+pilot) is in progress** (see "Pilot log"). This document is what is needed to
+pick the work up on another machine.
 
 ## Why a v2
 
@@ -36,7 +36,8 @@ proposals acceptable.
 | Controls | Developer fixes (all 854 bugs, with **both** oracles). The 94 plausible patches that break other tests. FixCheck's author's DefectRepairing patches with his configuration (`author`) and with ours (`ours`), both oracles |
 | Prefixes | **100 per trigger method**, split among the literal types present (String, int, long, double, boolean) in proportion to their mutable literals, at least 1 per type. **One FixCheck run per (class, method, type)** |
 | Similarity | FixCheck's metric unchanged; only the Defects4J header is stripped from the original trace; **suspicious ⇔ some scored prefix ≥ 0.4** |
-| Timeouts | **60 s per prefix**, 120 s per model call, 4 h per run. A prefix that times out is recorded as `timed_out`: not scored, not failing |
+| Timeouts | **60 s per prefix**, 300 s per model call (120 s until 2026-09-15, see "Pilot log"), 4 h per run. A prefix that times out is recorded as `timed_out`, one whose model call fails as `assertion_generation_failed`: neither is scored or failing |
+| Reasoning | The oracle keeps the model's default reasoning, as when it generated the patch (decided 2026-09-15) |
 | Determinism | Seed derived from `(bug, class, method, type)`, **never the model**, so every patch of a bug meets the same mutations. The LLM oracle gets `temperature 0` and the same seed |
 | Mutations | Null and repeated mutations are **kept**. Identity mutations (a literal replaced by itself) are reported as a free noise control: one of them failing measures the harness, not the patch |
 
@@ -55,6 +56,7 @@ for each one.
 | 0009 | Seed |
 | 0010 | `output-dir`, and Ollama `options` |
 | 0011 | Qualified `junit.framework.TestSuite` |
+| 0012 | A failed or timed-out assertion-generator call no longer aborts the run (added in Phase 3) |
 
 Each patch has JUnit tests. `scripts/buildFixcheck.sh` runs them and rejects a
 jar that still carries unrelocated dependencies. They are written to be
@@ -71,7 +73,7 @@ proposed upstream; whether to submit them is the user's decision.
 - **`Experiment.py`, `experiment_runner.py` and the campaign scripts** use the
   new defaults and flags: `--fixcheck-prefixes 100`,
   `--fixcheck-similarity-threshold 0.4`, `--fixcheck-timeout 14400`,
-  `--fixcheck-prefix-timeout 60` and `--fixcheck-llm-timeout 120`.
+  `--fixcheck-prefix-timeout 60` and `--fixcheck-llm-timeout 300`.
 - **`replay_fixcheck.py`**, with `scripts/runFixcheckReplay.sh` and
   `scripts/replay_fixcheck_job.sbatch`.
   - Targets `plausible`, `devfix` and `defectrepairing` (`--config author|ours`).
@@ -146,7 +148,7 @@ results/controls/defectrepairing/<author|ours>/<oracle>/<Project>/<PatchId>/fixc
    ```
 3. **FixCheck.** `fixcheck/` is gitignored. `bash scripts/buildFixcheck.sh`
    clones it (upstream `9503ba2` when the patches were generated), applies
-   0001–0011, runs its tests and builds `fixcheck/build/libs/fixcheck-all-1.0.0.jar`.
+   0001–0012, runs its tests and builds `fixcheck/build/libs/fixcheck-all-1.0.0.jar`.
    Never edit `fixcheck/` without regenerating the patch it belongs to.
 4. **DefectRepairing.** Gitignored as well; clone it:
    ```bash
@@ -168,7 +170,7 @@ results/controls/defectrepairing/<author|ours>/<oracle>/<Project>/<PatchId>/fixc
    ./scripts/runFixcheckReplay.sh --target devfix --oracle ollama/gpt-oss:120b --projects Cli --bug-id 35 --dry-run
    ```
 
-## Phase 3: pilot (not started)
+## Phase 3: pilot (in progress since 2026-09-15; see "Pilot log")
 
 ### Subjects
 
@@ -196,8 +198,10 @@ is run with both configurations and both oracles.
 
 ### Commands
 
-Submit one project at a time, since `--bug-id` applies to every listed project.
-Add `--dry-run` first.
+`scripts/pilotFixcheckV2.sh` submits exactly the subjects above, one job per
+(target, oracle, config, project), since `--bug-id` applies to every listed
+project; it resumes, so re-running it is safe. `--oracles qwen` or
+`--targets devfix` narrow it; add `--dry-run` first. What it runs, by hand:
 
 ```bash
 R=./scripts/runFixcheckReplay.sh
@@ -240,6 +244,54 @@ All are measured. If one fails, it is fixed before Phase 4.
 10. **Cost.** Extrapolate from the measured times; the earlier estimate was
     ~600–700 GPU h. **Launching Phase 4 with that figure is the user's
     decision.**
+
+### Checking the criteria
+
+```bash
+.venv/bin/python scripts/analyze_fixcheck_pilot.py            # criteria 1-6 and 8-10 over results/
+.venv/bin/python scripts/analyze_fixcheck_pilot.py --compare \
+    <dir>/fixcheck_v2.json.previous <dir>/fixcheck_v2.json      # criterion 7
+```
+
+### Pilot log
+
+**2026-09-15, smoke job 16307** (developer fix of Cli 35, qwen3.6:35b oracle
+on an L40S, 100 prefixes):
+- `ok` in 35 min, 1 run analysed (String, 100 prefixes), flagged.
+- 72 model calls, 28.4 s mean, 47 s max, no errors.
+
+Two findings before submitting the rest:
+
+- **The oracle reasons before answering.** qwen3.6:35b decodes ~4,200–5,200
+  tokens per call to write one assertion. In the archived campaign's logs
+  (494 calls):
+
+  | Oracle | Median | p90 | Max |
+  |---|---|---|---|
+  | qwen3.6:35b | 17 s | 51 s | 135 s |
+  | gpt-oss:120b (662 calls) | 4.4 s | 10.7 s | 82 s |
+
+  The cost estimate assumed 6.7 s per call, which only holds for gpt-oss;
+  qwen's oracle time is ~4× that. **Decision (user): keep the reasoning**, as
+  when the model generated the patch.
+- **A failed model call aborted the whole run.** `OllamaGenerator` throws on a
+  timeout, and nothing caught it: with 120 s, qwen's tail would have lost whole
+  runs. **Decision (user): patch 0012, and 300 s per call.** A prefix whose call
+  fails is recorded as `assertion_generation_failed` (not scored, not failing)
+  and the run goes on.
+
+  0012 was verified end to end against a stand-in daemon that never answers
+  (Lang 12, 2 s limit). `buildFixcheck.sh` now records the patches it applied,
+  because 0010 edits a file 0003 adds, so 0003 no longer reverse-applies on a
+  patched clone.
+
+The smoke record was measured before 0012 with a 120 s limit. No call failed,
+so 0012 would not have changed it. Once the rest of the pilot has finished, it
+is re-run with `--no-resume` on the new jar as the **reproducibility subject**
+(criterion 7): same seed, compared with its `.previous` record. It is not re-run
+earlier because the pilot's own Cli job could race on the renamed record. The
+first run's artifacts are kept in `fixcheck_v2.run1/` and
+`fixcheck_v2.run1.json`.
 
 ## Later phases (not started)
 

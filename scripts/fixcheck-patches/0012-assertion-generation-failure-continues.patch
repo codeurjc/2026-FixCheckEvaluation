@@ -1,0 +1,223 @@
+diff --git a/src/main/java/org/imdea/fixcheck/FixCheck.java b/src/main/java/org/imdea/fixcheck/FixCheck.java
+index cc57283..fb253ce 100644
+--- a/src/main/java/org/imdea/fixcheck/FixCheck.java
++++ b/src/main/java/org/imdea/fixcheck/FixCheck.java
+@@ -30,6 +30,7 @@ public class FixCheck {
+   private static Set<Prefix> passingPrefixes = new HashSet<>(); // Built prefixes that pass the assertion when executed
+   private static Set<Prefix> nonCompilingPrefixes = new HashSet<>(); // Built prefixes that do not compile
+   private static Set<Prefix> timedOutPrefixes = new HashSet<>(); // Built prefixes stopped at the prefix timeout
++  private static Set<Prefix> assertionGenerationFailedPrefixes = new HashSet<>(); // Built prefixes whose assertions could not be generated
+ 
+   private static Map<Prefix, Double> failingPrefixesScores = new HashMap<>(); // Failing prefixes with their scores (similarity to the original failure)
+ 
+@@ -111,6 +112,7 @@ public class FixCheck {
+     System.out.println("crashing: " + Stats.TOTAL_CRASHING_PREFIXES);
+     System.out.println("assertion failing: " + Stats.TOTAL_ASSERTION_FAILING_PREFIXES);
+     System.out.println("timed out: " + Stats.TOTAL_TIMED_OUT_PREFIXES);
++    System.out.println("assertion generation failed: " + Stats.TOTAL_ASSERTION_GENERATION_FAILED_PREFIXES);
+     System.out.println();
+ 
+     generateOutputFiles();
+@@ -154,18 +156,20 @@ public class FixCheck {
+           // If it doesn't crash, generate the assertions
+           start = System.currentTimeMillis();
+           System.out.println("---> assertion generator: " + assertionGenerator.getClass().getSimpleName());
+-          assertionGenerator.generateAssertions(newPrefix);
++          boolean generated = generateAssertions(assertionGenerator, newPrefix);
+           elapsedTime = System.currentTimeMillis() - start;
+           System.out.println("---> time: " + elapsedTime + "ms");
+           System.out.println();
+           Stats.MS_ASSERTIONS_GENERATION += elapsedTime;
+ 
+-          // Run the transformed prefix
+-          System.out.println("---> prefix execution with assertions");
+-          start = System.currentTimeMillis();
+-          PrefixRunner.runPrefix(newPrefix);
+-          elapsedTime = System.currentTimeMillis() - start;
+-          Stats.MS_RUNNING_PREFIXES += elapsedTime;
++          if (generated) {
++            // Run the transformed prefix
++            System.out.println("---> prefix execution with assertions");
++            start = System.currentTimeMillis();
++            PrefixRunner.runPrefix(newPrefix);
++            elapsedTime = System.currentTimeMillis() - start;
++            Stats.MS_RUNNING_PREFIXES += elapsedTime;
++          }
+         }
+         savePrefix(newPrefix);
+         generatedPrefixes.add(newPrefix);
+@@ -179,10 +183,32 @@ public class FixCheck {
+     Stats.TOTAL_PASSING_PREFIXES = passingPrefixes.size();
+     Stats.TOTAL_NON_COMPILING_PREFIXES = nonCompilingPrefixes.size();
+     Stats.TOTAL_TIMED_OUT_PREFIXES = timedOutPrefixes.size();
++    Stats.TOTAL_ASSERTION_GENERATION_FAILED_PREFIXES = assertionGenerationFailedPrefixes.size();
+ 
+     return generatedPrefixes;
+   }
+ 
++  /**
++   * Generate the assertions of a prefix, surviving a generator that throws. An
++   * LLM-backed generator throws when its call fails or outlives its timeout;
++   * that used to abort the whole run, losing every prefix generated until
++   * then. Now the prefix is recorded as such -- it has no assertions, so it is
++   * neither passing nor failing -- and generation goes on.
++   * @param assertionGenerator the generator
++   * @param prefix the prefix, after a passing execution without assertions
++   * @return true if the assertions were generated
++   */
++  static boolean generateAssertions(AssertionGenerator assertionGenerator, Prefix prefix) {
++    try {
++      assertionGenerator.generateAssertions(prefix);
++      return true;
++    } catch (RuntimeException e) {
++      System.out.println("---> assertion generation failed: " + e);
++      prefix.setAssertionGenerationFailed(true);
++      return false;
++    }
++  }
++
+   /**
+    * Whether to generate assertions for a prefix that has just run without them:
+    * only when it compiled and did not fail. A prefix that did not compile has no
+@@ -220,6 +246,10 @@ public class FixCheck {
+       // original one, so it is kept out of both.
+       System.out.println("---> prefix timed out");
+       timedOutPrefixes.add(prefix);
++    } else if (prefix.isAssertionGenerationFailed()) {
++      // Its only execution ran without assertions, so "passed" would say nothing.
++      System.out.println("---> prefix assertion generation failed");
++      assertionGenerationFailedPrefixes.add(prefix);
+     } else if (result == null) {
+       System.out.println("---> prefix did not compile");
+       nonCompilingPrefixes.add(prefix);
+@@ -270,6 +300,9 @@ public class FixCheck {
+     System.out.println("timed out prefixes: "+timedOutPrefixesDir);
+     // Same shape as non-compiling prefixes: only the source is kept.
+     PrefixWriter.saveNonCompilingPrefixes(timedOutPrefixes, timedOutPrefixesDir);
++    String assertionGenerationFailedDir = FixCheckProperties.getAssertionGenerationFailedTestsDir();
++    System.out.println("assertion generation failed prefixes: "+assertionGenerationFailedDir);
++    PrefixWriter.saveNonCompilingPrefixes(assertionGenerationFailedPrefixes, assertionGenerationFailedDir);
+     String passingPrefixesDir = FixCheckProperties.getPassingTestsDir();
+     System.out.println("passing prefixes: "+passingPrefixesDir);
+     PrefixWriter.savePassingPrefixes(passingPrefixes, passingPrefixesDir);
+diff --git a/src/main/java/org/imdea/fixcheck/prefix/Prefix.java b/src/main/java/org/imdea/fixcheck/prefix/Prefix.java
+index db4bf25..90a0502 100644
+--- a/src/main/java/org/imdea/fixcheck/prefix/Prefix.java
++++ b/src/main/java/org/imdea/fixcheck/prefix/Prefix.java
+@@ -21,6 +21,7 @@ public class Prefix {
+   boolean methodHasTestAnnotation; // True if the method has a @Test annotation
+   Result executionResult; // Result of the execution of the test prefix
+   boolean timedOut; // True if the last execution was stopped at the prefix timeout
++  boolean assertionGenerationFailed; // True if the assertion generator threw for this prefix
+ 
+   /**
+    * Constructor
+@@ -110,4 +111,7 @@ public class Prefix {
+   public void setTimedOut(boolean timedOut) { this.timedOut = timedOut; }
+   public boolean isTimedOut() { return timedOut; }
+ 
++  public void setAssertionGenerationFailed(boolean failed) { this.assertionGenerationFailed = failed; }
++  public boolean isAssertionGenerationFailed() { return assertionGenerationFailed; }
++
+ }
+diff --git a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+index 182161b..a4fe7f6 100644
+--- a/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
++++ b/src/main/java/org/imdea/fixcheck/properties/FixCheckProperties.java
+@@ -67,6 +67,7 @@ public class FixCheckProperties {
+   public static String OUTPUT_FAILING_PREFIXES_DIR = "failing-tests"; // Output dir for failing tests
+   public static String OUTPUT_NONCOMPILING_PREFIXES_DIR = "non-compiling-tests"; // Output dir for non compiling tests
+   public static String OUTPUT_TIMEDOUT_PREFIXES_DIR = "timed-out-tests"; // Output dir for tests stopped at the prefix timeout
++  public static String OUTPUT_ASSERTION_GENERATION_FAILED_PREFIXES_DIR = "assertion-generation-failed-tests"; // Output dir for tests whose assertions could not be generated
+   public static String OUTPUT_SCORES = "scores-failing-tests.csv"; // Output file for score of each failing prefix
+ 
+   /**
+@@ -356,4 +357,11 @@ public class FixCheckProperties {
+     return OUTPUT_DIR + "/" + OUTPUT_TIMEDOUT_PREFIXES_DIR;
+   }
+ 
++  /**
++   * Get the folder name for prefixes whose assertions could not be generated
++   */
++  public static String getAssertionGenerationFailedTestsDir() {
++    return OUTPUT_DIR + "/" + OUTPUT_ASSERTION_GENERATION_FAILED_PREFIXES_DIR;
++  }
++
+ }
+\ No newline at end of file
+diff --git a/src/main/java/org/imdea/fixcheck/utils/Stats.java b/src/main/java/org/imdea/fixcheck/utils/Stats.java
+index 31ca103..2accdd8 100644
+--- a/src/main/java/org/imdea/fixcheck/utils/Stats.java
++++ b/src/main/java/org/imdea/fixcheck/utils/Stats.java
+@@ -13,6 +13,7 @@ public class Stats {
+   public static int TOTAL_PASSING_PREFIXES = 0;
+   public static int TOTAL_NON_COMPILING_PREFIXES = 0;
+   public static int TOTAL_TIMED_OUT_PREFIXES = 0;
++  public static int TOTAL_ASSERTION_GENERATION_FAILED_PREFIXES = 0;
+ 
+   // Time data
+   public static long MS_PREFIXES_GENERATION = 0;
+diff --git a/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java b/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java
+index ba46154..7fcf508 100644
+--- a/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java
++++ b/src/main/java/org/imdea/fixcheck/writer/ReportWriter.java
+@@ -15,7 +15,7 @@ import java.nio.file.Paths;
+  */
+ public class ReportWriter {
+ 
+-  private static final String[] reportHeader = {"test_class", "input_prefixes", "inputs_class", "target_class", "prefixes_gen_time", "assertions_gen_time", "prefixes_running_time","output_prefixes", "passing_prefixes", "crashing_prefixes", "assertion_failing_prefixes", "timed_out_prefixes"};
++  private static final String[] reportHeader = {"test_class", "input_prefixes", "inputs_class", "target_class", "prefixes_gen_time", "assertions_gen_time", "prefixes_running_time","output_prefixes", "passing_prefixes", "crashing_prefixes", "assertion_failing_prefixes", "timed_out_prefixes", "assertion_generation_failed_prefixes"};
+ 
+   public static void writeReport(String reportFileName) {
+     try {
+@@ -49,6 +49,7 @@ public class ReportWriter {
+     data[9] = String.valueOf(Stats.TOTAL_CRASHING_PREFIXES);
+     data[10] = String.valueOf(Stats.TOTAL_ASSERTION_FAILING_PREFIXES);
+     data[11] = String.valueOf(Stats.TOTAL_TIMED_OUT_PREFIXES);
++    data[12] = String.valueOf(Stats.TOTAL_ASSERTION_GENERATION_FAILED_PREFIXES);
+     writer.writeNext(data);
+   }
+ 
+diff --git a/src/test/java/org/imdea/fixcheck/FixCheckTest.java b/src/test/java/org/imdea/fixcheck/FixCheckTest.java
+index 2afb4c3..41f8167 100644
+--- a/src/test/java/org/imdea/fixcheck/FixCheckTest.java
++++ b/src/test/java/org/imdea/fixcheck/FixCheckTest.java
+@@ -3,6 +3,7 @@ package org.imdea.fixcheck;
+ import com.github.javaparser.StaticJavaParser;
+ import com.github.javaparser.ast.CompilationUnit;
+ import com.github.javaparser.ast.body.MethodDeclaration;
++import org.imdea.fixcheck.assertion.AssertionGenerator;
+ import org.imdea.fixcheck.prefix.Prefix;
+ import org.junit.Test;
+ import org.junit.runner.Description;
+@@ -51,4 +52,30 @@ public class FixCheckTest {
+ 
+     assertFalse(FixCheck.shouldGenerateAssertions(prefixWith(result)));
+   }
++
++  @Test
++  public void aGeneratorThatThrowsMarksThePrefixInsteadOfAbortingTheRun() {
++    Prefix prefix = prefixWith(new Result());
++    AssertionGenerator failing = new AssertionGenerator() {
++      @Override
++      public void generateAssertions(Prefix p) {
++        throw new RuntimeException("Ollama call failed: Read timed out");
++      }
++    };
++
++    assertFalse(FixCheck.generateAssertions(failing, prefix));
++    assertTrue(prefix.isAssertionGenerationFailed());
++  }
++
++  @Test
++  public void aGeneratorThatSucceedsLeavesThePrefixUnmarked() {
++    Prefix prefix = prefixWith(new Result());
++    AssertionGenerator working = new AssertionGenerator() {
++      @Override
++      public void generateAssertions(Prefix p) { }
++    };
++
++    assertTrue(FixCheck.generateAssertions(working, prefix));
++    assertFalse(prefix.isAssertionGenerationFailed());
++  }
+ }
