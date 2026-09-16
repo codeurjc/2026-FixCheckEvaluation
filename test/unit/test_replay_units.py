@@ -173,6 +173,16 @@ def test_should_replay_follows_the_recorded_status(tmp_path):
     assert replay.should_replay(str(tmp_path), resume=False)[0] is True
 
 
+def test_a_replay_measured_off_the_gpu_becomes_an_error_to_redo(tmp_path):
+    record = {"replay_status": "ok", "fixcheck": {"suspicious": True}}
+    degraded = replay.mark_gpu_degraded(record, "gpt-oss:120b is resident with 62496 MiB outside the GPU")
+    assert degraded["replay_status"] == replay.STATUS_ERROR and degraded["gpu_degraded"]
+    assert degraded["status_before_gpu_check"] == "ok"
+    assert degraded["fixcheck"] == record["fixcheck"]          # the measurement is kept, not trusted
+    (tmp_path / "fixcheck_v2.json").write_text(json.dumps(degraded))
+    assert replay.should_replay(str(tmp_path), retry_errored=True)[0] is True
+
+
 def test_write_json_atomic_leaves_no_temporary_file(tmp_path):
     path = tmp_path / "deep" / "fixcheck_v2.json"
     replay.write_json_atomic(str(path), {"replay_status": "ok"})

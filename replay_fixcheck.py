@@ -625,6 +625,29 @@ def preflight(args):
     return problems
 
 
+def load_oracle(assertion_generator, timeout=900):
+    """Have Ollama load the oracle model now, so its placement can be checked.
+
+    Ollama loads a model on its first request, so a check before the first
+    subject saw nothing resident and passed. In the pilot, four gpt-oss jobs
+    were given an H100 that something else already filled (2.7 of 93 GiB free),
+    loaded 0/37 layers on the GPU, and ran their first subject on the CPU for
+    over an hour before the check between subjects caught it. A generate
+    request with an empty prompt only loads the model.
+    """
+    backend = resolve_ollama_backend(assertion_generator)
+    if backend is None:
+        return
+    body = json.dumps({"model": backend.model, "prompt": ""}).encode()
+    request = urllib.request.Request(f"{backend.base_url}/api/generate", data=body,
+                                     headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as resp:
+            resp.read()
+    except Exception as exc:
+        print(f"[replay] WARNING: could not pre-load the oracle model: {exc}", flush=True)
+
+
 def gpu_problem(assertion_generator):
     """Why the oracle model is not fully in VRAM, or ``None`` (see run_project.py)."""
     backend = resolve_ollama_backend(assertion_generator)
@@ -637,6 +660,20 @@ def gpu_problem(assertion_generator):
             return gpu_placement_problem(json.load(resp), f"ollama/{backend.model}")
     except Exception:
         return None
+
+
+def mark_gpu_degraded(record, problem):
+    """Turn a replay measured with the oracle off the GPU into an error to redo.
+
+    Its verdict may still be complete, but model calls ran ~100x slower and
+    outlived ``--fixcheck-llm-timeout`` (14 of 100 prefixes each on the pilot's
+    Closure 101 and Chart 3), so the measurement is not the protocol's. An
+    error status makes ``--retry-errored`` pick it up.
+    """
+    return {**record, "replay_status": STATUS_ERROR,
+            "reason": f"oracle model not fully on the GPU during the run: {problem}",
+            "gpu_degraded": True,
+            "status_before_gpu_check": record.get("replay_status")}
 
 
 def write_manifest(args, subjects, excluded, log_dir):
@@ -796,6 +833,7 @@ def main(argv=None):
             skipped += 1
             print(f"[replay] {args.project} {name}: skipped ({why})", flush=True)
             continue
+        load_oracle(args.fixcheck_assertions)
         problem = gpu_problem(args.fixcheck_assertions)
         if problem:
             print(f"[replay] ABORT: {problem}. Resubmit the job; the remaining subjects "
@@ -820,6 +858,11 @@ def main(argv=None):
             write_json_atomic(record_path, record)
         if outcome.status != "ok":
             reap_containers(args.workdir)
+        # Checked again afterwards: the placement can go wrong mid-run.
+        degraded = gpu_problem(args.fixcheck_assertions)
+        if degraded:
+            record = mark_gpu_degraded(record, degraded)
+            write_json_atomic(record_path, record)
 
         fixcheck = record.get("fixcheck") or {}
         status_line = {
@@ -835,6 +878,10 @@ def main(argv=None):
         print(f"[replay] {args.project} {name}: {status_line['status']} in {outcome.seconds}s "
               f"(analyzed_runs={status_line['analyzed_runs']}, "
               f"suspicious={status_line['suspicious']})", flush=True)
+        if degraded:
+            print(f"[replay] ABORT: {degraded}. Resubmit with --retry-errored.",
+                  file=sys.stderr, flush=True)
+            return 3
 
     counts = {}
     for status in statuses:
