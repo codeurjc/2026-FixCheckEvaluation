@@ -1,7 +1,7 @@
 # FixCheck v2: protocol, status and handoff
 
-Status on 2026-09-15: **Phases 1 and 2 are done and committed. Phase 3 (the
-pilot) is in progress** (see "Pilot log"). This document is what is needed to
+Status on 2026-09-16: **Phases 1-3 are done and committed. Phase 4 (the full
+run) has not started; it awaits the user's decision** (see "Pilot log"). This document is what is needed to
 pick the work up on another machine.
 
 ## Why a v2
@@ -170,7 +170,7 @@ results/controls/defectrepairing/<author|ours>/<oracle>/<Project>/<PatchId>/fixc
    ./scripts/runFixcheckReplay.sh --target devfix --oracle ollama/gpt-oss:120b --projects Cli --bug-id 35 --dry-run
    ```
 
-## Phase 3: pilot (in progress since 2026-09-15; see "Pilot log")
+## Phase 3: pilot (completed 2026-09-16; Phase 4 awaits the user's go-ahead)
 
 ### Subjects
 
@@ -331,6 +331,101 @@ is re-run with `--no-resume` on the new jar as the **reproducibility subject**
 earlier because the pilot's own Cli job could race on the renamed record. The
 first run's artifacts are kept in `fixcheck_v2.run1/` and
 `fixcheck_v2.run1.json`.
+
+**2026-09-16, the 65 jobs finished** (62 completed, 2 aborted by the GPU
+guard, 2 at walltime). There are 147 records: 143 `ok` and 4 `not_reproduced`
+(DefectRepairing Time Patch183, under both configs and both oracles: its
+trigger tests still fail on Defects4J 3.0.1). `scripts/analyze_fixcheck_pilot.py`:
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | No shading | ✅ 0 frames from relocated packages. Cli 35 traces show the checkout's `DefaultParser.java:398/371/239` under every oracle |
+| 2 | No `IllegalAccessError` | ✅ 0 occurrences |
+| 3 | No sibling tests | ✅ 0 failures outside the mutated method (JacksonDatabind 6, Lang 61 included) |
+| 4 | No aborted run; Mockito 31 compiles | ✅ 196/198 runs analysed. The 2 misses are Math Patch196 under the author's config (`No locals of type double`: his CSV names `double` for `testReciprocalZero`, which has none outside assertions). Mockito 31 compiled on demand, 0 non-compiling |
+| 5 | No `FileNotFoundException` | ✅ 0, Compress 3 included |
+| 6 | Math 10 finishes | ✅ 25–32 min, 21/100 prefixes `timed_out`, no run timed out |
+| 7 | Reproducibility | ✅ Cli 35's developer fix, re-run with `--no-resume` under each oracle (jobs 16378-16379): 100/100 identical mutations, outcomes and scores, and **72/72 identical oracle responses** for qwen and gpt-oss alike (`--compare`, and the logged responses). The qwen pair spans the jar before and after 0012. The mutations are also identical across oracles and across developer fix vs plausible patch (same max 0.919) |
+| 8 | Background noise < 10% | ⚠️ Final: 38/362 identity prefixes fail (**10.5%**), vs 37.7% archived. **20 of the 38 come from mutation-independent runs** (Collections 20, Math 67, Chart 8...). Without those runs: 18/342 (**5.3%**). 18/137 analysed records (13.1%) have such a run, and 8 of them are flagged. The harness itself is below target; the excess is the assertion-removal artifact |
+| 9 | DefectRepairing `author` ≥ 90% with a report | ✅ 18/20 under each oracle (Patch183 not reproduced, Patch196 above) |
+| 10 | Cost | See below; your decision |
+
+**GPU placement.** 61 jobs loaded the whole model on their own card: L40S
+~153 tokens/s, H100 ~179. Four gpt-oss jobs did not:
+- 16340, 16341, 16344 and 16345 loaded 0/37 layers at 1–9 tokens/s. SLURM gave
+  them an H100 (PCI 03, 04) that something else filled: 2.7 of 93 GiB free.
+- Closure 101 and Chart 3 (plausible, gpt-oss) were measured with the oracle
+  on the CPU, and 14 of their 100 prefixes each lost the oracle call.
+- Closure 111, Chart 8, Compress 3 and JacksonDatabind 6 were never measured.
+
+The replay driver now pre-loads the model and checks placement before *and
+after* every subject (`bdfc90a`). The 6 subjects were resubmitted with
+`--no-resume` (jobs 16374-16377).
+- All four loaded 37/37 layers at ~178 tokens/s and every subject finished
+  `ok`: Closure 101 took 107 s instead of 71 min, Chart 3 254 s instead of
+  106 min.
+- The CPU-measured records are kept as `fixcheck_v2.json.previous`.
+- **The pilot is complete: 151 records, 147 `ok`, 4 `not_reproduced`.**
+  The figures below are final.
+
+**Does FixCheck discriminate?** Flag rates by threshold, over analysed records
+(`none` = flagged only by prefixes that never reached the oracle):
+
+| Group | Oracle | n | ≥0.4 | ≥0.6 | ≥0.8 | ≥0.9 | none |
+|---|---|---|---|---|---|---|---|
+| developer fix | gpt-oss | 18 | 14 | 13 | 10 | 3 | 9 |
+| developer fix | qwen | 18 | 16 | 15 | 11 | 3 | 10 |
+| DR author, Correct | both | 9 | 5 | 1–2 | 0 | 0 | 3 |
+| DR author, Incorrect | both | 9 | 5 | 3 | 2–3 | 0 | 1 |
+| DR ours, Correct | both | 8 | 5 | 2 | 0 | 0 | 4 |
+| DR ours, Incorrect | both | 9 | 6 | 5 | 3–4 | 1 | 1 |
+| plausible, fixed | gpt-oss | 14 | 11 | 10 | 7 | 1 | 5 |
+| plausible, fixed | qwen | 13 | 11 | 10 | 8 | 1 | 6 |
+| plausible, regressing | gpt-oss | 2 | 2 | 2 | 1 | 1 | 2 |
+| plausible, regressing | qwen | 2 | 2 | 2 | 1 | 1 | 2 |
+
+At the agreed 0.4, FixCheck flags 78–89% of developer fixes. It flags
+DefectRepairing's correct and incorrect patches at the same rate (5/9 vs 5/9
+under the author's config). Only from 0.8 do the DR groups separate (0/9
+correct vs 2–3/9 incorrect), but then half the developer fixes are still
+flagged.
+
+Most developer-fix flags come from prefixes that crashed or failed *before*
+the oracle was called. Their similarity is structural: the same assertion
+helper, exception type and frames. They come from three sources:
+- role-blind mutation (Codec 10);
+- inputs that violate a precondition and crash in the same frames as the
+  original bug (Math 40: a mutated interval whose endpoints no longer bracket
+  a root);
+- mutation-independent failures:
+  - Collections 20;
+  - Math 67: removing `assertEquals(..., minimizer.optimize(...))` removed the
+    `optimize` call, so the later `getOptima()` throws `no optimum computed yet`
+    whatever the mutation.
+
+Oracle choice does not matter here: all 35 DR subjects analysed under both
+oracles got the same verdict from each.
+
+The pilot's subjects were chosen from the report's hard cases, so these rates
+are not estimates for the benchmark. They do say that a Phase 4 verdict at 0.4
+would not separate correct from incorrect patches without the controls.
+
+**Cost of Phase 4.** From the pilot's GPU-placed subjects: qwen 20.6 min and
+gpt-oss 6.8 min per subject on average. That is an upper bound, since pilot
+subjects all had mutable literals and many benchmark bugs have none.
+
+| Target | Subjects | GPU-hours |
+|---|---|---|
+| plausible, qwen | 445 | 153 |
+| plausible, gpt-oss | 473 | 54 |
+| developer fix × 2 oracles | 854 | 390 |
+| DR author × 2 oracles | 178 | 81 |
+| DR ours × 2 oracles | 220 | 100 |
+| **Total** | | **≈ 780** |
+
+- qwen's ≈ 580 h on 5 L40S is ≈ 5 days of wall time.
+- gpt-oss's ≈ 200 h on 4 H100 is ≈ 2 days, if the H100s are free (another
+  user's jobs held them for most of the pilot).
 
 ## Later phases (not started)
 
