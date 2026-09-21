@@ -326,6 +326,26 @@ def test_ollama_serve_never_pkills():
             f"{name} still pattern-kills Ollama"
 
 
+def test_ollama_serve_pins_the_gpu_by_uuid_under_a_lock():
+    """The GPU is chosen by us, by UUID, never by SLURM's index.
+
+    This node's gres.conf maps the types to the wrong device files (its
+    "H100" minors are L40S cards), and SLURM's CUDA_VISIBLE_DEVICES is its own
+    GRES index, which matches neither the minor nor the PCI order. Setting
+    CUDA_DEVICE_ORDER cannot reconcile them: it sent 20 gpt-oss jobs onto
+    46 GB L40S cards. A UUID cannot be reinterpreted by any ordering, and the
+    lock keeps two of our jobs off the same card.
+    """
+    root = _repo_root()
+    lines = open(os.path.join(root, "scripts/ollama_serve.sh"), encoding="utf-8").read().splitlines()
+    code = "\n".join(line for line in lines if not line.lstrip().startswith("#"))
+    assert "--query-gpu=uuid" in code, "the GPU is no longer selected by UUID"
+    assert 'CUDA_VISIBLE_DEVICES="$uuid"' in code, "the runner is not pinned to the chosen UUID"
+    assert "flock" in code, "concurrent jobs could claim the same card"
+    assert "export CUDA_DEVICE_ORDER" not in code, \
+        "CUDA_DEVICE_ORDER is back; SLURM's index is not usable on this node"
+
+
 def test_ollama_serve_picks_distinct_free_ports():
     """Two jobs with different ids must not land on the same port."""
     root = _repo_root()
@@ -940,18 +960,25 @@ def test_ollama_forces_the_cuda_backend():
     )
 
 
-def test_cuda_numbers_gpus_the_way_slurm_does():
-    """SLURM's GPU index is the /dev/nvidiaN minor, i.e. PCI order; CUDA's
-    default FASTEST_FIRST order differs on this mixed H100/L40S node, so the
-    same CUDA_VISIBLE_DEVICES opened a different physical card. gpt-oss:120b
-    landed on 46 GB L40S cards SLURM had never given it and ran at ~0.5 tok/s.
+def test_the_gpu_is_never_chosen_through_slurms_index():
+    """SLURM's index cannot name a card on this node, whatever the ordering.
+
+    This test used to require CUDA_DEVICE_ORDER=PCI_BUS_ID, on the premise
+    that SLURM's GPU index is the /dev/nvidiaN minor and therefore PCI order.
+    Probe job 16599 disproved it: gres.conf labels the minors with the wrong
+    types (its "H100" minors 0,1,7,8 are the L40S cards), and SLURM's index is
+    its own GRES order, L40S before H100. Under PCI_BUS_ID a --gpus=H100:1 job
+    opened the L40S at 83:00.0, which is how 20 Phase 4 jobs ran gpt-oss
+    38 GB off the GPU. The card is now chosen by us and pinned by UUID
+    (test_ollama_serve_pins_the_gpu_by_uuid_under_a_lock).
     """
     script = open(os.path.join(_repo_root(), "scripts/ollama_serve.sh"),
                   encoding="utf-8").read()
     code = "\n".join(
         line for line in script.splitlines() if not line.lstrip().startswith("#")
     )
-    assert re.search(r"export CUDA_DEVICE_ORDER=PCI_BUS_ID\b", code)
+    assert not re.search(r"export CUDA_DEVICE_ORDER", code)
+    assert "$SLURM_JOB_GPUS" not in code and "$CUDA_VISIBLE_DEVICES" not in code
 
 
 def test_experiment_args_forwards_fixcheck_timeout():

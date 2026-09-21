@@ -58,6 +58,54 @@ _next_free_port() {
     return 1
 }
 
+# How much VRAM a model needs to run fully on the GPU, in MiB. A model that
+# does not fit runs partly on the CPU at ~1% of the speed, which the replay
+# driver's placement guard then rejects -- so choose a card that fits.
+_required_vram_mib() {
+    case "$1" in
+        *gpt-oss*120b*) echo 70000 ;;   # 61.7 GB of weights plus the context
+        *qwen3.6*35b*)  echo 26000 ;;
+        *)              echo "${OLLAMA_MIN_FREE_MIB:-26000}" ;;
+    esac
+}
+
+# Claim a GPU with enough free memory for $1 and pin this job's runner to it.
+# Sets CUDA_VISIBLE_DEVICES to the card's UUID and holds a lock on it for as
+# long as the job lives, so two of our own jobs never choose the same card.
+# Nothing can stop another user's unpinned job from using it too: this node
+# applies no device isolation (see start_ollama).
+_pick_gpu() {
+    local model_name="$1"
+    local needed; needed=$(_required_vram_mib "$model_name")
+    local lock_dir="${FIXCHECK_GPU_LOCK_DIR:-$HOME/.cache/fixcheck-gpu-locks}"
+    mkdir -p "$lock_dir"
+
+    local attempt uuid name total used free
+    for attempt in $(seq 1 "${_OLLAMA_GPU_ATTEMPTS:-30}"); do
+        # Smallest card that fits first, so qwen takes an L40S and leaves the
+        # H100s for the models that need them; then the emptiest.
+        while IFS=, read -r uuid name total used; do
+            uuid="${uuid// /}"; total="${total// /}"; used="${used// /}"
+            free=$(( total - used ))
+            [ "$free" -ge "$needed" ] || continue
+            exec {_OLLAMA_GPU_LOCK_FD}> "$lock_dir/$uuid.lock" || continue
+            if flock -n "$_OLLAMA_GPU_LOCK_FD"; then
+                export CUDA_VISIBLE_DEVICES="$uuid"
+                unset CUDA_DEVICE_ORDER   # meaningless once we pin by UUID
+                echo "[ollama] GPU:$name ($uuid), ${free} MiB free, needs ${needed} MiB"
+                return 0
+            fi
+            exec {_OLLAMA_GPU_LOCK_FD}>&-
+        done < <(nvidia-smi --query-gpu=uuid,name,memory.total,memory.used \
+                     --format=csv,noheader,nounits | sort -t, -k3,3n -k4,4n)
+
+        echo "[ollama] No free GPU with ${needed} MiB (attempt $attempt); waiting 60s"
+        sleep 60
+    done
+    echo "[ollama] ERROR: no GPU with ${needed} MiB free for $model_name" >&2
+    return 1
+}
+
 # start_ollama <model> <log_file>
 start_ollama() {
     local model_name="${1#ollama/}"
@@ -99,15 +147,24 @@ start_ollama() {
     # Under CUDA the runner sees exactly the GPU SLURM gave it. The cuda_v12 /
     # cuda_v13 backends ship with the same install, so this costs nothing.
     export OLLAMA_VULKAN=0
-    # ... and make CUDA number the GPUs the way SLURM does. SLURM's index is
-    # the /dev/nvidiaN minor (gres.conf), i.e. PCI bus order -- the same as
-    # nvidia-smi. CUDA's default is FASTEST_FIRST, which on this mixed node
-    # enumerates the L40S cards before the H100s, so CUDA_VISIBLE_DEVICES=0
-    # opened the L40S at 43:00.0 for a job SLURM had given the H100 at
-    # 03:00.0. gpt-oss:120b (61.7 GB) then ran spilled onto a 46 GB card at
-    # ~0.5 tok/s instead of ~130, and jobs silently used GPUs allocated to
-    # someone else. With PCI_BUS_ID the two numberings agree.
-    export CUDA_DEVICE_ORDER=PCI_BUS_ID
+    # ... and pick the card ourselves, because SLURM's answer cannot be
+    # trusted on this node (measured 2026-09-21, probe job 16599):
+    #   - gres.conf maps the types to the wrong device files. It calls
+    #     /dev/nvidia0,1,7,8 H100, but those minors are the L40S at 43, 44, 83
+    #     and 84; the four H100s are minors 3,4,5,6. So a --gpus=H100:1
+    #     allocation is not an H100 at all.
+    #   - SLURM then exports CUDA_VISIBLE_DEVICES as its own GRES index (L40S
+    #     first, H100 second), which is neither the minor nor the PCI order,
+    #     so no CUDA_DEVICE_ORDER makes the two agree. PCI_BUS_ID used to be
+    #     set here and sent 20 gpt-oss jobs of the Phase 4 batch onto 46 GB
+    #     L40S cards; before that it put qwen jobs on the H100s that gpt-oss
+    #     jobs had been given, which looked like "another user filled the card".
+    #   - ConstrainDevices=yes has no effect: TaskPlugin is (null), so nothing
+    #     confines /dev/nvidia* per job and any card is reachable anyway.
+    # _pick_gpu therefore chooses a card of its own with enough free memory and
+    # pins the runner to its UUID, which no ordering can reinterpret. Report
+    # the gres.conf mismatch to the cluster admins: this is a workaround.
+    _pick_gpu "$model_name" || return 1
     export OLLAMA_MAX_LOADED_MODELS=1
     export OLLAMA_NUM_PARALLEL=1
     export OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:--1}"
@@ -175,4 +232,10 @@ stop_ollama() {
         wait "$OLLAMA_PID" 2>/dev/null || true
     fi
     OLLAMA_PID=""
+    # Release the GPU claimed by _pick_gpu, so the next job can take that card
+    # without waiting for this shell to exit.
+    if [ -n "${_OLLAMA_GPU_LOCK_FD:-}" ]; then
+        exec {_OLLAMA_GPU_LOCK_FD}>&- 2>/dev/null || true
+        _OLLAMA_GPU_LOCK_FD=""
+    fi
 }
