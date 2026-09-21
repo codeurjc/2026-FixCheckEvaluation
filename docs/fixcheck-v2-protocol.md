@@ -453,6 +453,44 @@ subjects all had mutable literals and many benchmark bugs have none.
   what has no record. `--retry-errored` also redoes the errored ones, including
   any marked `gpu_degraded`.
 
+### The node's GPU types are mislabelled (2026-09-21)
+
+Within hours, 20 of the gpt-oss jobs aborted at the placement guard with the
+model ~38 GB off the GPU. **No measurement was contaminated: the guard stops
+before the first subject.** The cause is a cluster misconfiguration, measured
+with probe job 16599 and `nvidia-smi`'s minor numbers:
+
+| Device file | Card it really is | `gres.conf` says |
+|---|---|---|
+| `/dev/nvidia0,1,2` | L40S (43, 44, 45) | H100, H100, L40S |
+| `/dev/nvidia3,4` | **H100** (03, 04) | L40S |
+| `/dev/nvidia5,6` | **H100** (C3, C4) | L40S |
+| `/dev/nvidia7,8` | L40S (83, 84) | H100 |
+
+- A `--gpus=H100:1` allocation is therefore not an H100.
+- SLURM exports `CUDA_VISIBLE_DEVICES` as its own GRES index (L40S first, H100
+  second), which is neither the minor nor the PCI order, so no
+  `CUDA_DEVICE_ORDER` reconciles them: under `PCI_BUS_ID` an "H100" job opened
+  the L40S at 83:00.0.
+- `ConstrainDevices=yes` does nothing, because `TaskPlugin` is `(null)`.
+
+This also re-reads two earlier incidents: the pilot's "H100 filled by another
+process" was **our own qwen jobs**, sent there by the same mismatch, and
+docs/audit-2026-09.md §1.11-1.12 attributed the symptom to CUDA's ordering
+alone.
+
+`scripts/ollama_serve.sh` now picks a card itself: enough free VRAM for the
+model (70 GB for gpt-oss:120b, 26 GB for qwen3.6:35b), smallest card that fits
+first so qwen leaves the H100s alone, pinned by **GPU UUID** — which no
+ordering can reinterpret — under a `flock` per card so two of our jobs never
+share one (`64216f3`). Verified: two gpt-oss jobs took distinct H100s (C3, C4)
+with 37/37 layers on the GPU. Nothing prevents another user's unpinned job
+from using the same card; **the real fix is for the admins to correct
+gres.conf and set `TaskPlugin=task/cgroup`**.
+
+The 20 failed jobs were resubmitted with their exact subject lists
+(`scripts/logs/phase4_refill_*.txt`), so the batch still covers 3422 subjects.
+
 ### Later phases (not started)
 - **Phase 5.**
   - A "FixCheck v2" section in `analysis/analysis.ipynb`:
