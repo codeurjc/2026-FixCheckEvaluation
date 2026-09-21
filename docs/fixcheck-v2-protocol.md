@@ -427,13 +427,33 @@ subjects all had mutable literals and many benchmark bugs have none.
 - gpt-oss's ≈ 200 h on 4 H100 is ≈ 2 days, if the H100s are free (another
   user's jobs held them for most of the pilot).
 
-## Later phases (not started)
+## Phase 4: the full run (submitted 2026-09-21)
 
-- **Phase 4.** The full run:
-  - the plausible patches with their own oracle;
-  - `devfix` for 854 bugs × 2 oracles;
-  - DefectRepairing × {author, ours} × 2 oracles;
-  - `--resume` throughout.
+`scripts/runFixcheckPhase4.sh` submits all of it: **158 jobs, 3422 subjects**
+(`scripts/logs/phase4_submission_*.txt`).
+
+| Target | Subjects |
+|---|---|
+| plausible, qwen (its own patches) | 445 |
+| plausible, gpt-oss | 473 |
+| developer fix × 2 oracles | 854 × 2 |
+| DefectRepairing `author` × 2 oracles | 178 × 2 |
+| DefectRepairing `ours` × 2 oracles | 220 × 2 |
+
+- Each project is split into jobs of ~25 subjects (qwen) or ~40 (gpt-oss), so
+  no single job holds a card for days: Closure's 174 developer fixes are 7 jobs
+  of ~13.5 h instead of one of 3.7 days.
+- **The pilot's 151 records were archived to
+  `results/old/fixcheck-v2-pilot/`** so that every measurement of record comes
+  from this one batch, as the user asked. They were all measured with the
+  current jar, so this costs the 33.5 GPU-hours of the pilot and nothing else.
+  Their numbers stay in this document.
+- `--resume` is left on: a job stopped by the GPU placement guard, by walltime
+  or by a crash is fixed by running the script again, which re-submits only
+  what has no record. `--retry-errored` also redoes the errored ones, including
+  any marked `gpu_degraded`.
+
+### Later phases (not started)
 - **Phase 5.**
   - A "FixCheck v2" section in `analysis/analysis.ipynb`:
     - flags at 0.4 per model, with a threshold sweep;

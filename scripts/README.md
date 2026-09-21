@@ -218,6 +218,13 @@ See [docs/fixcheck-v2-protocol.md](../docs/fixcheck-v2-protocol.md).
 | `--minutes-per-subject` / `--chunks` | size each job's `--time` / split a project | `30` / `1` |
 | `--retry-errored` / `--no-resume` / `--dry-run` | as in `runCampaign.sh` | off |
 
+**`runFixcheckPhase4.sh`** submits the whole measurement through this script —
+every plausible patch with its own model as oracle, every developer fix and
+every DefectRepairing patch under both oracles (158 jobs, 3422 subjects) —
+splitting each project into jobs of ~25 subjects (qwen) or ~40 (gpt-oss).
+Everything resumes, so running it again re-submits only what has no record;
+`--targets`, `--oracles`, `--retry-errored` and `--dry-run` narrow it.
+
 `replay_fixcheck_job.sbatch` starts Ollama for `$ORACLE` on its own port and
 derives `--fixcheck-assertions` from both, exactly like `project_job.sbatch`.
 Logs land in `scripts/logs/<job_id>/` (`status.jsonl`, `manifest.json`,
