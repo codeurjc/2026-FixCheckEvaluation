@@ -9,12 +9,15 @@ runs' data. Companion to [campaign.md](campaign.md) (the protocol) and
 In the archived campaign (`results/old/9-Sep/`) the generation budget **decided
 the outcome of 46 runs**: 30 exhausted the output ceiling
 (`num_predict=24576`) and 16 the context window (`num_ctx=49152`). All 46 are
-`qwen3.6:35b` and **none** is `gpt-oss:120b`, because Ollama's `eval_count`
-counts a reasoning model's chain of thought as output. All 46 were recorded as
-the model failing to fix the bug.
+`qwen3.6:35b` and **none** is `gpt-oss:120b`. Both models reason, and Ollama's
+`eval_count` bills the chain of thought as output tokens for both. What
+separates them is its length: the post-audit campaign is the first to record
+`reasoning_chars`, and across its 1,706 runs that carry the field qwen's median
+is about four times gpt-oss's (22,947 vs 5,872 characters). All 46 were recorded as the
+model failing to fix the bug.
 
-A flat token budget is not neutral between a model that reasons and a concise
-one.
+A flat token budget is not neutral between a model that thinks at length and one
+that is concise.
 
 ## What changed
 
