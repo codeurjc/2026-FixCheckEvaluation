@@ -81,7 +81,10 @@ _pick_gpu() {
     mkdir -p "$lock_dir"
 
     local attempt uuid name total used free
-    for attempt in $(seq 1 "${_OLLAMA_GPU_ATTEMPTS:-30}"); do
+    # An hour of patience: jobs now ask SLURM for an untyped GPU, so a gpt-oss
+    # job can be admitted while only L40S cards are free and must wait for one
+    # of the four H100s rather than give up its slot.
+    for attempt in $(seq 1 "${_OLLAMA_GPU_ATTEMPTS:-60}"); do
         # Smallest card that fits first, so qwen takes an L40S and leaves the
         # H100s for the models that need them; then the emptiest.
         while IFS=, read -r uuid name total used; do

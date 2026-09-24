@@ -79,12 +79,13 @@ case "$TARGET" in
         ;;
 esac
 
-# gpt-oss:120b needs an H100; qwen3.6:35b fits an L40S (docs/campaign.md).
+# One GPU of any type: the job picks the physical card itself (see
+# ollama_serve.sh's _pick_gpu), so asking SLURM for a type only restricts which
+# jobs it will admit -- and its types are wrong anyway. Asking for L40S kept 71
+# qwen jobs queued while three H100s sat idle, since qwen's 26 GB model fits an
+# H100 perfectly well. Pass --gpu H100:1 to force a type back.
 if [ -z "$GPU" ]; then
-    case "$ORACLE" in
-        *gpt-oss*) GPU="H100:1" ;;
-        *) GPU="L40S:1" ;;
-    esac
+    GPU="1"
 fi
 
 # Always explicit: without --mem this cluster allocates the node's whole memory
