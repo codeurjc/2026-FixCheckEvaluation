@@ -491,6 +491,69 @@ gres.conf and set `TaskPlugin=task/cgroup`**.
 The 20 failed jobs were resubmitted with their exact subject lists
 (`scripts/logs/phase4_refill_*.txt`), so the batch still covers 3422 subjects.
 
+### Results (2026-09-29, 3402 of 3422 subjects)
+
+20 subjects are still running: the slow tail of qwen (up to 7 h each), one job
+per subject. They are under 1% and cannot move the rates below.
+
+**3300 `ok`, 98 `not_reproduced`, 4 errors.** 286 `ok` records analysed nothing
+at all, because no trigger method of that bug has a mutable literal.
+
+**Acceptance criteria on the full run:**
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | No shading | ✅ 0 frames from relocated packages |
+| 2 | No `IllegalAccessError` | ✅ 0, against 42% of all failing prefixes in the campaign |
+| 3 | No sibling tests | ✅ 0 failures outside the mutated method |
+| 4 | No aborted run | ✅ 7165 of 7190 runs analysed, 2 stopped by their own budget |
+| 5 | No `FileNotFoundException` | ⚠️ 1675 in 49 records, all Compress and Jsoup — **not** the working-directory artifact: FixCheck mutates a String that is a *file name*, so the test opens `"No Archiver found"` and the prefix fails |
+| 6 | Math 10 finishes | ✅ 2 runs, 21/100 prefixes timed out, 25-32 min |
+| 7 | Reproducibility | ✅ measured in the pilot: 100/100 identical mutations, outcomes and scores, 72/72 identical oracle responses |
+| 8 | Background noise < 10% | ⚠️ 3035/28899 identity prefixes fail (10.5%), against 37.7% in the campaign |
+| 9 | DefectRepairing `author` ≥ 90% with a report | ✅ 91.7% and 91.2% |
+| 10 | Cost | 1024 GPU-h: qwen 756 (median 17.5 min/subject), gpt-oss 268 (median 5.0 min) |
+
+**Does FixCheck discriminate?** Flag rates per group and threshold. The two
+oracles agree to within a few points everywhere, so gpt-oss is shown and qwen
+in brackets where it differs:
+
+| Group | n | ≥0.4 | ≥0.6 | ≥0.8 |
+|---|---|---|---|---|
+| developer fix (correct by definition) | 756 | **68%** [69%] | 53% | 22% |
+| DR author, Correct | 31 | 35% [39%] | 10% | **3%** |
+| DR author, Incorrect | 119 | 38% [39%] | 24% | **12%** |
+| DR ours, Correct | 29 | 38% [43%] | 21% | **7%** |
+| DR ours, Incorrect | 152 | 56% [58%] | 39% | **19%** [28%] |
+| plausible, fixed | 375 | 61% [63%] | 45% | 15% |
+| plausible, regressing | 42 | 71% [77%] | 52% | 17% [30%] |
+
+1. **The agreed 0.4 threshold is not usable.** It flags 68% of the developer's
+   own fixes. Two of every three flags on a correct patch would be a false
+   positive.
+2. **At 0.4 the author's configuration does not discriminate at all**: 35% of
+   the correct patches against 38% of the incorrect ones. A gap appears only
+   at 0.8 (3% vs 12%), where it catches one incorrect patch in eight.
+3. **Our configuration discriminates better than his hand-picked one**: 38% vs
+   56% already at 0.4, and 7% vs 19% at 0.8. The likely reason is coverage —
+   we run every trigger method and every literal type, while his CSV fixes one
+   test and one `inputs-class`, so we get more chances to hit the variation
+   that exposes the patch.
+4. **The oracle barely matters.** qwen and gpt-oss agree within a few points
+   in every group, consistent with 267 of the 513 developer-fix flags coming
+   from prefixes that failed before any assertion was requested.
+5. **A large share of flags does not measure the patch.** 357 of 3018 analysed
+   records (11.8%) contain a run whose failures are mutation-independent, and
+   245 of those are flagged. Add the role-blind mutations (expected values,
+   file names, preconditions) and most of the false positives are accounted
+   for.
+
+**What to take to the author:** the threshold he asked for is the worst
+operating point in our data; 0.8 separates correct from incorrect patches but
+still flags a fifth of the developer's fixes. The two mechanical causes worth
+proposing a fix for are the removal of assertions that carry necessary calls,
+and mutation that ignores the role of a literal (expected value, file name).
+
 ### Later phases (not started)
 - **Phase 5.**
   - A "FixCheck v2" section in `analysis/analysis.ipynb`:
