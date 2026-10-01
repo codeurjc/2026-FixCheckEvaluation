@@ -11,3 +11,6 @@ logs/
 nohup.out
 audit/*.csv
 external/
+.claude/
+paper/
+.ipynb_checkpoints/
