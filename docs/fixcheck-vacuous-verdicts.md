@@ -189,3 +189,32 @@ The dominant cause of vacuity — 104 of 235, summing mechanisms 1 and 5 — is
 their own class. That profile is a minority in Defects4J and, as the table above
 shows, it is not distributed at random across projects. Any comparison of
 overfitting rates **per project** inherits that bias and must declare it.
+
+## Re-measured in 2026-10 with the fixes applied
+
+Of the five mechanisms above, two were tool defects and are now patched:
+FixCheck's classloader reaching the project's superclasses (mechanism 3) and
+the prefixes that did not compile (mechanism 4, which also aborted the whole
+run until patch 0007). The other three are structural and remain.
+
+Over the v2 run's 3422 subjects (`docs/fixcheck-v2-protocol.md`):
+
+| Population | n | Share |
+|---|---|---|
+| Replayed subjects | 3422 | 100% |
+| Patch no longer reproducible, error, or abandoned | 104 | 3.0% |
+| Ran, but no trigger method has a mutable literal | 287 | 8.4% |
+| **Analysed at least one FixCheck run** | **3031** | **88.6%** |
+
+So vacuity fell from 25% of plausible patches to 8.4% of subjects, and the
+remaining cases are the structural ones: well-factored tests whose trigger
+method passes a constant to a helper, and inherited trigger methods, which
+FixCheck cannot see because it parses only the named class's own source.
+
+Two further measurements matter when reading a `false`:
+
+- `analyzed_runs` is the field to check, and `max_failure_similarity` is now
+  `None` rather than `0.0` when nothing was scored.
+- A run can analyse 100 prefixes and still measure nothing about the patch:
+  in 357 of 3018 analysed records the failures do not depend on the mutation
+  at all (see [fixcheck-verdict-limitations.md](fixcheck-verdict-limitations.md)).

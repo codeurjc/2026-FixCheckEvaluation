@@ -316,3 +316,53 @@ Artifacts land in `logs/test/<Project>_<BugId>/<generator>/` — `fixcheck.log`
 holds the prompts and the assertions the generator returned, and
 `fixcheck-output/{passing,failing,non-compiling}-tests/` the generated prefix
 sources and their failure traces.
+
+## What the v2 measurement settled (2026-10-01)
+
+Everything above describes one campaign draw with 10 prefixes at threshold 0.8.
+The whole thing was then re-measured with 12 patches applied, 100 prefixes and
+threshold 0.4 — the parameters of FixCheck's own study — over 3422 subjects
+including two controls with ground truth. Protocol and figures:
+[fixcheck-v2-protocol.md](fixcheck-v2-protocol.md), notebook §7.
+
+**The artifacts documented here are gone.** 0 stack frames from shaded
+dependencies, 0 `IllegalAccessError` (42% of all failing prefixes before), 0
+failures outside the mutated method, and identity-mutation noise down from
+37.7% to 10.7%. Re-running one subject twice reproduces its 100 mutations,
+outcomes, scores and all 72 oracle responses exactly.
+
+**What remains is the method, not the plumbing.** Three limitations now have
+numbers attached, from the control of 854 developer fixes — patches that are
+correct by definition, so every flag is a false positive:
+
+| Threshold | Developer fixes flagged |
+|---|---|
+| 0.4 (the author's study) | **68%** |
+| 0.8 (this campaign's) | 22% |
+| 0.9 | 7% |
+
+The causes, in order of weight:
+
+1. **Role-blind mutation.** A literal is mutated whether it is an input, an
+   expected value or a file name. Codec 10's `testEndMb` is a table of
+   {input, expected encoding} pairs: mutating either side fails the original
+   assertion through the same helper as the bug, scoring 0.87. Compress and
+   Jsoup contribute 1675 `FileNotFoundException` from mutated file names.
+2. **Assertion removal takes necessary calls with it.** With any generator but
+   `previous-assertion`, FixCheck deletes assertions before running the prefix.
+   Collections 20's `assertEquals("A", li.next())` carries the iterator moves
+   that the later `li.remove()` needs, so all 100 prefixes throw
+   `IllegalStateException` — including the identity mutations — and the oracle
+   is never called. Math 67 is the same shape via `minimizer.optimize(...)`.
+   357 of 3018 analysed records (11.8%) contain such a run; 245 are flagged.
+3. **Precondition-violating inputs.** Math 40's mutated intervals no longer
+   bracket a root, and the solver fails in the same frames as the bug.
+
+**The threshold is the single most consequential choice, and 0.4 is the worst
+one in our data.** Against DefectRepairing's hand labels, where 79% of the
+patches are already incorrect, flagging at 0.4 reaches 80% precision — one
+point above flagging everything. At 0.8 precision is 93% (+14 points) with 12%
+recall. **The oracle is not the lever**: the same patch judged by qwen3.6:35b
+and gpt-oss:120b gets the same verdict (McNemar p = 0.11 over 755 paired
+developer fixes), because half the flags come from prefixes that fail before
+any assertion is requested.
