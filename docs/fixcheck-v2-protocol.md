@@ -491,13 +491,17 @@ gres.conf and set `TaskPlugin=task/cgroup`**.
 The 20 failed jobs were resubmitted with their exact subject lists
 (`scripts/logs/phase4_refill_*.txt`), so the batch still covers 3422 subjects.
 
-### Results (2026-09-29, 3402 of 3422 subjects)
+### Results (final, 2026-10-01: all 3422 subjects)
 
-20 subjects are still running: the slow tail of qwen (up to 7 h each), one job
-per subject. They are under 1% and cannot move the rates below.
+**3318 `ok`, 98 `not_reproduced`, 4 errors, 2 `timeout`.** 287 `ok` records
+analysed nothing at all, because no trigger method of that bug has a mutable
+literal.
 
-**3300 `ok`, 98 `not_reproduced`, 4 errors.** 286 `ok` records analysed nothing
-at all, because no trigger method of that bug has a mutable literal.
+The two `timeout` records are a decision, not a crash: qwen's `devfix` Math 6
+and `dr-ours` Closure Patch121 each outlived an 8 h wall-clock budget twice in
+a job of their own (~7 min per prefix). They were abandoned and labelled
+`replay_status: timeout` with `fixcheck: null`, so they count as *not measured*
+rather than as a measured zero.
 
 **Acceptance criteria on the full run:**
 
@@ -510,9 +514,9 @@ at all, because no trigger method of that bug has a mutable literal.
 | 5 | No `FileNotFoundException` | ⚠️ 1675 in 49 records, all Compress and Jsoup — **not** the working-directory artifact: FixCheck mutates a String that is a *file name*, so the test opens `"No Archiver found"` and the prefix fails |
 | 6 | Math 10 finishes | ✅ 2 runs, 21/100 prefixes timed out, 25-32 min |
 | 7 | Reproducibility | ✅ measured in the pilot: 100/100 identical mutations, outcomes and scores, 72/72 identical oracle responses |
-| 8 | Background noise < 10% | ⚠️ 3035/28899 identity prefixes fail (10.5%), against 37.7% in the campaign |
+| 8 | Background noise < 10% | ⚠️ 3202/29910 identity prefixes fail (10.7%), against 37.7% in the campaign |
 | 9 | DefectRepairing `author` ≥ 90% with a report | ✅ 91.7% and 91.2% |
-| 10 | Cost | 1024 GPU-h: qwen 756 (median 17.5 min/subject), gpt-oss 268 (median 5.0 min) |
+| 10 | Cost | 1049 GPU-h: qwen 781 (median 17.5 min/subject), gpt-oss 268 (median 5.0 min) |
 
 **Does FixCheck discriminate?** Flag rates per group and threshold. The two
 oracles agree to within a few points everywhere, so gpt-oss is shown and qwen
@@ -520,13 +524,13 @@ in brackets where it differs:
 
 | Group | n | ≥0.4 | ≥0.6 | ≥0.8 |
 |---|---|---|---|---|
-| developer fix (correct by definition) | 756 | **68%** [69%] | 53% | 22% |
-| DR author, Correct | 31 | 35% [39%] | 10% | **3%** |
-| DR author, Incorrect | 119 | 38% [39%] | 24% | **12%** |
-| DR ours, Correct | 29 | 38% [43%] | 21% | **7%** |
-| DR ours, Incorrect | 152 | 56% [58%] | 39% | **19%** [28%] |
-| plausible, fixed | 375 | 61% [63%] | 45% | 15% |
-| plausible, regressing | 42 | 71% [77%] | 52% | 17% [30%] |
+| developer fix (correct by definition) | 756 [755] | **68%** [69%] | 53% [55%] | 22% [23%] |
+| DR author, Correct | 31 | 35% [39%] | 10% [13%] | **3%** |
+| DR author, Incorrect | 119 | 38% [39%] | 24% [26%] | **12%** [13%] |
+| DR ours, Correct | 29 | 38% [45%] | 21% | **7%** |
+| DR ours, Incorrect | 152 [150] | 56% [59%] | 39% [47%] | **19%** [27%] |
+| plausible, fixed | 375 [351] | 61% [63%] | 45% [47%] | 15% [17%] |
+| plausible, regressing | 42 [44] | 71% [77%] | 52% [59%] | 17% [30%] |
 
 1. **The agreed 0.4 threshold is not usable.** It flags 68% of the developer's
    own fixes. Two of every three flags on a correct patch would be a false
